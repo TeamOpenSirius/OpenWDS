@@ -1,7 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace OpenWDS.Runtime
 {
@@ -741,6 +744,7 @@ namespace OpenWDS.Runtime
         private bool _clearPerformanceStarted;
         private float _clearPerformanceEndsAt;
         private bool _resultShown;
+        private bool _resultNavigationPending;
         private int _gameResultPresentationCount;
         private bool _shouldShowPerfectStar = true;
         private bool _isPaused;
@@ -872,6 +876,28 @@ namespace OpenWDS.Runtime
 
             throw new NotSupportedException(
                 $"Recovered retire routing is not implemented for {liveType}.");
+        }
+
+        public void ReturnFromResult()
+        {
+            if (!_resultShown || _resultNavigationPending) return;
+            _resultNavigationPending = true;
+            RequestedExitRoute = RecoveredGameExitRoute.MusicSelection;
+            ExitRouteRequested?.Invoke(RequestedExitRoute);
+        }
+
+        public void ReplayFromResult()
+        {
+            if (!_resultShown || _resultNavigationPending) return;
+            _resultNavigationPending = true;
+            StartCoroutine(ReplayAfterSe());
+        }
+
+        private IEnumerator ReplayAfterSe()
+        {
+            _sharedSe?.Play(RecoveredUiSeRuntime.Cue.ButtonGo);
+            yield return new WaitForSecondsRealtime(0.12f);
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
         public void Configure(
@@ -1504,6 +1530,7 @@ namespace OpenWDS.Runtime
                     isNewNotationRate,
                     isNewPlayerRate);
             panel.Initialize(viewData);
+            BindResultNavigation();
             _resultSe?.Begin(
                 viewData.IsNewNotationRate || viewData.IsNewPlayerRate);
 
@@ -1521,6 +1548,27 @@ namespace OpenWDS.Runtime
             _laneGroup.gameObject.SetActive(false);
             if (_gameBackgroundInstance != null)
                 _gameBackgroundInstance.SetActive(false);
+        }
+
+        private void BindResultNavigation()
+        {
+            var root = _gameResultInstance.transform.Find("RightBotton");
+            var next = root != null
+                ? root.Find("NextButton")?.GetComponent<Button>()
+                : null;
+            var replay = root != null
+                ? root.Find("InGameButton")?.GetComponent<Button>()
+                : null;
+            if (root == null || next == null || replay == null)
+                throw new InvalidOperationException(
+                    "Original GameResult NextButton/InGameButton are missing.");
+            root.gameObject.SetActive(true);
+            next.gameObject.SetActive(true);
+            replay.gameObject.SetActive(true);
+            next.onClick.RemoveAllListeners();
+            replay.onClick.RemoveAllListeners();
+            next.onClick.AddListener(ReturnFromResult);
+            replay.onClick.AddListener(ReplayFromResult);
         }
 
         private void OnDestroy()

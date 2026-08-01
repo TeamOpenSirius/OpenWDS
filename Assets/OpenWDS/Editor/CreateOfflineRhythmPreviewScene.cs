@@ -879,6 +879,16 @@ namespace OpenWDS.Editor
                                  gameHud.PrincipalGauge.Gauge.maxValue == 1200f;
             gameHud.InitializeScore(new RecoveredSoloScoreContext(
                 0, 1d, 8000, 20, new[] { note.Id }));
+            var incrementCounts = gameHud.ScorePanel.GetComponentsInChildren<
+                Sirius.Game.UI.IncrementScoreCount>(true);
+            var incrementInitializationHidden =
+                incrementCounts.Length == 7 && incrementCounts.All(count =>
+                {
+                    var serialized = new SerializedObject(count);
+                    var group = serialized.FindProperty("_canvasGroup")
+                        ?.objectReferenceValue as CanvasGroup;
+                    return group != null && group.alpha < 0.01f;
+                });
             gameHud.AchievementRatePanel.Initialize(
                 new[]
                 {
@@ -917,6 +927,7 @@ namespace OpenWDS.Editor
                    scoreInitiallyHidden && achievementInitiallyOff &&
                    gameHud.Score != null && gameHud.Score.Count == 96000L &&
                    gameHud.ScorePanel.gameObject.activeSelf &&
+                   incrementInitializationHidden &&
                    !gameHud.ScorePanel.IsAutoPlayVisible &&
                    gameHud.ScorePanel.ScoreCount.text == "96000" &&
                    gameHud.ScorePanel.ZeroText.text == "000000" &&
@@ -2988,6 +2999,23 @@ namespace OpenWDS.Editor
                     playerRateArrow.gameObject.activeSelf));
 
                 var rootGroup = instance.GetComponent<CanvasGroup>();
+                var resultNavigation = instance.transform.Find("RightBotton");
+                var resultNext = resultNavigation?.Find("NextButton")
+                    ?.GetComponent<Button>();
+                var resultReplay = resultNavigation?.Find("InGameButton")
+                    ?.GetComponent<Button>();
+                var resultNavigationValid = resultNext != null &&
+                    resultReplay != null &&
+                    resultNavigation.Find("BackButton") == null &&
+                    resultNext.GetComponentInChildren<Text>(true)?.text == "次へ" &&
+                    resultReplay.GetComponentInChildren<Text>(true)?.text ==
+                        "もう一度遊ぶ" &&
+                    resultNext.transition == Selectable.Transition.Animation &&
+                    resultReplay.transition == Selectable.Transition.Animation &&
+                    resultNext.GetComponent<Animator>()?.runtimeAnimatorController
+                        ?.name == "ButtonScale" &&
+                    resultReplay.GetComponent<Animator>()?.runtimeAnimatorController
+                        ?.name == "ButtonScale";
                 var musicInfo = instance.transform.Find("LeftPanel/MusicInfoPanel");
                 var autoMessage = instance.transform.Find(
                     "LeftPanel/GameResultPanel/AutoHiddenPanel")
@@ -3040,7 +3068,7 @@ namespace OpenWDS.Editor
                     "OPENWDS_GAME_RESULT binding={0} countPage={1} graphPage={2} " +
                     "autoPresentation={3} rootAlpha={4} musicInfo={5} " +
                     "autoMessage={6} fonts={7} rateColor={8} objects={9} " +
-                    "uiParticles={10}",
+                    "uiParticles={10} navigation={11}",
                     bindingValid,
                     countPageValid,
                     graphPageValid,
@@ -3051,7 +3079,8 @@ namespace OpenWDS.Editor
                     numericFontsValid,
                     rateColorValid,
                     objectCount,
-                    uiParticleCount));
+                    uiParticleCount,
+                    resultNavigationValid));
 
                 return bindingValid && countPageValid && graphPageValid &&
                        autoPresentationValid &&
@@ -3059,7 +3088,8 @@ namespace OpenWDS.Editor
                        musicInfo != null && autoMessage != null &&
                        autoMessage.text.Contains("オートプレイのため") &&
                        numericFontsValid && rateColorValid &&
-                       objectCount == 402 &&
+                       resultNavigationValid &&
+                       objectCount == 407 &&
                        uiParticleCount == 29 &&
                        prefab.GetComponentsInChildren<Sirius.GameResult.GameResultPanel>(
                            true).Length == 1 &&

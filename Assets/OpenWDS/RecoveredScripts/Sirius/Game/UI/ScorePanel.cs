@@ -73,6 +73,19 @@ namespace Sirius.Game.UI
         public void SetStarActScoreCount(long addedScore) =>
             _incrementStarActScorePanel.FireIncrementScore(addedScore);
 
+        /// <summary>
+        /// The retail loader finishes IncrementScorePanel's sizing animation
+        /// before GameView becomes visible. The offline scene initializes the
+        /// HUD synchronously, so settle those authored animations explicitly.
+        /// </summary>
+        public void CompleteInitializationAnimations()
+        {
+            _incrementScorePanel.CompleteInitialization();
+            foreach (var panel in _incrementSenseScorePanels)
+                panel.CompleteInitialization();
+            _incrementStarActScorePanel.CompleteInitialization();
+        }
+
         public void Hide()
         {
             if (gameObject.activeSelf) gameObject.SetActive(false);

@@ -17,5 +17,10 @@ namespace Sirius.Game.UI
             _incrementScoreCount.SetText(incrementScore);
             _incrementScoreCount.OnPlay();
         }
+
+        public void CompleteInitialization()
+        {
+            _incrementScoreCount.OnExit();
+        }
     }
 }

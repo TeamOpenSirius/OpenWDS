@@ -3823,8 +3823,8 @@ namespace OpenWDS.Runtime
                 return;
             _se.Play(RecoveredUiSeRuntime.Cue.ButtonGo);
             SetSpectrumVisibleForDialog(false);
-            _noteSpeedDialog = Instantiate(
-                _dialogPrefab, _view.transform.parent, false);
+            _noteSpeedDialog = CreateCommonDialog(
+                "公演前オプション確認", new Vector2(1032f, 996f));
             _noteSpeedDialog.name = "RecoveredNoteSpeedDialog";
             var shellRect = _noteSpeedDialog.GetComponent<RectTransform>();
             if (shellRect == null)
@@ -4463,7 +4463,6 @@ namespace OpenWDS.Runtime
     {
         private static RecoveredLocalGameFlowRouter _instance;
         private RecoveredGameRuntime _game;
-        private GameObject _resultReturnCanvas;
         private bool _returning;
 
         public static RecoveredLocalGameFlowRouter EnsureExists()
@@ -4489,8 +4488,6 @@ namespace OpenWDS.Runtime
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             _returning = false;
-            if (_resultReturnCanvas != null) Destroy(_resultReturnCanvas);
-            _resultReturnCanvas = null;
             BindGameRuntime();
         }
 
@@ -4501,76 +4498,26 @@ namespace OpenWDS.Runtime
             if (_game != null) _game.ExitRouteRequested += OnExitRouteRequested;
         }
 
-        private void Update()
-        {
-            if (_game != null && _game.IsResultShown && _resultReturnCanvas == null)
-                CreateResultReturnButton();
-        }
-
         private void OnExitRouteRequested(RecoveredGameExitRoute route)
         {
             if (route == RecoveredGameExitRoute.MusicSelection)
-                StartReturn();
+                StartReturn(_game != null && _game.IsResultShown);
         }
 
-        private void CreateResultReturnButton()
-        {
-            _resultReturnCanvas = new GameObject(
-                "RecoveredResultReturnCanvas",
-                typeof(Canvas),
-                typeof(CanvasScaler),
-                typeof(GraphicRaycaster));
-            DontDestroyOnLoad(_resultReturnCanvas);
-            var canvas = _resultReturnCanvas.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 5000;
-            var scaler = _resultReturnCanvas.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-
-            var buttonObject = new GameObject(
-                "ReturnToMusicSelection",
-                typeof(RectTransform),
-                typeof(Image),
-                typeof(Button));
-            buttonObject.transform.SetParent(_resultReturnCanvas.transform, false);
-            var rect = buttonObject.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(1f, 0f);
-            rect.anchorMax = new Vector2(1f, 0f);
-            rect.pivot = new Vector2(1f, 0f);
-            rect.anchoredPosition = new Vector2(-64f, 48f);
-            rect.sizeDelta = new Vector2(360f, 96f);
-            buttonObject.GetComponent<Image>().color =
-                new Color(0.12f, 0.55f, 0.92f, 0.96f);
-            buttonObject.GetComponent<Button>().onClick.AddListener(StartReturn);
-
-            var labelObject = new GameObject(
-                "Label", typeof(RectTransform), typeof(Text));
-            labelObject.transform.SetParent(buttonObject.transform, false);
-            var labelRect = labelObject.GetComponent<RectTransform>();
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
-            var label = labelObject.GetComponent<Text>();
-            label.text = "選曲へ";
-            label.alignment = TextAnchor.MiddleCenter;
-            label.fontSize = 36;
-            label.color = Color.white;
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        }
-
-        private void StartReturn()
+        private void StartReturn(bool positiveAction = false)
         {
             if (_returning) return;
             _returning = true;
-            StartCoroutine(ReturnAfterSe());
+            StartCoroutine(ReturnAfterSe(positiveAction));
         }
 
-        private IEnumerator ReturnAfterSe()
+        private IEnumerator ReturnAfterSe(bool positiveAction)
         {
             if (RecoveredUiSeRuntime.Instance != null)
-                RecoveredUiSeRuntime.Instance.Play(RecoveredUiSeRuntime.Cue.ButtonBack);
+                RecoveredUiSeRuntime.Instance.Play(
+                    positiveAction
+                        ? RecoveredUiSeRuntime.Cue.ButtonGo
+                        : RecoveredUiSeRuntime.Cue.ButtonBack);
             yield return new WaitForSecondsRealtime(0.12f);
             SceneManager.LoadScene("LocalMusicSelection");
         }

@@ -30,6 +30,8 @@ namespace OpenWDS.Editor
             "OpenWDS.MusicSelectionPlayMode.IntroductionFocusTime";
         private const string IntroductionFocusValidKey =
             "OpenWDS.MusicSelectionPlayMode.IntroductionFocusValid";
+        private const string ResultGameInstanceKey =
+            "OpenWDS.MusicSelectionPlayMode.ResultGameInstance";
         private const string ExitPhase = "exit";
         private static string _lastLoggedPhase;
 
@@ -914,6 +916,38 @@ namespace OpenWDS.Editor
                     ?.GetComponent<Button>();
                 var companyButton = FindNamedTransform(
                     vocalGroup, "FilterGekidanButton")?.GetComponent<Button>();
+                var companyLogoImages = new[]
+                {
+                    "FilterGekidanButton",
+                    "FilterGekidanButton (1)",
+                    "FilterGekidanButton (2)",
+                    "FilterGekidanButton (3)",
+                }.Select(name => FindNamedTransform(vocalGroup, name))
+                    .Select(root => root != null
+                        ? FindNamedTransform(root, "AttributeImage")
+                            ?.GetComponent<Image>()
+                        : null)
+                    .ToArray();
+                var companyLogoOffsets = new[]
+                {
+                    new Vector2(16.02675f, 11.07612f),
+                    new Vector2(24.07612f, 18.07612f),
+                    new Vector2(0f, 28.04770f),
+                    new Vector2(0.05132f, 45.02675f),
+                };
+                var companyLogoRectsValid = companyLogoImages
+                    .Select((image, index) => image != null && image.sprite != null &&
+                        Mathf.Abs(image.sprite.rect.width - 324f) < 0.1f &&
+                        Mathf.Abs(image.sprite.rect.height - 176f) < 0.1f &&
+                        Mathf.Abs(image.rectTransform.rect.width - 162f) < 0.1f &&
+                        Mathf.Abs(image.rectTransform.rect.height - 88f) < 0.1f &&
+                        Mathf.Abs(UnityEngine.Sprites.DataUtility
+                            .GetPadding(image.sprite).x -
+                            companyLogoOffsets[index].x) < 0.1f &&
+                        Mathf.Abs(UnityEngine.Sprites.DataUtility
+                            .GetPadding(image.sprite).y -
+                            companyLogoOffsets[index].y) < 0.1f)
+                    .All(valid => valid);
                 var actorAllButton = FindNamedTransform(
                     vocalGroup, "FilterAllButton")?.GetComponent<Button>();
                 var actorResetButton = FindNamedTransform(
@@ -929,6 +963,7 @@ namespace OpenWDS.Editor
                 if (firstClearFilter == null || firstVocalFilter == null ||
                     secondClearFilter == null || filterReset == null ||
                     companyButton == null ||
+                    !companyLogoRectsValid ||
                     actorAllButton == null || actorResetButton == null ||
                     !firstVocalFilter.interactable ||
                     !companyButton.interactable ||
@@ -2232,6 +2267,11 @@ namespace OpenWDS.Editor
                 var dialogRect = dialog != null
                     ? dialog.GetComponent<RectTransform>()
                     : null;
+                var dialogOverlay = dialog != null
+                    ? FindNamedTransform(
+                        dialog.transform, "RecoveredDialogOverlay")
+                        ?.GetComponent<Image>()
+                    : null;
                 var speedPreview = GameObject.Find("GameSimulation");
                 var previewView = GameObject.Find("GameSimulationView");
                 var previewNote = speedPreview != null
@@ -2248,6 +2288,9 @@ namespace OpenWDS.Editor
                     : null;
                 if (dialogRect == null ||
                     Mathf.Abs(dialogRect.sizeDelta.x - 1032f) > 0.1f ||
+                    dialogOverlay == null ||
+                    dialogOverlay.color.a < 0.6f ||
+                    !dialogOverlay.raycastTarget ||
                     speedPreview == null || previewNote == null ||
                     !speedPreview.activeInHierarchy ||
                     previewCamera == null ||
@@ -2608,27 +2651,112 @@ namespace OpenWDS.Editor
                     return;
                 var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
                 if (game == null || !game.IsInitialized) return;
-                var resultField = typeof(RecoveredGameRuntime).GetField(
-                    "_resultShown",
+                var showResult = typeof(RecoveredGameRuntime).GetMethod(
+                    "ShowGameResult",
                     BindingFlags.Instance | BindingFlags.NonPublic);
-                if (resultField == null)
+                if (showResult == null)
                 {
-                    Finish(false, "Game result state field is unavailable.", elapsed);
+                    Finish(false, "Game result presenter method is unavailable.", elapsed);
                     return;
                 }
-                resultField.SetValue(game, true);
-                SessionState.SetString(PhaseKey, "result-button");
+                showResult.Invoke(game, null);
+                SessionState.SetString(PhaseKey, "result-replay-button");
                 return;
             }
 
-            if (phase == "result-button")
+            if (phase == "result-replay-button")
+            {
+                var root = GameObject.Find("RightBotton");
+                var next = root != null
+                    ? FindNamedTransform(root.transform, "NextButton")
+                        ?.GetComponent<Button>()
+                    : null;
+                var replay = root != null
+                    ? FindNamedTransform(root.transform, "InGameButton")
+                        ?.GetComponent<Button>()
+                    : null;
+                var nextText = next != null
+                    ? next.GetComponentInChildren<Text>(true)
+                    : null;
+                var replayText = replay != null
+                    ? replay.GetComponentInChildren<Text>(true)
+                    : null;
+                var nextAnimator = next != null
+                    ? next.GetComponent<Animator>()
+                    : null;
+                var replayAnimator = replay != null
+                    ? replay.GetComponent<Animator>()
+                    : null;
+                if (next == null || replay == null ||
+                    FindNamedTransform(root.transform, "BackButton") != null ||
+                    nextText?.text != "次へ" ||
+                    replayText?.text != "もう一度遊ぶ" ||
+                    next.transition != Selectable.Transition.Animation ||
+                    replay.transition != Selectable.Transition.Animation ||
+                    nextAnimator?.runtimeAnimatorController?.name != "ButtonScale" ||
+                    replayAnimator?.runtimeAnimatorController?.name != "ButtonScale")
+                {
+                    Finish(false, "Original result navigation buttons are invalid.", elapsed);
+                    return;
+                }
+                var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
+                var uiSe = RecoveredUiSeRuntime.Instance;
+                if (game == null || uiSe == null)
+                {
+                    Finish(false, "Result replay SE runtime is unavailable.", elapsed);
+                    return;
+                }
+                var seCount = uiSe.CueNamePlayCount;
+                SessionState.SetInt(ResultGameInstanceKey, game.GetInstanceID());
+                SessionState.SetString(PhaseKey, "result-replayed");
+                replay.onClick.Invoke();
+                if (uiSe.CueNamePlayCount != seCount + 1 ||
+                    uiSe.LastCueName != "BUTTON_GO")
+                    Finish(false, "Result replay did not play BUTTON_GO.", elapsed);
+                return;
+            }
+
+            if (phase == "result-replayed")
+            {
+                if (SceneManager.GetActiveScene().name != "OfflineRhythmPreview")
+                    return;
+                var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
+                if (game == null || !game.IsInitialized ||
+                    game.GetInstanceID() == SessionState.GetInt(
+                        ResultGameInstanceKey, game.GetInstanceID()) ||
+                    !RecoveredLocalMusicSelectionSession.HasSelection)
+                    return;
+                var showResult = typeof(RecoveredGameRuntime).GetMethod(
+                    "ShowGameResult",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                if (showResult == null)
+                {
+                    Finish(false, "Replayed game result method is unavailable.", elapsed);
+                    return;
+                }
+                showResult.Invoke(game, null);
+                SessionState.SetString(PhaseKey, "result-next-button");
+                return;
+            }
+
+            if (phase == "result-next-button")
             {
                 var button = GameObject.Find(
-                    "RecoveredResultReturnCanvas/ReturnToMusicSelection")
+                    "NextButton")
                     ?.GetComponent<Button>();
                 if (button == null) return;
+                var uiSe = RecoveredUiSeRuntime.Instance;
+                if (uiSe == null)
+                {
+                    Finish(false, "Result next SE runtime is unavailable.", elapsed);
+                    return;
+                }
+                var seCount = uiSe.CueNamePlayCount;
                 SessionState.SetString(PhaseKey, "return-result");
                 button.onClick.Invoke();
+                if (uiSe.CueNamePlayCount != seCount + 1 ||
+                    uiSe.LastCueName != "BUTTON_GO")
+                    Finish(false, "Result next did not play BUTTON_GO.", elapsed);
                 return;
             }
 

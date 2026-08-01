@@ -9,14 +9,14 @@ Sprite:
   m_Name: img_illust_logo_troupe_logo_eden
   m_Rect:
     serializedVersion: 2
-    x: 0.07612038
-    y: 291.0761
-    width: 275.84778
-    height: 136.91096
-  m_Offset: {x: -1.6441809E-05, y: 1.4683975}
+    x: 0
+    y: 0
+    width: 324
+    height: 176
+  m_Offset: {x: 0, y: 0}
   m_Border: {x: 0, y: 0, z: 0, w: 0}
   m_PixelsToUnits: 100
-  m_Pivot: {x: 0.49999994, y: 0.5107252}
+  m_Pivot: {x: 0.5, y: 0.5}
   m_Extrude: 1
   m_IsPolygon: 0
   m_AtlasName:
@@ -111,7 +111,7 @@ Sprite:
       y: 291.0761
       width: 275.84778
       height: 136.91096
-    textureRectOffset: {x: 0, y: 0}
+    textureRectOffset: {x: 24.0761, y: 18.0761}
     atlasRectOffset: {x: -24, y: 273}
     settingsRaw: 67
     uvTransform: {x: 100, y: 138, z: 100, w: 361}

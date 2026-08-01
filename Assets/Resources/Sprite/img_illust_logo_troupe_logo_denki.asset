@@ -9,14 +9,14 @@ Sprite:
   m_Name: img_illust_logo_troupe_logo_denki
   m_Rect:
     serializedVersion: 2
-    x: 0.05131668
-    y: 537.02673
-    width: 323.9427
-    height: 94.897125
-  m_Offset: {x: -0.022658512, y: -4.4753146}
+    x: 0
+    y: 0
+    width: 324
+    height: 176
+  m_Offset: {x: 0, y: 0}
   m_Border: {x: 0, y: 0, z: 0, w: 0}
   m_PixelsToUnits: 100
-  m_Pivot: {x: 0.49993005, y: 0.45284036}
+  m_Pivot: {x: 0.5, y: 0.5}
   m_Extrude: 1
   m_IsPolygon: 0
   m_AtlasName:
@@ -111,7 +111,7 @@ Sprite:
       y: 537.02673
       width: 323.9427
       height: 94.897125
-    textureRectOffset: {x: 0, y: 0}
+    textureRectOffset: {x: 0.0513167, y: 45.0268}
     atlasRectOffset: {x: 0, y: 492}
     settingsRaw: 67
     uvTransform: {x: 100, y: 162, z: 100, w: 580}

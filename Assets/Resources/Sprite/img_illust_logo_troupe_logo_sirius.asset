@@ -9,14 +9,14 @@ Sprite:
   m_Name: img_illust_logo_troupe_logo_sirius
   m_Rect:
     serializedVersion: 2
-    x: 0.026750565
-    y: 0.07612038
-    width: 293.94647
-    height: 158.91275
-  m_Offset: {x: -0.9999868, y: -2.532493}
+    x: 0
+    y: 0
+    width: 324
+    height: 176
+  m_Offset: {x: 0, y: 0}
   m_Border: {x: 0, y: 0, z: 0, w: 0}
   m_PixelsToUnits: 100
-  m_Pivot: {x: 0.49659806, y: 0.48406363}
+  m_Pivot: {x: 0.5, y: 0.5}
   m_Extrude: 1
   m_IsPolygon: 0
   m_AtlasName:
@@ -111,7 +111,7 @@ Sprite:
       y: 0.07612038
       width: 293.94647
       height: 158.91275
-    textureRectOffset: {x: 0, y: 0}
+    textureRectOffset: {x: 16.0268, y: 11.0761}
     atlasRectOffset: {x: -16, y: -11}
     settingsRaw: 67
     uvTransform: {x: 100, y: 146, z: 100, w: 77}

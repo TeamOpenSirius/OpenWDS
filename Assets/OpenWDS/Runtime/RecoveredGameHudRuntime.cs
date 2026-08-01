@@ -283,7 +283,6 @@ namespace OpenWDS.Runtime
             // AutoTouch is only the offline test/input driver. The recovered
             // scene itself is an ordinary solo live, so showing the original
             // game's AutoPlay replacement over the live score is incorrect.
-            _scorePanel.Initialize(false, false, false);
             // Score.Initialize requires a real LiveUnitWithOrder-derived context.
             // Keep the view absent until that explicit boundary is supplied.
             _scorePanel.Hide();
@@ -321,6 +320,8 @@ namespace OpenWDS.Runtime
                 context.BaseScorePercentage,
                 context.TotalNotesCount);
             _scorePanel.Show();
+            _scorePanel.Initialize(false, false, false);
+            _scorePanel.CompleteInitializationAnimations();
             _scorePanel.SetScoreCount(0L, false);
         }
 
