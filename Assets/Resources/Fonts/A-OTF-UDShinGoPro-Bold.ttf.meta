@@ -1,0 +1,25 @@
+fileFormatVersion: 2
+guid: 3b438e6454458b64ba87e3cd6f875a4a
+timeCreated: 1785053662
+licenseType: Free
+TrueTypeFontImporter:
+  serializedVersion: 4
+  externalObjects: {}
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontNames:
+  - A-OTF UD Shin Go Pro
+  fallbackFontReferences: []
+  customCharacters:
+  fontRenderingMode: 0
+  output:
+    hasEmptyFontData: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData:
+  assetBundleName: 7f8b9ed1961660469ab19bc4dcbcdaf2
+  assetBundleVariant:

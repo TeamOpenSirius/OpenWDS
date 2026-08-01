@@ -1,0 +1,775 @@
+{
+  "Musics": [
+    {
+      "Id": 1,
+      "Name": "ワナビスタ！",
+      "Description": "",
+      "PronounceName": "わなびすた",
+      "LyricWriter": "松井洋平",
+      "Composer": "光増ハジメ（FirstCall）",
+      "Arranger": "EFFY（FirstCall）",
+      "Vocals": "鳳ここな、静香、カトリナ・グリーベル、新妻八恵、柳場ぱんだ、流石知冴",
+      "ActorIds": [
+        101,
+        102,
+        103,
+        104,
+        105,
+        106
+      ],
+      "IsLongVersion": false,
+      "StaminaConsumption": 25,
+      "MusicTimeSecond": 93,
+      "SampleStartSeconds": 0.0,
+      "SampleEndSeconds": 0.0,
+      "DelaySeconds": 3.019,
+      "VocalVersion": 1,
+      "MusicVideoType": 2,
+      "Lives": [
+        {
+          "Id": 101,
+          "Difficulty": 1,
+          "Level": 7,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/1/1/1.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/1/1/music_config.csv"
+        },
+        {
+          "Id": 102,
+          "Difficulty": 2,
+          "Level": 13,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/1/1/2.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/1/1/music_config.csv"
+        },
+        {
+          "Id": 103,
+          "Difficulty": 3,
+          "Level": 20,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/1/1/3.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/1/1/music_config.csv"
+        },
+        {
+          "Id": 104,
+          "Difficulty": 4,
+          "Level": 25,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/1/1/4.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/1/1/music_config.csv"
+        },
+        {
+          "Id": 105,
+          "Difficulty": 5,
+          "Level": 105,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/1/1/5.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/1/1/music_config.csv"
+        }
+      ]
+    },
+    {
+      "Id": 2,
+      "Name": "トゥ・オブ・アス",
+      "Description": "",
+      "PronounceName": "とぅおぶあす",
+      "LyricWriter": "松井洋平",
+      "Composer": "由良崇将",
+      "Arranger": "EFFY（FirstCall）",
+      "Vocals": "鳳ここな、静香",
+      "ActorIds": [
+        101,
+        102
+      ],
+      "IsLongVersion": false,
+      "StaminaConsumption": 25,
+      "MusicTimeSecond": 95,
+      "SampleStartSeconds": 0.0,
+      "SampleEndSeconds": 0.0,
+      "DelaySeconds": 3.095,
+      "VocalVersion": 1,
+      "MusicVideoType": 2,
+      "Lives": [
+        {
+          "Id": 201,
+          "Difficulty": 1,
+          "Level": 7,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/2/1/1.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/2/1/music_config.csv"
+        },
+        {
+          "Id": 202,
+          "Difficulty": 2,
+          "Level": 16,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/2/1/2.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/2/1/music_config.csv"
+        },
+        {
+          "Id": 203,
+          "Difficulty": 3,
+          "Level": 21,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/2/1/3.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/2/1/music_config.csv"
+        },
+        {
+          "Id": 204,
+          "Difficulty": 4,
+          "Level": 26,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/2/1/4.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/2/1/music_config.csv"
+        },
+        {
+          "Id": 205,
+          "Difficulty": 5,
+          "Level": 105,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/2/1/5.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/2/1/music_config.csv"
+        }
+      ]
+    },
+    {
+      "Id": 3,
+      "Name": "勿忘唄",
+      "Description": "",
+      "PronounceName": "わすれなうた",
+      "LyricWriter": "志村真白",
+      "Composer": "志村真白",
+      "Arranger": "志村真白",
+      "Vocals": "静香、鳳ここな",
+      "ActorIds": [
+        101,
+        102,
+        301,
+        302
+      ],
+      "IsLongVersion": false,
+      "StaminaConsumption": 29,
+      "MusicTimeSecond": 119,
+      "SampleStartSeconds": 0.0,
+      "SampleEndSeconds": 0.0,
+      "DelaySeconds": 3.134,
+      "VocalVersion": 1,
+      "MusicVideoType": 1,
+      "Lives": [
+        {
+          "Id": 301,
+          "Difficulty": 1,
+          "Level": 6,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/3/1/1.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/3/1/music_config.csv"
+        },
+        {
+          "Id": 302,
+          "Difficulty": 2,
+          "Level": 14,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/3/1/2.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/3/1/music_config.csv"
+        },
+        {
+          "Id": 303,
+          "Difficulty": 3,
+          "Level": 19,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/3/1/3.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/3/1/music_config.csv"
+        },
+        {
+          "Id": 304,
+          "Difficulty": 4,
+          "Level": 25,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/3/1/4.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/3/1/music_config.csv"
+        },
+        {
+          "Id": 305,
+          "Difficulty": 5,
+          "Level": 104,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/3/1/5.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/3/1/music_config.csv"
+        }
+      ]
+    },
+    {
+      "Id": 4,
+      "Name": "夢見月夜",
+      "Description": "",
+      "PronounceName": "ゆめみつきよ",
+      "LyricWriter": "志村真白",
+      "Composer": "LiCu",
+      "Arranger": "志村真白",
+      "Vocals": "新妻八恵",
+      "ActorIds": [
+        104
+      ],
+      "IsLongVersion": false,
+      "StaminaConsumption": 32,
+      "MusicTimeSecond": 133,
+      "SampleStartSeconds": 0.0,
+      "SampleEndSeconds": 0.0,
+      "DelaySeconds": 3.102,
+      "VocalVersion": 1,
+      "MusicVideoType": 0,
+      "Lives": [
+        {
+          "Id": 401,
+          "Difficulty": 1,
+          "Level": 6,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/4/1/1.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/4/1/music_config.csv"
+        },
+        {
+          "Id": 402,
+          "Difficulty": 2,
+          "Level": 13,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/4/1/2.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/4/1/music_config.csv"
+        },
+        {
+          "Id": 403,
+          "Difficulty": 3,
+          "Level": 20,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/4/1/3.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/4/1/music_config.csv"
+        },
+        {
+          "Id": 404,
+          "Difficulty": 4,
+          "Level": 24,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/4/1/4.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/4/1/music_config.csv"
+        },
+        {
+          "Id": 405,
+          "Difficulty": 5,
+          "Level": 103,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/4/1/5.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/4/1/music_config.csv"
+        }
+      ]
+    },
+    {
+      "Id": 5,
+      "Name": "悠久月華",
+      "Description": "",
+      "PronounceName": "ゆうきゅうげっか",
+      "LyricWriter": "志村真白",
+      "Composer": "志村真白",
+      "Arranger": "志村真白",
+      "Vocals": "ラモーナ・ウォルフ",
+      "ActorIds": [
+        302
+      ],
+      "IsLongVersion": false,
+      "StaminaConsumption": 33,
+      "MusicTimeSecond": 137,
+      "SampleStartSeconds": 0.0,
+      "SampleEndSeconds": 0.0,
+      "DelaySeconds": 2.997,
+      "VocalVersion": 1,
+      "MusicVideoType": 1,
+      "Lives": [
+        {
+          "Id": 501,
+          "Difficulty": 1,
+          "Level": 5,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/5/1/1.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/5/1/music_config.csv"
+        },
+        {
+          "Id": 502,
+          "Difficulty": 2,
+          "Level": 12,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/5/1/2.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/5/1/music_config.csv"
+        },
+        {
+          "Id": 503,
+          "Difficulty": 3,
+          "Level": 17,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/5/1/3.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/5/1/music_config.csv"
+        },
+        {
+          "Id": 504,
+          "Difficulty": 4,
+          "Level": 23,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/5/1/4.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/5/1/music_config.csv"
+        },
+        {
+          "Id": 505,
+          "Difficulty": 5,
+          "Level": 101,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/5/1/5.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/5/1/music_config.csv"
+        }
+      ]
+    },
+    {
+      "Id": 6,
+      "Name": "ダイヤモンドの誓い",
+      "Description": "",
+      "PronounceName": "だいやもんどのちかい",
+      "LyricWriter": "大木貢祐",
+      "Composer": "森田友梨",
+      "Arranger": "森田友梨",
+      "Vocals": "鳳ここな",
+      "ActorIds": [
+        101
+      ],
+      "IsLongVersion": false,
+      "StaminaConsumption": 26,
+      "MusicTimeSecond": 100,
+      "SampleStartSeconds": 0.0,
+      "SampleEndSeconds": 0.0,
+      "DelaySeconds": 3.279,
+      "VocalVersion": 1,
+      "MusicVideoType": 0,
+      "Lives": [
+        {
+          "Id": 601,
+          "Difficulty": 1,
+          "Level": 6,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/6/1/1.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/6/1/music_config.csv"
+        },
+        {
+          "Id": 602,
+          "Difficulty": 2,
+          "Level": 14,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/6/1/2.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/6/1/music_config.csv"
+        },
+        {
+          "Id": 603,
+          "Difficulty": 3,
+          "Level": 20,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/6/1/3.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/6/1/music_config.csv"
+        },
+        {
+          "Id": 604,
+          "Difficulty": 4,
+          "Level": 25,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/6/1/4.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/6/1/music_config.csv"
+        },
+        {
+          "Id": 605,
+          "Difficulty": 5,
+          "Level": 103,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/6/1/5.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/6/1/music_config.csv"
+        }
+      ]
+    },
+    {
+      "Id": 7,
+      "Name": "魔法のラストノート",
+      "Description": "",
+      "PronounceName": "まほうのらすとのーと",
+      "LyricWriter": "大木貢祐",
+      "Composer": "藤井健太郎(HANO)",
+      "Arranger": "藤井健太郎(HANO)",
+      "Vocals": "新妻八恵",
+      "ActorIds": [
+        104
+      ],
+      "IsLongVersion": false,
+      "StaminaConsumption": 31,
+      "MusicTimeSecond": 129,
+      "SampleStartSeconds": 0.0,
+      "SampleEndSeconds": 0.0,
+      "DelaySeconds": 2.989,
+      "VocalVersion": 1,
+      "MusicVideoType": 1,
+      "Lives": [
+        {
+          "Id": 701,
+          "Difficulty": 1,
+          "Level": 10,
+          "NoteCount": 498,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/7/1/1.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/7/1/music_config.csv"
+        },
+        {
+          "Id": 702,
+          "Difficulty": 2,
+          "Level": 17,
+          "NoteCount": 723,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/7/1/2.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/7/1/music_config.csv"
+        },
+        {
+          "Id": 703,
+          "Difficulty": 3,
+          "Level": 23,
+          "NoteCount": 1165,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/7/1/3.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/7/1/music_config.csv"
+        },
+        {
+          "Id": 704,
+          "Difficulty": 4,
+          "Level": 28,
+          "NoteCount": 1216,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/7/1/4.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/7/1/music_config.csv"
+        },
+        {
+          "Id": 705,
+          "Difficulty": 5,
+          "Level": 108,
+          "NoteCount": 1799,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/7/1/5.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/7/1/music_config.csv"
+        }
+      ]
+    },
+    {
+      "Id": 8,
+      "Name": "New Nostalgic Friend",
+      "Description": "",
+      "PronounceName": "newnostalgicfriend",
+      "LyricWriter": "大木貢祐",
+      "Composer": "叶人・矢野達也",
+      "Arranger": "矢野達也",
+      "Vocals": "新妻八恵、鳳ここな",
+      "ActorIds": [
+        101,
+        104
+      ],
+      "IsLongVersion": false,
+      "StaminaConsumption": 24,
+      "MusicTimeSecond": 91,
+      "SampleStartSeconds": 0.0,
+      "SampleEndSeconds": 0.0,
+      "DelaySeconds": 3.084,
+      "VocalVersion": 1,
+      "MusicVideoType": 0,
+      "Lives": [
+        {
+          "Id": 801,
+          "Difficulty": 1,
+          "Level": 6,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/8/1/1.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/8/1/music_config.csv"
+        },
+        {
+          "Id": 802,
+          "Difficulty": 2,
+          "Level": 13,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/8/1/2.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/8/1/music_config.csv"
+        },
+        {
+          "Id": 803,
+          "Difficulty": 3,
+          "Level": 20,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/8/1/3.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/8/1/music_config.csv"
+        },
+        {
+          "Id": 804,
+          "Difficulty": 4,
+          "Level": 24,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/8/1/4.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/8/1/music_config.csv"
+        },
+        {
+          "Id": 805,
+          "Difficulty": 5,
+          "Level": 102,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/8/1/5.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/8/1/music_config.csv"
+        }
+      ]
+    },
+    {
+      "Id": 9,
+      "Name": "Drawing World",
+      "Description": "",
+      "PronounceName": "drawingworld",
+      "LyricWriter": "大木貢祐",
+      "Composer": "ふじそば",
+      "Arranger": "ふじそば",
+      "Vocals": "白丸美兎、本巣叶羽、千寿いろは",
+      "ActorIds": [
+        401,
+        402,
+        405
+      ],
+      "IsLongVersion": false,
+      "StaminaConsumption": 25,
+      "MusicTimeSecond": 94,
+      "SampleStartSeconds": 0.0,
+      "SampleEndSeconds": 0.0,
+      "DelaySeconds": 3.386,
+      "VocalVersion": 1,
+      "MusicVideoType": 1,
+      "Lives": [
+        {
+          "Id": 901,
+          "Difficulty": 1,
+          "Level": 8,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/9/1/1.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/9/1/music_config.csv"
+        },
+        {
+          "Id": 902,
+          "Difficulty": 2,
+          "Level": 14,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/9/1/2.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/9/1/music_config.csv"
+        },
+        {
+          "Id": 903,
+          "Difficulty": 3,
+          "Level": 22,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/9/1/3.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/9/1/music_config.csv"
+        },
+        {
+          "Id": 904,
+          "Difficulty": 4,
+          "Level": 25,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/9/1/4.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/9/1/music_config.csv"
+        },
+        {
+          "Id": 905,
+          "Difficulty": 5,
+          "Level": 103,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/9/1/5.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/9/1/music_config.csv"
+        }
+      ]
+    },
+    {
+      "Id": 10,
+      "Name": "名もなき恋人よ",
+      "Description": "",
+      "PronounceName": "なもなきこいびとよ",
+      "LyricWriter": "松井洋平",
+      "Composer": "塩原大貴",
+      "Arranger": "塩原大貴",
+      "Vocals": "柳場ぱんだ、流石知冴",
+      "ActorIds": [
+        105,
+        106
+      ],
+      "IsLongVersion": false,
+      "StaminaConsumption": 31,
+      "MusicTimeSecond": 128,
+      "SampleStartSeconds": 0.0,
+      "SampleEndSeconds": 0.0,
+      "DelaySeconds": 5.203,
+      "VocalVersion": 1,
+      "MusicVideoType": 0,
+      "Lives": [
+        {
+          "Id": 1001,
+          "Difficulty": 1,
+          "Level": 5,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/10/1/1.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/10/1/music_config.csv"
+        },
+        {
+          "Id": 1002,
+          "Difficulty": 2,
+          "Level": 12,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/10/1/2.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/10/1/music_config.csv"
+        },
+        {
+          "Id": 1003,
+          "Difficulty": 3,
+          "Level": 18,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/10/1/3.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/10/1/music_config.csv"
+        },
+        {
+          "Id": 1004,
+          "Difficulty": 4,
+          "Level": 23,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/10/1/4.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/10/1/music_config.csv"
+        },
+        {
+          "Id": 1005,
+          "Difficulty": 5,
+          "Level": 102,
+          "NoteCount": 0,
+          "DebugNotationAssetPath": "OpenWDS/StandardCharts/10/1/5.csv",
+          "DebugMusicConfigAssetPath": "OpenWDS/StandardCharts/10/1/music_config.csv"
+        }
+      ]
+    }
+  ],
+  "CharacterBases": [
+    {
+      "Id": 101,
+      "Name": "鳳ここな",
+      "ShortName": "ここな",
+      "Company": 1
+    },
+    {
+      "Id": 102,
+      "Name": "静香",
+      "ShortName": "静香",
+      "Company": 1
+    },
+    {
+      "Id": 103,
+      "Name": "カトリナ・グリーベル",
+      "ShortName": "カトリナ",
+      "Company": 1
+    },
+    {
+      "Id": 104,
+      "Name": "新妻八恵",
+      "ShortName": "八恵",
+      "Company": 1
+    },
+    {
+      "Id": 105,
+      "Name": "柳場ぱんだ",
+      "ShortName": "ぱんだ",
+      "Company": 1
+    },
+    {
+      "Id": 106,
+      "Name": "流石知冴",
+      "ShortName": "知冴",
+      "Company": 1
+    },
+    {
+      "Id": 201,
+      "Name": "連尺野初魅",
+      "ShortName": "初魅",
+      "Company": 2
+    },
+    {
+      "Id": 202,
+      "Name": "烏森大黒",
+      "ShortName": "大黒",
+      "Company": 2
+    },
+    {
+      "Id": 203,
+      "Name": "舎人仁花子",
+      "ShortName": "仁花子",
+      "Company": 2
+    },
+    {
+      "Id": 204,
+      "Name": "萬容",
+      "ShortName": "容",
+      "Company": 2
+    },
+    {
+      "Id": 205,
+      "Name": "筆島しぐれ",
+      "ShortName": "しぐれ",
+      "Company": 2
+    },
+    {
+      "Id": 301,
+      "Name": "千寿暦",
+      "ShortName": "暦",
+      "Company": 3
+    },
+    {
+      "Id": 302,
+      "Name": "ラモーナ・ウォルフ",
+      "ShortName": "ラモーナ",
+      "Company": 3
+    },
+    {
+      "Id": 303,
+      "Name": "王雪",
+      "ShortName": "雪",
+      "Company": 3
+    },
+    {
+      "Id": 304,
+      "Name": "リリヤ・クルトベイ",
+      "ShortName": "リリヤ",
+      "Company": 3
+    },
+    {
+      "Id": 305,
+      "Name": "与那国緋花里",
+      "ShortName": "緋花里",
+      "Company": 3
+    },
+    {
+      "Id": 401,
+      "Name": "千寿いろは",
+      "ShortName": "いろは",
+      "Company": 4
+    },
+    {
+      "Id": 402,
+      "Name": "白丸美兎",
+      "ShortName": "美兎",
+      "Company": 4
+    },
+    {
+      "Id": 403,
+      "Name": "阿岐留カミラ",
+      "ShortName": "カミラ",
+      "Company": 4
+    },
+    {
+      "Id": 404,
+      "Name": "猫足蕾",
+      "ShortName": "蕾",
+      "Company": 4
+    },
+    {
+      "Id": 405,
+      "Name": "本巣叶羽",
+      "ShortName": "叶羽",
+      "Company": 4
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+curtain_result.png
+size:2048,2048
+filter:Linear,Linear
+pma:true
+curtain_albedo_1219
+bounds:2,2,1024,1024

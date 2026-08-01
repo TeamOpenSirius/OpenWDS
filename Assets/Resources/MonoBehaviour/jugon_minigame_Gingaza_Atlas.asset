@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0000000deadbeef15deadf00d0000000, type: 2}
+  m_Name: jugon_minigame_Gingaza_Atlas
+  m_EditorClassIdentifier:
+  atlasFile: {fileID: 4900000, guid: ccdf241917ff1dc4a8716cbeb3c51f0c, type: 3}
+  materials:
+  - {fileID: 2100000, guid: 34cc0c10a1fbe5a44943d7a38d45e76e, type: 2}

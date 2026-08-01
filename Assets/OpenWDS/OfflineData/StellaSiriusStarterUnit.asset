@@ -1,0 +1,189 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!49 &4900000
+TextAsset:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 
+  m_Script: "{\n  \"schemaVersion\": 7,\n  \"purpose\": \"offline-test-player-unit\",\n 
+    \"profile\": \"starter\",\n  \"sourceDatabase\": \"reverse/assets/online/1.96.0/raw/master/mastermemory_1784297595_1784297595.db\",\n 
+    \"sourceDatabaseSha256\": \"72632f289d1c821646493cd3affda7fd5a1d7d018211efdd97a3007db2dfd8e7\",\n 
+    \"musicId\": 1,\n  \"difficulty\": \"Stella\",\n  \"order\": 0,\n  \"leaderPosition\":
+    1,\n  \"baseScoreDifficultyAutoCoefficient\": 1.05,\n  \"baseScorePercentage\":
+    0,\n  \"initialMaxPrincipal\": 1000,\n  \"totalStatus\": 294,\n  \"characterTotalStatus\":
+    221,\n  \"senseNotationMasterId\": 1,\n  \"senseEvents\": [\n    {\n      \"eventId\":
+    1101,\n      \"timingSeconds\": 10,\n      \"sourcePosition\": 1,\n      \"activatingPosition\":
+    1,\n      \"senseMasterId\": 110010,\n      \"acquirableGauge\": 0,\n      \"scoreBuffPercent\":
+    0.0,\n      \"lightType\": 4,\n      \"lightCount\": 1\n    },\n    {\n     
+    \"eventId\": 1201,\n      \"timingSeconds\": 20,\n      \"sourcePosition\": 2,\n     
+    \"activatingPosition\": 1,\n      \"senseMasterId\": 110010,\n      \"acquirableGauge\":
+    0,\n      \"scoreBuffPercent\": 4.0,\n      \"lightType\": 4,\n      \"lightCount\":
+    1\n    },\n    {\n      \"eventId\": 1301,\n      \"timingSeconds\": 30,\n     
+    \"sourcePosition\": 3,\n      \"activatingPosition\": 3,\n      \"senseMasterId\":
+    110030,\n      \"acquirableGauge\": 0,\n      \"scoreBuffPercent\": 0.0,\n     
+    \"lightType\": 3,\n      \"lightCount\": 1\n    },\n    {\n      \"eventId\":
+    1401,\n      \"timingSeconds\": 40,\n      \"sourcePosition\": 4,\n      \"activatingPosition\":
+    4,\n      \"senseMasterId\": 110040,\n      \"acquirableGauge\": 0,\n      \"scoreBuffPercent\":
+    0.0,\n      \"lightType\": 2,\n      \"lightCount\": 1\n    },\n    {\n     
+    \"eventId\": 1302,\n      \"timingSeconds\": 60,\n      \"sourcePosition\": 3,\n     
+    \"activatingPosition\": 3,\n      \"senseMasterId\": 110030,\n      \"acquirableGauge\":
+    0,\n      \"scoreBuffPercent\": 0.0,\n      \"lightType\": 3,\n      \"lightCount\":
+    1\n    },\n    {\n      \"eventId\": 1501,\n      \"timingSeconds\": 70,\n     
+    \"sourcePosition\": 5,\n      \"activatingPosition\": 5,\n      \"senseMasterId\":
+    110050,\n      \"acquirableGauge\": 0,\n      \"scoreBuffPercent\": 0.0,\n     
+    \"lightType\": 3,\n      \"lightCount\": 1\n    },\n    {\n      \"eventId\":
+    1202,\n      \"timingSeconds\": 80,\n      \"sourcePosition\": 2,\n      \"activatingPosition\":
+    1,\n      \"senseMasterId\": 110010,\n      \"acquirableGauge\": 0,\n      \"scoreBuffPercent\":
+    4.0,\n      \"lightType\": 4,\n      \"lightCount\": 1\n    },\n    {\n     
+    \"eventId\": 1102,\n      \"timingSeconds\": 85,\n      \"sourcePosition\": 1,\n     
+    \"activatingPosition\": 1,\n      \"senseMasterId\": 110010,\n      \"acquirableGauge\":
+    0,\n      \"scoreBuffPercent\": 0.0,\n      \"lightType\": 4,\n      \"lightCount\":
+    1\n    }\n  ],\n  \"starActEvents\": [\n    {\n      \"timingSeconds\": 40,\n     
+    \"triggeringSenseEventId\": 1401,\n      \"activatingPosition\": 1,\n      \"starActMasterId\":
+    110011,\n      \"starActConditionMasterId\": 100111,\n      \"level\": 1,\n     
+    \"scoreFactorPercent\": 120,\n      \"requiredFreeLights\": 0,\n      \"requiredSupportLights\":
+    0,\n      \"requiredControlLights\": 1,\n      \"requiredAmplificationLights\":
+    1,\n      \"requiredSpecialLights\": 1,\n      \"storageLightCount\": 1,\n     
+    \"branchId\": 0,\n      \"branchEffectMasterId\": 0,\n      \"additionalScoreFactorPercent\":
+    0\n    }\n  ],\n  \"startEffects\": [\n    {\n      \"sourcePosition\": 2,\n     
+    \"sourceType\": \"poster\",\n      \"sourceMasterId\": 320030,\n      \"posterAbilityMasterId\":
+    3200301,\n      \"effectMasterId\": 11311002,\n      \"effectType\": 27,\n     
+    \"calculationType\": 3,\n      \"fireTimingType\": 3,\n      \"value\": 120.0\n   
+    }\n  ],\n  \"cards\": [\n    {\n      \"position\": 1,\n      \"characterMasterId\":
+    110010,\n      \"characterBaseMasterId\": 101,\n      \"companyMasterId\": 1,\n     
+    \"characterName\": \"\u9CF3\u3053\u3053\u306A\",\n      \"cardName\": \"\u30B7\u30EA\u30A6\u30B9\",\n     
+    \"rarity\": 1,\n      \"attribute\": 3,\n      \"level\": 1,\n      \"characterLevelFactor\":
+    25,\n      \"starRank\": 0,\n      \"starRankPercent\": 0.0,\n      \"talentStage\":
+    0,\n      \"awakeningPhase\": 0,\n      \"senseLevel\": 1,\n      \"senseMasterId\":
+    110010,\n      \"senseName\": \"\u4E00\u4EBA\u4E8C\u5F79\",\n      \"senseType\":
+    4,\n      \"senseScorePercent\": 210,\n      \"senseAcquirableGauge\": 0,\n     
+    \"senseLightCount\": 1,\n      \"senseCoolTimeSeconds\": 30,\n      \"starActMasterId\":
+    110011,\n      \"starActLevel\": 1,\n      \"masterMinLevelStatus\": {\n       
+    \"concentration\": 53,\n        \"expression\": 66,\n        \"vocal\": 61,\n       
+    \"totalStatus\": 180\n      },\n      \"calculatedStatus\": {\n        \"concentration\":
+    13,\n        \"expression\": 16,\n        \"vocal\": 15,\n        \"totalStatus\":
+    44\n      },\n      \"poster\": {\n        \"posterMasterId\": 220100,\n       
+    \"posterName\": \"\u7D05\u3044\u679C\u5B9F\u304C\u8A98\u3046\u30CD\u30D0\u30FC\u30E9\u30F3\u30C9\",\n       
+    \"level\": 1,\n        \"activePosterAbilityMasterIds\": [\n          220100,\n         
+    220101\n        ],\n        \"activeEffectMasterIds\": [\n          70031000,\n         
+    10120000\n        ]\n      },\n      \"accessory\": {\n        \"accessoryMasterId\":
+    310030,\n        \"accessoryName\": \"\u4EBA\u9B5A\u59EB\u306E\u93E1\",\n       
+    \"level\": 1,\n        \"accessoryEffectMasterIds\": [\n          310030,\n         
+    101\n        ],\n        \"activeEffectMasterIds\": [\n          310030,\n         
+    200011\n        ]\n      },\n      \"posterEffect\": {\n        \"concentrationPercent\":
+    16.2,\n        \"concentrationFixed\": 0.0,\n        \"expressionPercent\": 16.2,\n       
+    \"expressionFixed\": 0.0,\n        \"vocalPercent\": 43.2,\n        \"vocalFixed\":
+    0.0\n      },\n      \"accessoryEffect\": {\n        \"concentrationPercent\":
+    3.0,\n        \"concentrationFixed\": 0.0,\n        \"expressionPercent\": 3.0,\n       
+    \"expressionFixed\": 0.0,\n        \"vocalPercent\": 3.0,\n        \"vocalFixed\":
+    40.0\n      },\n      \"partyStatus\": {\n        \"concentration\": 15,\n       
+    \"expression\": 18,\n        \"vocal\": 61,\n        \"totalStatus\": 94\n     
+    }\n    },\n    {\n      \"position\": 2,\n      \"characterMasterId\": 110020,\n     
+    \"characterBaseMasterId\": 102,\n      \"companyMasterId\": 1,\n      \"characterName\":
+    \"\u9759\u9999\",\n      \"cardName\": \"\u30B7\u30EA\u30A6\u30B9\",\n      \"rarity\":
+    1,\n      \"attribute\": 2,\n      \"level\": 1,\n      \"characterLevelFactor\":
+    25,\n      \"starRank\": 0,\n      \"starRankPercent\": 0.0,\n      \"talentStage\":
+    0,\n      \"awakeningPhase\": 0,\n      \"senseLevel\": 1,\n      \"senseMasterId\":
+    110020,\n      \"senseName\": \"\u306A\u3057\",\n      \"senseType\": 10,\n     
+    \"senseScorePercent\": 0,\n      \"senseAcquirableGauge\": 0,\n      \"senseLightCount\":
+    0,\n      \"senseCoolTimeSeconds\": 0,\n      \"starActMasterId\": 110021,\n     
+    \"starActLevel\": 1,\n      \"masterMinLevelStatus\": {\n        \"concentration\":
+    69,\n        \"expression\": 60,\n        \"vocal\": 51,\n        \"totalStatus\":
+    180\n      },\n      \"calculatedStatus\": {\n        \"concentration\": 17,\n       
+    \"expression\": 15,\n        \"vocal\": 12,\n        \"totalStatus\": 44\n     
+    },\n      \"poster\": {\n        \"posterMasterId\": 320030,\n        \"posterName\":
+    \"\u30B9\u30C6\u30E9\u30EA\u30BA\u30E0\u30B7\u30E5\u30FC\u30BF\u30FC\u30BA\uFF01\",\n       
+    \"level\": 1,\n        \"activePosterAbilityMasterIds\": [\n          3200301\n       
+    ],\n        \"activeEffectMasterIds\": [\n          11311002\n        ]\n     
+    },\n      \"accessory\": null,\n      \"posterEffect\": {\n        \"concentrationPercent\":
+    16.2,\n        \"concentrationFixed\": 0.0,\n        \"expressionPercent\": 16.2,\n       
+    \"expressionFixed\": 0.0,\n        \"vocalPercent\": 16.2,\n        \"vocalFixed\":
+    0.0\n      },\n      \"accessoryEffect\": {\n        \"concentrationPercent\":
+    0.0,\n        \"concentrationFixed\": 0.0,\n        \"expressionPercent\": 0.0,\n       
+    \"expressionFixed\": 0.0,\n        \"vocalPercent\": 0.0,\n        \"vocalFixed\":
+    0.0\n      },\n      \"partyStatus\": {\n        \"concentration\": 19,\n       
+    \"expression\": 17,\n        \"vocal\": 13,\n        \"totalStatus\": 49\n     
+    }\n    },\n    {\n      \"position\": 3,\n      \"characterMasterId\": 110030,\n     
+    \"characterBaseMasterId\": 103,\n      \"companyMasterId\": 1,\n      \"characterName\":
+    \"\u30AB\u30C8\u30EA\u30CA\u30FB\u30B0\u30EA\u30FC\u30D9\u30EB\",\n      \"cardName\":
+    \"\u30B7\u30EA\u30A6\u30B9\",\n      \"rarity\": 1,\n      \"attribute\": 4,\n     
+    \"level\": 1,\n      \"characterLevelFactor\": 25,\n      \"starRank\": 0,\n     
+    \"starRankPercent\": 0.0,\n      \"talentStage\": 0,\n      \"awakeningPhase\":
+    0,\n      \"senseLevel\": 1,\n      \"senseMasterId\": 110030,\n      \"senseName\":
+    \"\u96F6\u306E\u5E55\u9593\",\n      \"senseType\": 3,\n      \"senseScorePercent\":
+    210,\n      \"senseAcquirableGauge\": 0,\n      \"senseLightCount\": 1,\n     
+    \"senseCoolTimeSeconds\": 30,\n      \"starActMasterId\": 110031,\n      \"starActLevel\":
+    1,\n      \"masterMinLevelStatus\": {\n        \"concentration\": 64,\n       
+    \"expression\": 60,\n        \"vocal\": 56,\n        \"totalStatus\": 180\n     
+    },\n      \"calculatedStatus\": {\n        \"concentration\": 16,\n        \"expression\":
+    15,\n        \"vocal\": 14,\n        \"totalStatus\": 45\n      },\n      \"poster\":
+    null,\n      \"accessory\": null,\n      \"posterEffect\": {\n        \"concentrationPercent\":
+    16.2,\n        \"concentrationFixed\": 0.0,\n        \"expressionPercent\": 16.2,\n       
+    \"expressionFixed\": 0.0,\n        \"vocalPercent\": 16.2,\n        \"vocalFixed\":
+    0.0\n      },\n      \"accessoryEffect\": {\n        \"concentrationPercent\":
+    0.0,\n        \"concentrationFixed\": 0.0,\n        \"expressionPercent\": 0.0,\n       
+    \"expressionFixed\": 0.0,\n        \"vocalPercent\": 0.0,\n        \"vocalFixed\":
+    0.0\n      },\n      \"partyStatus\": {\n        \"concentration\": 18,\n       
+    \"expression\": 17,\n        \"vocal\": 16,\n        \"totalStatus\": 51\n     
+    }\n    },\n    {\n      \"position\": 4,\n      \"characterMasterId\": 110040,\n     
+    \"characterBaseMasterId\": 104,\n      \"companyMasterId\": 1,\n      \"characterName\":
+    \"\u65B0\u59BB\u516B\u6075\",\n      \"cardName\": \"\u30B7\u30EA\u30A6\u30B9\",\n     
+    \"rarity\": 1,\n      \"attribute\": 3,\n      \"level\": 1,\n      \"characterLevelFactor\":
+    25,\n      \"starRank\": 0,\n      \"starRankPercent\": 0.0,\n      \"talentStage\":
+    0,\n      \"awakeningPhase\": 0,\n      \"senseLevel\": 1,\n      \"senseMasterId\":
+    110040,\n      \"senseName\": \"\u767D\u4E9C\u306E\u9B42\",\n      \"senseType\":
+    2,\n      \"senseScorePercent\": 210,\n      \"senseAcquirableGauge\": 0,\n     
+    \"senseLightCount\": 1,\n      \"senseCoolTimeSeconds\": 30,\n      \"starActMasterId\":
+    110041,\n      \"starActLevel\": 1,\n      \"masterMinLevelStatus\": {\n       
+    \"concentration\": 57,\n        \"expression\": 61,\n        \"vocal\": 62,\n       
+    \"totalStatus\": 180\n      },\n      \"calculatedStatus\": {\n        \"concentration\":
+    14,\n        \"expression\": 15,\n        \"vocal\": 15,\n        \"totalStatus\":
+    44\n      },\n      \"poster\": null,\n      \"accessory\": null,\n      \"posterEffect\":
+    {\n        \"concentrationPercent\": 16.2,\n        \"concentrationFixed\": 0.0,\n       
+    \"expressionPercent\": 16.2,\n        \"expressionFixed\": 0.0,\n        \"vocalPercent\":
+    16.2,\n        \"vocalFixed\": 0.0\n      },\n      \"accessoryEffect\": {\n       
+    \"concentrationPercent\": 0.0,\n        \"concentrationFixed\": 0.0,\n       
+    \"expressionPercent\": 0.0,\n        \"expressionFixed\": 0.0,\n        \"vocalPercent\":
+    0.0,\n        \"vocalFixed\": 0.0\n      },\n      \"partyStatus\": {\n       
+    \"concentration\": 16,\n        \"expression\": 17,\n        \"vocal\": 17,\n       
+    \"totalStatus\": 50\n      }\n    },\n    {\n      \"position\": 5,\n      \"characterMasterId\":
+    110050,\n      \"characterBaseMasterId\": 105,\n      \"companyMasterId\": 1,\n     
+    \"characterName\": \"\u67F3\u5834\u3071\u3093\u3060\",\n      \"cardName\": \"\u30B7\u30EA\u30A6\u30B9\",\n     
+    \"rarity\": 1,\n      \"attribute\": 4,\n      \"level\": 1,\n      \"characterLevelFactor\":
+    25,\n      \"starRank\": 0,\n      \"starRankPercent\": 0.0,\n      \"talentStage\":
+    0,\n      \"awakeningPhase\": 0,\n      \"senseLevel\": 1,\n      \"senseMasterId\":
+    110050,\n      \"senseName\": \"\u899A\",\n      \"senseType\": 3,\n      \"senseScorePercent\":
+    210,\n      \"senseAcquirableGauge\": 0,\n      \"senseLightCount\": 1,\n     
+    \"senseCoolTimeSeconds\": 30,\n      \"starActMasterId\": 110051,\n      \"starActLevel\":
+    1,\n      \"masterMinLevelStatus\": {\n        \"concentration\": 58,\n       
+    \"expression\": 61,\n        \"vocal\": 61,\n        \"totalStatus\": 180\n     
+    },\n      \"calculatedStatus\": {\n        \"concentration\": 14,\n        \"expression\":
+    15,\n        \"vocal\": 15,\n        \"totalStatus\": 44\n      },\n      \"poster\":
+    null,\n      \"accessory\": null,\n      \"posterEffect\": {\n        \"concentrationPercent\":
+    16.2,\n        \"concentrationFixed\": 0.0,\n        \"expressionPercent\": 16.2,\n       
+    \"expressionFixed\": 0.0,\n        \"vocalPercent\": 16.2,\n        \"vocalFixed\":
+    0.0\n      },\n      \"accessoryEffect\": {\n        \"concentrationPercent\":
+    0.0,\n        \"concentrationFixed\": 0.0,\n        \"expressionPercent\": 0.0,\n       
+    \"expressionFixed\": 0.0,\n        \"vocalPercent\": 0.0,\n        \"vocalFixed\":
+    0.0\n      },\n      \"partyStatus\": {\n        \"concentration\": 16,\n       
+    \"expression\": 17,\n        \"vocal\": 17,\n        \"totalStatus\": 50\n     
+    }\n    }\n  ],\n  \"assumptions\": {\n    \"characterState\": \"level-1 StatusLogic
+    result; no base status-up, story, bloom, awakening, rank or correction bonus\",\n   
+    \"equipmentState\": \"constructed public-Master level-1 equipment; posters position
+    1=PosterMaster 220100, position 2=PosterMaster 320030; accessories position 1=AccessoryMaster
+    310030 with valid random effects [101]\",\n    \"startEffects\": \"equipped-actor
+    TriggerType 3/4/5 subset materialized; position 2 fires EffectMaster 11311002
+    value 120.0\",\n    \"scoreCoefficientSource\": \"DebugScoreCalculatorView.DifficultyCoefficient
+    ARM64\",\n    \"statusFormulaSource\": \"StatusLogic.CalculateCharacterStatus
+    ARM64\",\n    \"slotStatusFormulaSource\": \"StatusLogic.CalculatePartySlotStatus
+    ARM64\",\n    \"effectScaleSource\": \"PartyStatusCalculator Calculators ARM64\",\n   
+    \"senseScheduleSource\": \"SenseTimingCalculator ARM64 + SenseNotationMaster\",\n   
+    \"senseGenerationSource\": \"PartyStatusCalculator.GenerateSenses ARM64\",\n   
+    \"senseScoreSource\": \"EffectScoreCalculator.GetSenseScore ARM64\",\n    \"senseLightSource\":
+    \"SenseTimingCalculator.CreateSenseTimingEvents/GrantLights ARM64\",\n    \"principalMaxSource\":
+    \"DebugScoreCalculatorView.SetPartyData ARM64: 1000 + PrincipalGaugeMaxUpSum\",\n   
+    \"principalGainSource\": \"SenseEffectActivator.AddPrincipal + PrincipalCalculator.GetAddingPrincipal
+    ARM64\",\n    \"starActScoreSource\": \"PartyStatusCalculator.CalculateStarAct
+    + EffectScoreCalculator.GetStarActScore ARM64\"\n  }\n}\n"

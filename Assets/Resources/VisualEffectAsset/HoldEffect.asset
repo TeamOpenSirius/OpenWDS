@@ -1,0 +1,2658 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!2058629509 &2058629509
+VisualEffectAsset:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: HoldEffect
+  m_Infos:
+    m_RendererSettings:
+      motionVectorGenerationMode: 0
+      shadowCastingMode: 0
+      receiveShadows: 0
+      reflectionProbeUsage: 0
+      lightProbeUsage: 0
+    m_CullingFlags: 3
+    m_UpdateMode: 0
+    m_PreWarmDeltaTime: 0.05
+    m_PreWarmStepCount: 0
+    m_InitialEventName: OnPlay
+    m_InstancingMode: -1
+    m_InstancingCapacity: 64
+    m_Expressions:
+      m_Expressions:
+      - op: 1
+        valueIndex: 0
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 1
+        valueIndex: 4
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 5
+        valueIndex: 8
+        data[0]: 0
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 5
+        valueIndex: 9
+        data[0]: 1
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 10
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 1
+        valueIndex: 14
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 86
+        valueIndex: 15
+        data[0]: 2
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 1
+        valueIndex: 16
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 5
+      - op: 86
+        valueIndex: 17
+        data[0]: 3
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 5
+        valueIndex: 18
+        data[0]: 4
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 19
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 1
+        valueIndex: 23
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 5
+      - op: 96
+        valueIndex: 24
+        data[0]: 6
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 25
+        data[0]: 0
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 1
+        valueIndex: 26
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 96
+        valueIndex: 27
+        data[0]: 8
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 28
+        data[0]: 1
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 86
+        valueIndex: 29
+        data[0]: 9
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 5
+        valueIndex: 30
+        data[0]: 10
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 31
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 97
+        valueIndex: 35
+        data[0]: 12
+        data[1]: 13
+        data[2]: 14
+        data[3]: 1
+      - op: 97
+        valueIndex: 36
+        data[0]: 15
+        data[1]: 16
+        data[2]: 14
+        data[3]: 1
+      - op: 96
+        valueIndex: 37
+        data[0]: 17
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 38
+        data[0]: 4
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 86
+        valueIndex: 39
+        data[0]: 18
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 5
+        valueIndex: 40
+        data[0]: 19
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 41
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 42
+        valueIndex: 45
+        data[0]: 20
+        data[1]: 21
+        data[2]: -1
+        data[3]: 1
+      - op: 97
+        valueIndex: 46
+        data[0]: 22
+        data[1]: 23
+        data[2]: 14
+        data[3]: 1
+      - op: 96
+        valueIndex: 47
+        data[0]: 24
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 48
+        data[0]: 10
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 86
+        valueIndex: 49
+        data[0]: 25
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 5
+        valueIndex: 50
+        data[0]: 26
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 51
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 42
+        valueIndex: 55
+        data[0]: 27
+        data[1]: 28
+        data[2]: -1
+        data[3]: 1
+      - op: 97
+        valueIndex: 56
+        data[0]: 29
+        data[1]: 30
+        data[2]: 14
+        data[3]: 1
+      - op: 96
+        valueIndex: 57
+        data[0]: 31
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 58
+        data[0]: 19
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 86
+        valueIndex: 59
+        data[0]: 32
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 5
+        valueIndex: 60
+        data[0]: 33
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 61
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 42
+        valueIndex: 65
+        data[0]: 34
+        data[1]: 35
+        data[2]: -1
+        data[3]: 1
+      - op: 97
+        valueIndex: 66
+        data[0]: 36
+        data[1]: 37
+        data[2]: 14
+        data[3]: 1
+      - op: 96
+        valueIndex: 67
+        data[0]: 38
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 68
+        data[0]: 26
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 86
+        valueIndex: 69
+        data[0]: 39
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 5
+        valueIndex: 70
+        data[0]: 40
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 71
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 42
+        valueIndex: 75
+        data[0]: 41
+        data[1]: 42
+        data[2]: -1
+        data[3]: 1
+      - op: 97
+        valueIndex: 76
+        data[0]: 43
+        data[1]: 44
+        data[2]: 14
+        data[3]: 1
+      - op: 96
+        valueIndex: 77
+        data[0]: 45
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 78
+        data[0]: 33
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 86
+        valueIndex: 79
+        data[0]: 46
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 5
+        valueIndex: 80
+        data[0]: 47
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 81
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 1
+        valueIndex: 85
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 42
+        valueIndex: 86
+        data[0]: 48
+        data[1]: 49
+        data[2]: -1
+        data[3]: 1
+      - op: 97
+        valueIndex: 87
+        data[0]: 50
+        data[1]: 51
+        data[2]: 14
+        data[3]: 1
+      - op: 96
+        valueIndex: 88
+        data[0]: 52
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 89
+        data[0]: 40
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 86
+        valueIndex: 90
+        data[0]: 53
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 5
+        valueIndex: 91
+        data[0]: 54
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 92
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 1
+        valueIndex: 96
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 1
+        valueIndex: 100
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 101
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 42
+        valueIndex: 105
+        data[0]: 56
+        data[1]: 57
+        data[2]: -1
+        data[3]: 1
+      - op: 97
+        valueIndex: 106
+        data[0]: 58
+        data[1]: 59
+        data[2]: 14
+        data[3]: 1
+      - op: 96
+        valueIndex: 107
+        data[0]: 60
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 108
+        data[0]: 47
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 86
+        valueIndex: 109
+        data[0]: 61
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 5
+        valueIndex: 110
+        data[0]: 62
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 111
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 42
+        valueIndex: 112
+        data[0]: 66
+        data[1]: 67
+        data[2]: -1
+        data[3]: 1
+      - op: 97
+        valueIndex: 113
+        data[0]: 68
+        data[1]: 69
+        data[2]: 14
+        data[3]: 1
+      - op: 96
+        valueIndex: 114
+        data[0]: 70
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 115
+        data[0]: 54
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 86
+        valueIndex: 116
+        data[0]: 71
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 5
+        valueIndex: 117
+        data[0]: 63
+        data[1]: -1
+        data[2]: 2
+        data[3]: 4
+      - op: 1
+        valueIndex: 118
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 42
+        valueIndex: 119
+        data[0]: 73
+        data[1]: 74
+        data[2]: -1
+        data[3]: 1
+      - op: 97
+        valueIndex: 120
+        data[0]: 75
+        data[1]: 76
+        data[2]: 14
+        data[3]: 1
+      - op: 96
+        valueIndex: 121
+        data[0]: 77
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 122
+        data[0]: 62
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 86
+        valueIndex: 123
+        data[0]: 78
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 1
+        valueIndex: 124
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 125
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 126
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 127
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 42
+        valueIndex: 128
+        data[0]: 80
+        data[1]: 81
+        data[2]: -1
+        data[3]: 1
+      - op: 97
+        valueIndex: 129
+        data[0]: 82
+        data[1]: 83
+        data[2]: 14
+        data[3]: 1
+      - op: 96
+        valueIndex: 130
+        data[0]: 84
+        data[1]: 7
+        data[2]: 5
+        data[3]: 0
+      - op: 5
+        valueIndex: 131
+        data[0]: 63
+        data[1]: -1
+        data[2]: 1
+        data[3]: 4
+      - op: 1
+        valueIndex: 132
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 133
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 37
+        valueIndex: 134
+        data[0]: 86
+        data[1]: 88
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 135
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 42
+        valueIndex: 136
+        data[0]: 89
+        data[1]: 90
+        data[2]: -1
+        data[3]: 1
+      - op: 97
+        valueIndex: 137
+        data[0]: 91
+        data[1]: 92
+        data[2]: 14
+        data[3]: 1
+      - op: 1
+        valueIndex: 138
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 139
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 140
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 8
+        valueIndex: 141
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 1
+        valueIndex: 142
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 37
+        valueIndex: 143
+        data[0]: 94
+        data[1]: 95
+        data[2]: -1
+        data[3]: 1
+      - op: 42
+        valueIndex: 144
+        data[0]: 97
+        data[1]: 98
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 145
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 146
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 147
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 80
+        valueIndex: 148
+        data[0]: 99
+        data[1]: 102
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 149
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 1
+        valueIndex: 153
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 5
+      - op: 1
+        valueIndex: 154
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 14
+      - op: 86
+        valueIndex: 155
+        data[0]: 105
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 1
+        valueIndex: 156
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 15
+      - op: 1
+        valueIndex: 157
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 15
+      - op: 1
+        valueIndex: 158
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 159
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 160
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 14
+      - op: 1
+        valueIndex: 161
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 74
+        valueIndex: 162
+        data[0]: 112
+        data[1]: -1
+        data[2]: -1
+        data[3]: 0
+      - op: 1
+        valueIndex: 166
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 14
+      - op: 1
+        valueIndex: 167
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 5
+      - op: 1
+        valueIndex: 168
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 169
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 14
+      - op: 1
+        valueIndex: 170
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 171
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 75
+        valueIndex: 172
+        data[0]: 115
+        data[1]: -1
+        data[2]: -1
+        data[3]: 0
+      - op: 75
+        valueIndex: 175
+        data[0]: 114
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 178
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 80
+        valueIndex: 179
+        data[0]: 93
+        data[1]: 102
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 180
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 83
+        valueIndex: 181
+        data[0]: 113
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 74
+        valueIndex: 182
+        data[0]: 118
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 74
+        valueIndex: 186
+        data[0]: 121
+        data[1]: -1
+        data[2]: -1
+        data[3]: 2
+      - op: 1
+        valueIndex: 190
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 191
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 2
+      - op: 37
+        valueIndex: 193
+        data[0]: 11
+        data[1]: 122
+        data[2]: -1
+        data[3]: 5
+      - op: 37
+        valueIndex: 194
+        data[0]: 113
+        data[1]: 11
+        data[2]: -1
+        data[3]: 5
+      - op: 1
+        valueIndex: 195
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 5
+      - op: 1
+        valueIndex: 196
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 37
+        valueIndex: 197
+        data[0]: 85
+        data[1]: 123
+        data[2]: -1
+        data[3]: 1
+      - op: 74
+        valueIndex: 198
+        data[0]: 124
+        data[1]: -1
+        data[2]: -1
+        data[3]: 3
+      - op: 1
+        valueIndex: 202
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 14
+      - op: 1
+        valueIndex: 203
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 204
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 37
+        valueIndex: 205
+        data[0]: 137
+        data[1]: 113
+        data[2]: -1
+        data[3]: 5
+      - op: 37
+        valueIndex: 206
+        data[0]: 138
+        data[1]: 139
+        data[2]: -1
+        data[3]: 5
+      - op: 1
+        valueIndex: 207
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 208
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 209
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 80
+        valueIndex: 210
+        data[0]: 116
+        data[1]: 102
+        data[2]: -1
+        data[3]: 6
+      - op: 1
+        valueIndex: 211
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 14
+      - op: 74
+        valueIndex: 212
+        data[0]: 143
+        data[1]: -1
+        data[2]: -1
+        data[3]: 4
+      - op: 1
+        valueIndex: 216
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 217
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 80
+        valueIndex: 218
+        data[0]: 101
+        data[1]: 102
+        data[2]: -1
+        data[3]: 6
+      - op: 83
+        valueIndex: 219
+        data[0]: 146
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 83
+        valueIndex: 220
+        data[0]: 147
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 1
+        valueIndex: 221
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 74
+        valueIndex: 222
+        data[0]: 152
+        data[1]: -1
+        data[2]: -1
+        data[3]: 5
+      - op: 37
+        valueIndex: 226
+        data[0]: 149
+        data[1]: 154
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 227
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 37
+        valueIndex: 228
+        data[0]: 86
+        data[1]: 150
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 229
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 230
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 18
+      - op: 42
+        valueIndex: 231
+        data[0]: 157
+        data[1]: 14
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 232
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 2
+      - op: 1
+        valueIndex: 234
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 2
+      - op: 1
+        valueIndex: 236
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 2
+      - op: 42
+        valueIndex: 238
+        data[0]: 158
+        data[1]: 14
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 239
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 3
+      - op: 1
+        valueIndex: 242
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 3
+      - op: 1
+        valueIndex: 245
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 3
+      - op: 1
+        valueIndex: 248
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 3
+      - op: 1
+        valueIndex: 251
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 252
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 6
+        valueIndex: 253
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 7
+        valueIndex: 254
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: -1
+      - op: 1
+        valueIndex: 255
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 18
+      - op: 1
+        valueIndex: 256
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 7
+      - op: 1
+        valueIndex: 257
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 258
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 259
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 3
+      - op: 1
+        valueIndex: 262
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 1
+      - op: 1
+        valueIndex: 263
+        data[0]: -1
+        data[1]: -1
+        data[2]: -1
+        data[3]: 7
+      m_MaxCommonExpressionsIndex: 186
+      m_ConstantBakeCurveCount: 6
+      m_ConstantBakeGradientCount: 0
+      m_DynamicBakeCurveCount: 0
+      m_DynamicBakeGradientCount: 2
+      m_NeedsLocalToWorld: 0
+      m_NeedsWorldToLocal: 0
+      m_NeedsMainCamera: 0
+      m_NeededMainCameraBuffers: 0
+    m_PropertySheet:
+      m_Float:
+        m_Array:
+        - m_ExpressionIndex: 14
+          m_Value: 0
+        - m_ExpressionIndex: 85
+          m_Value: 1
+        - m_ExpressionIndex: 86
+          m_Value: 1
+        - m_ExpressionIndex: 88
+          m_Value: 0.3
+        - m_ExpressionIndex: 94
+          m_Value: -1
+        - m_ExpressionIndex: 96
+          m_Value: 1.54
+        - m_ExpressionIndex: 103
+          m_Value: 0.462
+        - m_ExpressionIndex: 108
+          m_Value: 1
+        - m_ExpressionIndex: 117
+          m_Value: 90
+        - m_ExpressionIndex: 119
+          m_Value: 3
+        - m_ExpressionIndex: 123
+          m_Value: 1.555
+        - m_ExpressionIndex: 125
+          m_Value: 1.2
+        - m_ExpressionIndex: 126
+          m_Value: 0.5
+        - m_ExpressionIndex: 129
+          m_Value: 2
+        - m_ExpressionIndex: 131
+          m_Value: 100
+        - m_ExpressionIndex: 135
+          m_Value: 0.2
+        - m_ExpressionIndex: 140
+          m_Value: 0.4625
+        - m_ExpressionIndex: 144
+          m_Value: 20
+        - m_ExpressionIndex: 145
+          m_Value: 6
+        - m_ExpressionIndex: 148
+          m_Value: 1
+        - m_ExpressionIndex: 149
+          m_Value: 1
+        - m_ExpressionIndex: 150
+          m_Value: 0.6
+        - m_ExpressionIndex: 154
+          m_Value: 4
+        - m_ExpressionIndex: 155
+          m_Value: 0.92
+        - m_ExpressionIndex: 159
+          m_Value: 0.1
+        - m_ExpressionIndex: 162
+          m_Value: 18
+        - m_ExpressionIndex: 164
+          m_Value: 57.295776
+        - m_ExpressionIndex: 175
+          m_Value: 0.4
+        - m_ExpressionIndex: 176
+          m_Value: 0.7
+        - m_ExpressionIndex: 181
+          m_Value: -0.45
+        - m_ExpressionIndex: 182
+          m_Value: 0.05
+        - m_ExpressionIndex: 184
+          m_Value: 0.01
+      m_Vector2f:
+        m_Array:
+        - m_ExpressionIndex: 136
+          m_Value: {x: -8, y: 0}
+        - m_ExpressionIndex: 167
+          m_Value: {x: 48, y: 48}
+        - m_ExpressionIndex: 168
+          m_Value: {x: 0.4, y: 0.4}
+        - m_ExpressionIndex: 169
+          m_Value: {x: 0, y: 0}
+      m_Vector3f:
+        m_Array:
+        - m_ExpressionIndex: 171
+          m_Value: {x: 0, y: 0, z: 0}
+        - m_ExpressionIndex: 172
+          m_Value: {x: 12, y: 10, z: 10}
+        - m_ExpressionIndex: 173
+          m_Value: {x: 12, y: 12, z: 10}
+        - m_ExpressionIndex: 174
+          m_Value: {x: 90, y: 0, z: 0}
+        - m_ExpressionIndex: 183
+          m_Value: {x: 0, y: 1, z: 0}
+      m_Vector4f:
+        m_Array:
+        - m_ExpressionIndex: 0
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 1
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 4
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 10
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 19
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 26
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 33
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 40
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 47
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 54
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 62
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 63
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 65
+          m_Value: {x: 0, y: 2, z: 0, w: 0}
+        - m_ExpressionIndex: 110
+          m_Value: {x: 0, y: 0, z: 0, w: 0}
+      m_Uint:
+        m_Array:
+        - m_ExpressionIndex: 5
+          m_Value: 12
+        - m_ExpressionIndex: 55
+          m_Value: 11
+        - m_ExpressionIndex: 64
+          m_Value: 10
+        - m_ExpressionIndex: 72
+          m_Value: 9
+        - m_ExpressionIndex: 79
+          m_Value: 8
+        - m_ExpressionIndex: 87
+          m_Value: 7
+        - m_ExpressionIndex: 93
+          m_Value: 6
+        - m_ExpressionIndex: 99
+          m_Value: 0
+        - m_ExpressionIndex: 100
+          m_Value: 3
+        - m_ExpressionIndex: 101
+          m_Value: 5
+        - m_ExpressionIndex: 106
+          m_Value: 2
+        - m_ExpressionIndex: 107
+          m_Value: 4
+        - m_ExpressionIndex: 116
+          m_Value: 1
+      m_Int:
+        m_Array:
+        - m_ExpressionIndex: 7
+          m_Value: 1
+        - m_ExpressionIndex: 11
+          m_Value: 12
+        - m_ExpressionIndex: 111
+          m_Value: 100
+        - m_ExpressionIndex: 122
+          m_Value: 1
+        - m_ExpressionIndex: 139
+          m_Value: 4
+      m_Matrix4x4f:
+        m_Array: []
+      m_AnimationCurve:
+        m_Array:
+        - m_ExpressionIndex: 112
+          m_Value:
+            serializedVersion: 2
+            m_Curve:
+            - serializedVersion: 3
+              time: 0
+              value: 1
+              inSlope: -0.4112903
+              outSlope: -0.4112903
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            - serializedVersion: 3
+              time: 0.837497
+              value: -0.012499999
+              inSlope: -2.4750006
+              outSlope: -2.4750006
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            m_PreInfinity: 2
+            m_PostInfinity: 2
+            m_RotationOrder: 4
+        - m_ExpressionIndex: 118
+          m_Value:
+            serializedVersion: 2
+            m_Curve:
+            - serializedVersion: 3
+              time: 0
+              value: 1
+              inSlope: -0.5625001
+              outSlope: -0.5625001
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            - serializedVersion: 3
+              time: 1
+              value: 0
+              inSlope: -1.4594597
+              outSlope: -1.4594597
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            m_PreInfinity: 2
+            m_PostInfinity: 2
+            m_RotationOrder: 4
+        - m_ExpressionIndex: 121
+          m_Value:
+            serializedVersion: 2
+            m_Curve:
+            - serializedVersion: 3
+              time: 0.0041656494
+              value: 1
+              inSlope: -0.067163974
+              outSlope: -0.067163974
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            - serializedVersion: 3
+              time: 1
+              value: 0
+              inSlope: -3.000001
+              outSlope: -3.000001
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            m_PreInfinity: 2
+            m_PostInfinity: 2
+            m_RotationOrder: 4
+        - m_ExpressionIndex: 124
+          m_Value:
+            serializedVersion: 2
+            m_Curve:
+            - serializedVersion: 3
+              time: 0
+              value: 0
+              inSlope: 2
+              outSlope: 2
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            - serializedVersion: 3
+              time: 1
+              value: 1
+              inSlope: 0
+              outSlope: 0
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            m_PreInfinity: 2
+            m_PostInfinity: 2
+            m_RotationOrder: 4
+        - m_ExpressionIndex: 143
+          m_Value:
+            serializedVersion: 2
+            m_Curve:
+            - serializedVersion: 3
+              time: 0
+              value: 0
+              inSlope: 9.476505
+              outSlope: 9.476505
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            - serializedVersion: 3
+              time: 0.12911582
+              value: 0.57085353
+              inSlope: 1.6428945
+              outSlope: 1.6428945
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            - serializedVersion: 3
+              time: 1
+              value: 1
+              inSlope: -0.012187183
+              outSlope: -0.012187183
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            m_PreInfinity: 2
+            m_PostInfinity: 2
+            m_RotationOrder: 4
+        - m_ExpressionIndex: 152
+          m_Value:
+            serializedVersion: 2
+            m_Curve:
+            - serializedVersion: 3
+              time: 0
+              value: 0
+              inSlope: 0.1875
+              outSlope: 0.1875
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            - serializedVersion: 3
+              time: 0.5416565
+              value: 0.96875
+              inSlope: 4.2637057
+              outSlope: 4.2637057
+              tangentMode: 0
+              weightedMode: 0
+              inWeight: 0
+              outWeight: 0
+            m_PreInfinity: 2
+            m_PostInfinity: 2
+            m_RotationOrder: 4
+      m_Gradient:
+        m_Array:
+        - m_ExpressionIndex: 114
+          m_Value:
+            serializedVersion: 2
+            key0: {r: 0, g: 0.7089348, b: 1, a: 1}
+            key1: {r: 0.627451, g: 4, b: 3.8117647, a: 1}
+            key2: {r: 0, g: 0.7089348, b: 1, a: 0}
+            key3: {r: 0, g: 0.46388245, b: 1, a: 0}
+            key4: {r: 0, g: 0, b: 0, a: 0}
+            key5: {r: 0, g: 0, b: 0, a: 0}
+            key6: {r: 0, g: 0, b: 0, a: 0}
+            key7: {r: 0, g: 0, b: 0, a: 0}
+            ctime0: 0
+            ctime1: 13107
+            ctime2: 26214
+            ctime3: 65535
+            ctime4: 0
+            ctime5: 0
+            ctime6: 0
+            ctime7: 0
+            atime0: 0
+            atime1: 32768
+            atime2: 65535
+            atime3: 0
+            atime4: 0
+            atime5: 0
+            atime6: 0
+            atime7: 0
+            m_Mode: 0
+            m_ColorSpace: -1
+            m_NumColorKeys: 4
+            m_NumAlphaKeys: 3
+        - m_ExpressionIndex: 115
+          m_Value:
+            serializedVersion: 2
+            key0: {r: 0.24313726, g: 0, b: 1, a: 1}
+            key1: {r: 1.9341824, g: 0.62827224, b: 3.9999995, a: 1}
+            key2: {r: 0.24313726, g: 0, b: 1, a: 0}
+            key3: {r: 0.019819736, g: 0, b: 1, a: 0}
+            key4: {r: 0, g: 0, b: 0, a: 0}
+            key5: {r: 0, g: 0, b: 0, a: 0}
+            key6: {r: 0, g: 0, b: 0, a: 0}
+            key7: {r: 0, g: 0, b: 0, a: 0}
+            ctime0: 0
+            ctime1: 13107
+            ctime2: 26214
+            ctime3: 65535
+            ctime4: 0
+            ctime5: 0
+            ctime6: 0
+            ctime7: 0
+            atime0: 0
+            atime1: 32768
+            atime2: 65535
+            atime3: 0
+            atime4: 0
+            atime5: 0
+            atime6: 0
+            atime7: 0
+            m_Mode: 0
+            m_ColorSpace: -1
+            m_NumColorKeys: 4
+            m_NumAlphaKeys: 3
+      m_NamedObject:
+        m_Array:
+        - m_ExpressionIndex: 180
+          m_Value: {fileID: 2800000, guid: 0aa939f8b1f7edd42ad6197205f5dc1c, type: 3}
+        - m_ExpressionIndex: 185
+          m_Value: {fileID: 2800000, guid: 30f2f253b36ad6241b6c6c5c2bc24e60, type: 3}
+      m_Bool:
+        m_Array:
+        - m_ExpressionIndex: 165
+          m_Value: 1
+        - m_ExpressionIndex: 179
+          m_Value: 0
+    m_ExposedExpressions:
+    - nameId: AreaHeight
+      index: 86
+    - nameId: BoxHeight
+      index: 149
+    - nameId: HoldAndSoundColor
+      index: 114
+    - nameId: LaneWidth
+      index: 85
+    - nameId: LineMaxWidth
+      index: 148
+    - nameId: ParticleCount
+      index: 139
+    - nameId: ScratchHoldColor
+      index: 115
+    - nameId: SquareParticleCount
+      index: 122
+    - nameId: Touch1
+      index: 0
+    - nameId: Touch10
+      index: 54
+    - nameId: Touch11
+      index: 62
+    - nameId: Touch12
+      index: 63
+    - nameId: Touch2
+      index: 1
+    - nameId: Touch3
+      index: 4
+    - nameId: Touch4
+      index: 10
+    - nameId: Touch5
+      index: 19
+    - nameId: Touch6
+      index: 26
+    - nameId: Touch7
+      index: 33
+    - nameId: Touch8
+      index: 40
+    - nameId: Touch9
+      index: 47
+    m_Buffers:
+    - type: 1
+      size: 25600
+      layout:
+      - name: PoolNoteState
+        type: 4
+        offset:
+          bucket: 0
+          structure: 8
+          element: 0
+      - name: lifetime
+        type: 1
+        offset:
+          bucket: 0
+          structure: 8
+          element: 4
+      - name: position
+        type: 3
+        offset:
+          bucket: 8192
+          structure: 12
+          element: 0
+      - name: angleX
+        type: 1
+        offset:
+          bucket: 8192
+          structure: 12
+          element: 3
+      - name: angleY
+        type: 1
+        offset:
+          bucket: 8192
+          structure: 12
+          element: 4
+      - name: angleZ
+        type: 1
+        offset:
+          bucket: 8192
+          structure: 12
+          element: 5
+      - name: size
+        type: 1
+        offset:
+          bucket: 8192
+          structure: 12
+          element: 6
+      - name: PoolRandomNamber
+        type: 1
+        offset:
+          bucket: 8192
+          structure: 12
+          element: 7
+      - name: particleId
+        type: 6
+        offset:
+          bucket: 8192
+          structure: 12
+          element: 8
+      - name: alive
+        type: 18
+        offset:
+          bucket: 20480
+          structure: 2
+          element: 0
+      - name: age
+        type: 1
+        offset:
+          bucket: 20480
+          structure: 2
+          element: 1
+      - name: scaleX
+        type: 1
+        offset:
+          bucket: 22528
+          structure: 3
+          element: 0
+      - name: scaleY
+        type: 1
+        offset:
+          bucket: 22528
+          structure: 3
+          element: 1
+      - name: scaleZ
+        type: 1
+        offset:
+          bucket: 22528
+          structure: 3
+          element: 2
+      capacity: 1024
+      stride: 4
+    - type: 1
+      size: 2560
+      layout:
+      - name: PoolNoteState
+        type: 4
+        offset:
+          bucket: 0
+          structure: 16
+          element: 0
+      - name: position
+        type: 3
+        offset:
+          bucket: 0
+          structure: 16
+          element: 4
+      - name: size
+        type: 1
+        offset:
+          bucket: 0
+          structure: 16
+          element: 7
+      - name: angleX
+        type: 1
+        offset:
+          bucket: 0
+          structure: 16
+          element: 8
+      - name: angleY
+        type: 1
+        offset:
+          bucket: 0
+          structure: 16
+          element: 9
+      - name: angleZ
+        type: 1
+        offset:
+          bucket: 0
+          structure: 16
+          element: 10
+      - name: scaleX
+        type: 1
+        offset:
+          bucket: 0
+          structure: 16
+          element: 11
+      - name: pivotY
+        type: 1
+        offset:
+          bucket: 0
+          structure: 16
+          element: 12
+      - name: lifetime
+        type: 1
+        offset:
+          bucket: 2048
+          structure: 1
+          element: 0
+      - name: alive
+        type: 18
+        offset:
+          bucket: 2176
+          structure: 2
+          element: 0
+      - name: age
+        type: 1
+        offset:
+          bucket: 2176
+          structure: 2
+          element: 1
+      - name: scaleY
+        type: 1
+        offset:
+          bucket: 2432
+          structure: 1
+          element: 0
+      capacity: 128
+      stride: 4
+    - type: 1
+      size: 291392
+      layout:
+      - name: PoolNotesState
+        type: 4
+        offset:
+          bucket: 0
+          structure: 8
+          element: 0
+      - name: size
+        type: 1
+        offset:
+          bucket: 0
+          structure: 8
+          element: 4
+      - name: lifetime
+        type: 1
+        offset:
+          bucket: 80384
+          structure: 2
+          element: 0
+      - name: PoolRandomNumber
+        type: 1
+        offset:
+          bucket: 80384
+          structure: 2
+          element: 1
+      - name: position
+        type: 3
+        offset:
+          bucket: 100480
+          structure: 8
+          element: 0
+      - name: alive
+        type: 18
+        offset:
+          bucket: 100480
+          structure: 8
+          element: 3
+      - name: age
+        type: 1
+        offset:
+          bucket: 100480
+          structure: 8
+          element: 4
+      - name: direction
+        type: 3
+        offset:
+          bucket: 180864
+          structure: 4
+          element: 0
+      - name: velocity
+        type: 3
+        offset:
+          bucket: 221056
+          structure: 4
+          element: 0
+      - name: ElapsedTime
+        type: 1
+        offset:
+          bucket: 221056
+          structure: 4
+          element: 3
+      - name: scaleX
+        type: 1
+        offset:
+          bucket: 261248
+          structure: 3
+          element: 0
+      - name: scaleY
+        type: 1
+        offset:
+          bucket: 261248
+          structure: 3
+          element: 1
+      - name: angleY
+        type: 1
+        offset:
+          bucket: 261248
+          structure: 3
+          element: 2
+      capacity: 10048
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 8
+    - type: 1
+      size: 0
+      layout: []
+      capacity: 1
+      stride: 4
+    - type: 16
+      size: 1000
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 16
+    - type: 1
+      size: 72
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 8
+    - type: 1
+      size: 0
+      layout: []
+      capacity: 1
+      stride: 4
+    - type: 16
+      size: 100
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 16
+    - type: 1
+      size: 64
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 8
+    - type: 1
+      size: 0
+      layout: []
+      capacity: 1
+      stride: 4
+    - type: 16
+      size: 10000
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 16
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 16
+    - type: 1
+      size: 76
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    - type: 0
+      size: 1
+      layout: []
+      capacity: 0
+      stride: 4
+    m_TemporaryBuffers: []
+    m_CPUBuffers:
+    - capacity: 1
+      stride: 1
+      layout:
+      - name: spawnCount
+        type: 1
+        offset:
+          bucket: 0
+          structure: 1
+          element: 0
+      initialData:
+        data: 0000803f
+    - capacity: 1
+      stride: 1
+      layout:
+      - name: spawnCount
+        type: 1
+        offset:
+          bucket: 0
+          structure: 1
+          element: 0
+      initialData:
+        data: 0000803f
+    - capacity: 1
+      stride: 1
+      layout:
+      - name: spawnCount
+        type: 1
+        offset:
+          bucket: 0
+          structure: 1
+          element: 0
+      initialData:
+        data: 0000803f
+    - capacity: 1
+      stride: 1
+      layout:
+      - name: spawnCount
+        type: 1
+        offset:
+          bucket: 0
+          structure: 1
+          element: 0
+      initialData:
+        data: 0000803f
+    m_Events:
+    - name: OnPlayHold
+      playSystems: 000000000100000002000000
+      stopSystems:
+      initSystems:
+    - name: OnStopHold
+      playSystems:
+      stopSystems: 000000000100000002000000
+      initSystems:
+    m_InstancingDisabledReason: 0
+    m_RuntimeVersion: 35
+    m_CompilationVersion: 7
+  m_Systems:
+  - type: 0
+    flags: 0
+    capacity: 0
+    layer: 4294967295
+    name: HoldSquareSpawn
+    buffers:
+    - nameId: spawner_output
+      index: 1
+    values: []
+    tasks:
+    - type: 268435456
+      buffers: []
+      temporaryBuffers: []
+      values:
+      - nameId: _vfx_enabled
+        index: 165
+      - nameId: Rate
+        index: 166
+      params: []
+      processor: {fileID: 0}
+      instanceSplitIndex: 0
+    instanceSplitDescs: []
+  - type: 0
+    flags: 0
+    capacity: 0
+    layer: 4294967295
+    name: HoldBoxSpawn
+    buffers:
+    - nameId: spawner_output
+      index: 2
+    values: []
+    tasks:
+    - type: 268435458
+      buffers: []
+      temporaryBuffers: []
+      values:
+      - nameId: _vfx_enabled
+        index: 165
+      - nameId: nb
+        index: 167
+      - nameId: period
+        index: 168
+      params: []
+      processor: {fileID: 0}
+      instanceSplitIndex: 0
+    - type: 268435457
+      buffers: []
+      temporaryBuffers: []
+      values:
+      - nameId: _vfx_enabled
+        index: 165
+      - nameId: Count
+        index: 167
+      - nameId: Delay
+        index: 169
+      params: []
+      processor: {fileID: 0}
+      instanceSplitIndex: 0
+    instanceSplitDescs: []
+  - type: 0
+    flags: 0
+    capacity: 0
+    layer: 4294967295
+    name: HoldParticleSpawn
+    buffers:
+    - nameId: spawner_output
+      index: 3
+    values: []
+    tasks:
+    - type: 268435456
+      buffers: []
+      temporaryBuffers: []
+      values:
+      - nameId: _vfx_enabled
+        index: 165
+      - nameId: Rate
+        index: 170
+      params: []
+      processor: {fileID: 0}
+      instanceSplitIndex: 0
+    instanceSplitDescs: []
+  - type: 1
+    flags: 769
+    capacity: 1000
+    layer: 0
+    name: HoldSquare
+    buffers:
+    - nameId: attributeBuffer
+      index: 0
+    - nameId: instancingContextData
+      index: 3
+    - nameId: sourceAttributeBuffer
+      index: 4
+    - nameId: deadList
+      index: 5
+    - nameId: deadListCount
+      index: 6
+    - nameId: deadListCountCopy
+      index: 7
+    - nameId: instancingIndirect
+      index: 8
+    - nameId: instancingActiveIndirect
+      index: 9
+    - nameId: spawner_input
+      index: 1
+    - nameId: batchedInitParams
+      index: 10
+    - nameId: graphValuesBuffer
+      index: 11
+    - nameId: instancingPrefixSum
+      index: 12
+    - nameId: eventCountPrefixSum
+      index: 13
+    - nameId: spawnCountPrefixSum
+      index: 14
+    values:
+    - nameId: bounds_center
+      index: 171
+    - nameId: bounds_size
+      index: 172
+    - nameId: graphValuesOffset
+      index: 3
+    - nameId: uniform_a
+      index: 0
+    - nameId: uniform_b
+      index: 1
+    - nameId: uniform_c
+      index: 4
+    - nameId: uniform_d
+      index: 10
+    - nameId: uniform_e
+      index: 19
+    - nameId: uniform_f
+      index: 26
+    - nameId: uniform_g
+      index: 33
+    - nameId: uniform_h
+      index: 40
+    - nameId: uniform_i
+      index: 47
+    - nameId: uniform_j
+      index: 54
+    - nameId: uniform_k
+      index: 62
+    - nameId: uniform_l
+      index: 63
+    - nameId: uniform_o
+      index: 142
+    - nameId: uniform_u
+      index: 160
+    - nameId: uniform_s
+      index: 127
+    - nameId: uniform_m
+      index: 151
+    - nameId: uniform_t
+      index: 128
+    - nameId: uniform_n
+      index: 141
+    - nameId: uniform_p
+      index: 86
+    - nameId: deltaTime_a
+      index: 177
+    - nameId: uniform_q
+      index: 109
+    - nameId: uniform_r
+      index: 148
+    - nameId: TotalTime_a
+      index: 178
+    tasks:
+    - type: 536870912
+      buffers:
+      - nameId: attributeBuffer
+        index: 0
+      - nameId: graphValuesBuffer
+        index: 11
+      - nameId: deadListIn
+        index: 5
+      - nameId: deadListCount
+        index: 6
+      - nameId: deadListCountCopy
+        index: 7
+      - nameId: sourceAttributeBuffer
+        index: 4
+      - nameId: instancingContextData
+        index: 3
+      - nameId: batchedInitParams
+        index: 10
+      - nameId: eventCountPrefixSum
+        index: 13
+      - nameId: spawnCountPrefixSum
+        index: 14
+      - nameId: instancingPrefixSum
+        index: 12
+      - nameId: instancingIndirect
+        index: 8
+      - nameId: instancingActiveIndirect
+        index: 9
+      temporaryBuffers: []
+      values: []
+      params:
+      - nameId: bounds_center
+        index: 171
+      - nameId: bounds_size
+        index: 172
+      processor: {fileID: 7200000, guid: 9339ba588572a3a4891db4aa870983b5, type: 2}
+      instanceSplitIndex: 0
+    - type: 805306368
+      buffers:
+      - nameId: attributeBuffer
+        index: 0
+      - nameId: graphValuesBuffer
+        index: 11
+      - nameId: deadListOut
+        index: 5
+      - nameId: deadListCount
+        index: 6
+      - nameId: instancingContextData
+        index: 3
+      - nameId: instancingIndirect
+        index: 8
+      - nameId: instancingActiveIndirect
+        index: 9
+      temporaryBuffers: []
+      values: []
+      params: []
+      processor: {fileID: 7200000, guid: a2fa6aa4d62f1f1429e242493a588750, type: 2}
+      instanceSplitIndex: 0
+    - type: 1073741826
+      buffers:
+      - nameId: attributeBuffer
+        index: 0
+      - nameId: graphValuesBuffer
+        index: 11
+      - nameId: instancingContextData
+        index: 3
+      temporaryBuffers: []
+      values:
+      - nameId: _SampleTexture2D_b8e2968a2af84340aad2a335e1bf9bce_Texture_1_Texture2D
+        index: 180
+      params:
+      - nameId: sortPriority
+        index: 0
+      processor: {fileID: 2100000, guid: 9b23c05349c0c6042b3f280ef7f9b9fc, type: 2}
+      instanceSplitIndex: 1
+    instanceSplitDescs:
+    - values:
+    - values: b4000000
+  - type: 1
+    flags: 769
+    capacity: 100
+    layer: 0
+    name: HoldBox
+    buffers:
+    - nameId: attributeBuffer
+      index: 1
+    - nameId: instancingContextData
+      index: 15
+    - nameId: sourceAttributeBuffer
+      index: 16
+    - nameId: deadList
+      index: 17
+    - nameId: deadListCount
+      index: 18
+    - nameId: deadListCountCopy
+      index: 19
+    - nameId: instancingIndirect
+      index: 20
+    - nameId: instancingActiveIndirect
+      index: 21
+    - nameId: spawner_input
+      index: 2
+    - nameId: batchedInitParams
+      index: 22
+    - nameId: graphValuesBuffer
+      index: 23
+    - nameId: instancingPrefixSum
+      index: 24
+    - nameId: eventCountPrefixSum
+      index: 25
+    - nameId: spawnCountPrefixSum
+      index: 26
+    values:
+    - nameId: bounds_center
+      index: 171
+    - nameId: bounds_size
+      index: 172
+    - nameId: graphValuesOffset
+      index: 3
+    - nameId: uniform_a
+      index: 0
+    - nameId: uniform_b
+      index: 1
+    - nameId: uniform_c
+      index: 4
+    - nameId: uniform_d
+      index: 10
+    - nameId: uniform_e
+      index: 19
+    - nameId: uniform_f
+      index: 26
+    - nameId: uniform_g
+      index: 33
+    - nameId: uniform_h
+      index: 40
+    - nameId: uniform_i
+      index: 47
+    - nameId: uniform_j
+      index: 54
+    - nameId: uniform_k
+      index: 62
+    - nameId: uniform_l
+      index: 63
+    - nameId: uniform_q
+      index: 153
+    - nameId: uniform_s
+      index: 127
+    - nameId: uniform_m
+      index: 85
+    - nameId: uniform_t
+      index: 128
+    - nameId: uniform_n
+      index: 86
+    - nameId: uniform_o
+      index: 95
+    - nameId: uniform_p
+      index: 104
+    - nameId: uniform_r
+      index: 161
+    - nameId: deltaTime_a
+      index: 177
+    tasks:
+    - type: 536870912
+      buffers:
+      - nameId: attributeBuffer
+        index: 1
+      - nameId: graphValuesBuffer
+        index: 23
+      - nameId: deadListIn
+        index: 17
+      - nameId: deadListCount
+        index: 18
+      - nameId: deadListCountCopy
+        index: 19
+      - nameId: sourceAttributeBuffer
+        index: 16
+      - nameId: instancingContextData
+        index: 15
+      - nameId: batchedInitParams
+        index: 22
+      - nameId: eventCountPrefixSum
+        index: 25
+      - nameId: spawnCountPrefixSum
+        index: 26
+      - nameId: instancingPrefixSum
+        index: 24
+      - nameId: instancingIndirect
+        index: 20
+      - nameId: instancingActiveIndirect
+        index: 21
+      temporaryBuffers: []
+      values: []
+      params:
+      - nameId: bounds_center
+        index: 171
+      - nameId: bounds_size
+        index: 172
+      processor: {fileID: 7200000, guid: ee599a9a93aae52438dfa4d6e1bbfd4f, type: 2}
+      instanceSplitIndex: 0
+    - type: 805306368
+      buffers:
+      - nameId: attributeBuffer
+        index: 1
+      - nameId: graphValuesBuffer
+        index: 23
+      - nameId: deadListOut
+        index: 17
+      - nameId: deadListCount
+        index: 18
+      - nameId: instancingContextData
+        index: 15
+      - nameId: instancingIndirect
+        index: 20
+      - nameId: instancingActiveIndirect
+        index: 21
+      temporaryBuffers: []
+      values: []
+      params: []
+      processor: {fileID: 7200000, guid: e171abfd19ad795419ac4591901ff946, type: 2}
+      instanceSplitIndex: 0
+    - type: 1073741826
+      buffers:
+      - nameId: attributeBuffer
+        index: 1
+      - nameId: graphValuesBuffer
+        index: 23
+      - nameId: instancingContextData
+        index: 15
+      temporaryBuffers: []
+      values: []
+      params:
+      - nameId: sortPriority
+        index: 0
+      processor: {fileID: 2100000, guid: b502b9dd8ac1cf943bd97c7c8bab94e8, type: 2}
+      instanceSplitIndex: 0
+    instanceSplitDescs:
+    - values:
+  - type: 1
+    flags: 769
+    capacity: 10000
+    layer: 0
+    name: HoldParticle
+    buffers:
+    - nameId: attributeBuffer
+      index: 2
+    - nameId: instancingContextData
+      index: 27
+    - nameId: sourceAttributeBuffer
+      index: 28
+    - nameId: deadList
+      index: 29
+    - nameId: deadListCount
+      index: 30
+    - nameId: deadListCountCopy
+      index: 31
+    - nameId: instancingIndirect
+      index: 32
+    - nameId: instancingActiveIndirect
+      index: 33
+    - nameId: spawner_input
+      index: 3
+    - nameId: batchedInitParams
+      index: 34
+    - nameId: graphValuesBuffer
+      index: 35
+    - nameId: instancingPrefixSum
+      index: 36
+    - nameId: eventCountPrefixSum
+      index: 37
+    - nameId: spawnCountPrefixSum
+      index: 38
+    values:
+    - nameId: bounds_center
+      index: 171
+    - nameId: bounds_size
+      index: 173
+    - nameId: graphValuesOffset
+      index: 3
+    - nameId: uniform_a
+      index: 0
+    - nameId: uniform_b
+      index: 1
+    - nameId: uniform_c
+      index: 4
+    - nameId: uniform_d
+      index: 10
+    - nameId: uniform_e
+      index: 19
+    - nameId: uniform_f
+      index: 26
+    - nameId: uniform_g
+      index: 33
+    - nameId: uniform_h
+      index: 40
+    - nameId: uniform_i
+      index: 47
+    - nameId: uniform_j
+      index: 54
+    - nameId: uniform_k
+      index: 62
+    - nameId: uniform_l
+      index: 63
+    - nameId: uniform_s
+      index: 133
+    - nameId: uniform_t
+      index: 120
+    - nameId: uniform_u
+      index: 134
+    - nameId: uniform_v
+      index: 127
+    - nameId: uniform_m
+      index: 130
+    - nameId: uniform_w
+      index: 128
+    - nameId: uniform_n
+      index: 85
+    - nameId: uniform_o
+      index: 163
+    - nameId: uniform_p
+      index: 156
+    - nameId: uniform_q
+      index: 109
+    - nameId: uniform_r
+      index: 132
+    - nameId: _ElapsedTime_a
+      index: 177
+    tasks:
+    - type: 536870912
+      buffers:
+      - nameId: attributeBuffer
+        index: 2
+      - nameId: graphValuesBuffer
+        index: 35
+      - nameId: deadListIn
+        index: 29
+      - nameId: deadListCount
+        index: 30
+      - nameId: deadListCountCopy
+        index: 31
+      - nameId: sourceAttributeBuffer
+        index: 28
+      - nameId: instancingContextData
+        index: 27
+      - nameId: batchedInitParams
+        index: 34
+      - nameId: eventCountPrefixSum
+        index: 37
+      - nameId: spawnCountPrefixSum
+        index: 38
+      - nameId: instancingPrefixSum
+        index: 36
+      - nameId: instancingIndirect
+        index: 32
+      - nameId: instancingActiveIndirect
+        index: 33
+      temporaryBuffers: []
+      values: []
+      params:
+      - nameId: bounds_center
+        index: 171
+      - nameId: bounds_size
+        index: 173
+      processor: {fileID: 7200000, guid: 063df414e094df84d8b6cc6aaf25cc00, type: 2}
+      instanceSplitIndex: 0
+    - type: 805306368
+      buffers:
+      - nameId: attributeBuffer
+        index: 2
+      - nameId: graphValuesBuffer
+        index: 35
+      - nameId: deadListOut
+        index: 29
+      - nameId: deadListCount
+        index: 30
+      - nameId: instancingContextData
+        index: 27
+      - nameId: instancingIndirect
+        index: 32
+      - nameId: instancingActiveIndirect
+        index: 33
+      temporaryBuffers: []
+      values: []
+      params: []
+      processor: {fileID: 7200000, guid: 66f78394446048f4088db0da3fa7d345, type: 2}
+      instanceSplitIndex: 0
+    - type: 1073741826
+      buffers:
+      - nameId: attributeBuffer
+        index: 2
+      - nameId: graphValuesBuffer
+        index: 35
+      - nameId: instancingContextData
+        index: 27
+      temporaryBuffers: []
+      values:
+      - nameId: mainTexture
+        index: 185
+      params:
+      - nameId: sortPriority
+        index: 0
+      processor: {fileID: 2100000, guid: 75b7c9ab0dc9bd44286984baf6c67f0c, type: 2}
+      instanceSplitIndex: 0
+    instanceSplitDescs:
+    - values:
+  m_RendererSettings:
+    motionVectorGenerationMode: 0
+    shadowCastingMode: 0
+    receiveShadows: 0
+    reflectionProbeUsage: 0
+    lightProbeUsage: 0
+  m_CullingFlags: 0

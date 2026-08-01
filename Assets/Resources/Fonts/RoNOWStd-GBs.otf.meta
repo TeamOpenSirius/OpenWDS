@@ -1,0 +1,26 @@
+fileFormatVersion: 2
+guid: b8f098e1e246b7f4f9a6f13b89693b42
+timeCreated: 1784798137
+licenseType: Free
+TrueTypeFontImporter:
+  serializedVersion: 4
+  externalObjects: {}
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontNames:
+  - Ro NOW Std
+  fallbackFontReferences:
+  - {fileID: 0}
+  customCharacters:
+  fontRenderingMode: 0
+  output:
+    hasEmptyFontData: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData:
+  assetBundleName: 7d5d992ecc40bb154a4b712c58d9342d
+  assetBundleVariant:
