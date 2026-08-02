@@ -1004,6 +1004,15 @@ namespace OpenWDS.Runtime
             StartCoroutine(
                 Sirius.GameResult.RecoveredGameResultFontRuntime
                     .PrepareStreamingAssets());
+            // The desktop recovery bundles are local files. Load them under the
+            // existing introduction/initialization boundary so ShowGameResult
+            // does not synchronously deserialize five bundles after the last note.
+            var resultFontRoot = Path.Combine(
+                Application.streamingAssetsPath,
+                Sirius.GameResult.RecoveredGameResultFontRuntime.RelativeRoot);
+            if (Directory.Exists(resultFontRoot))
+                _gameResultFonts =
+                    new Sirius.GameResult.RecoveredGameResultFontRuntime();
             _noteSpeed = persistedSettings.GameSettings.NoteSpeed;
             _currentRecommendationTiming =
                 persistedSettings.GameSettings.NoteOffsetValue;
@@ -1089,7 +1098,10 @@ namespace OpenWDS.Runtime
             if (_splitEffectParent == null)
                 throw new InvalidOperationException(
                     "LaneEffectController SplitEffectParent is required.");
-            _splitLaneAssets = new RecoveredSplitLaneAssetRuntime(_splitEffectParent);
+            _splitLaneAssets = new RecoveredSplitLaneAssetRuntime(
+                _splitEffectParent,
+                persistedSettings.GameSettings.SpritEffectSettingType,
+                persistedSettings.GameSettings.SplitEffectLineOpacity);
             _gameResultRuntime = new RecoveredGameResultRuntime(notation);
             _gameHud = GetComponent<RecoveredGameHudRuntime>();
             _gameHud?.ApplyRecoveredSettings(
@@ -1147,7 +1159,9 @@ namespace OpenWDS.Runtime
                     _laneGroup, _laneEffectParent, _beamEffectPrefab, _bombType,
                     _defaultBombEffectPrefabs, _notesBombEffectPrefabs,
                     _sakuraBombEffectPrefabs,
-                    persistedSettings.GameDetailSettings.IsActiveKeyBeam);
+                    persistedSettings.GameDetailSettings.IsActiveKeyBeam,
+                    (RecoveredGameTapEffectType)persistedSettings
+                        .GameDetailSettings.TapEffectType);
             if (_gameIntroduction != null)
             {
                 _gameHud?.Hide();
@@ -1447,7 +1461,9 @@ namespace OpenWDS.Runtime
             // Font replacement invalidates TMP/layout data. Match the capture and
             // original full-screen root order: establish the final canvas rect
             // before any font-driven layout rebuild.
-            _gameResultFonts = new Sirius.GameResult.RecoveredGameResultFontRuntime();
+            if (_gameResultFonts == null)
+                _gameResultFonts =
+                    new Sirius.GameResult.RecoveredGameResultFontRuntime();
             _gameResultFonts.Apply(_gameResultInstance);
             var rootCanvasGroup = _gameResultInstance.GetComponent<CanvasGroup>();
             if (rootCanvasGroup != null)

@@ -32,6 +32,18 @@ namespace OpenWDS.Runtime
             public GameObject Instance;
         }
 
+        private readonly struct PoolEvent
+        {
+            public readonly long Milliseconds;
+            public readonly int Delta;
+
+            public PoolEvent(long milliseconds, int delta)
+            {
+                Milliseconds = milliseconds;
+                Delta = delta;
+            }
+        }
+
         private readonly Transform _parent;
         private readonly GameObject[] _prefabs;
         private readonly RecoveredNotationNote[] _notes;
@@ -119,6 +131,86 @@ namespace OpenWDS.Runtime
                 RecoveredGameConfigValues.NoteVisibleTimeRate2,
                 RecoveredGameConfigValues.MaxNoteVisiblePositionY);
             _moveMilliseconds = (long)(moveSeconds * 1000f);
+            PrewarmPools();
+        }
+
+        private void PrewarmPools()
+        {
+            // Retail NoteObjectSpawner.InitializeAsync preloads every ObjectPool
+            // before play and separately warms the animated note types. Keep the
+            // recovered pool chart-sized so successful play cannot Instantiate in
+            // the note scheduler's frame; the lazy fallback remains for late misses.
+            var eventsByPool = new List<PoolEvent>[_pools.Length];
+            for (var index = 0; index < eventsByPool.Length; index++)
+                eventsByPool[index] = new List<PoolEvent>();
+            foreach (var note in _notes)
+            {
+                var target = UsesHoldManager(note.NoteType) &&
+                             note.EndMilliseconds >= note.StartMilliseconds
+                    ? note.EndMilliseconds
+                    : note.StartMilliseconds;
+                var events = eventsByPool[GetPrefabIndex(note.NoteType)];
+                events.Add(new PoolEvent(
+                    note.StartMilliseconds - _moveMilliseconds, 1));
+                events.Add(new PoolEvent(target, -1));
+            }
+            for (var poolIndex = 0; poolIndex < eventsByPool.Length; poolIndex++)
+            {
+                var capacity = GetPeakOverlap(eventsByPool[poolIndex]);
+                var prefabIndex = poolIndex < 5 ? poolIndex : poolIndex + 1;
+                PrewarmPool(_prefabs[prefabIndex], _pools[poolIndex], capacity);
+            }
+
+            if (!_isActiveConcurrentLine) return;
+            var concurrentEvents = new List<PoolEvent>(_concurrentLines.Count * 2);
+            foreach (var line in _concurrentLines)
+            {
+                concurrentEvents.Add(new PoolEvent(
+                    line.Milliseconds - _moveMilliseconds, 1));
+                concurrentEvents.Add(new PoolEvent(line.Milliseconds, -1));
+            }
+            PrewarmPool(
+                _prefabs[5], _concurrentPool, GetPeakOverlap(concurrentEvents));
+        }
+
+        private static int GetPeakOverlap(List<PoolEvent> events)
+        {
+            events.Sort((left, right) =>
+            {
+                var time = left.Milliseconds.CompareTo(right.Milliseconds);
+                // Tick spawns before processing input results, so an object ending
+                // now still overlaps an object whose visible interval starts now.
+                return time != 0 ? time : right.Delta.CompareTo(left.Delta);
+            });
+            var active = 0;
+            var peak = 0;
+            foreach (var item in events)
+            {
+                active += item.Delta;
+                peak = Math.Max(peak, active);
+            }
+            return peak;
+        }
+
+        private void PrewarmPool(
+            GameObject prefab, Stack<GameObject> pool, int capacity)
+        {
+            while (pool.Count < capacity)
+            {
+                var instance = UnityEngine.Object.Instantiate(prefab, _parent, false);
+                // Retail WarmupAnimatorAsync rents Flick, Scratch and
+                // ScratchHold objects and lets their animator graphs evaluate
+                // before gameplay. Force that first evaluation into recovery
+                // initialization instead of the note's first visible frame.
+                foreach (var animator in
+                         instance.GetComponentsInChildren<Animator>(true))
+                {
+                    animator.Rebind();
+                    animator.Update(0f);
+                }
+                instance.SetActive(false);
+                pool.Push(instance);
+            }
         }
 
         public void Tick(long passedMilliseconds)
@@ -239,11 +331,13 @@ namespace OpenWDS.Runtime
                 }
 
                 // NoteObjectManager.OnInputResult completes the independent
-                // ConcurrentNoteEntity by its scheduler key. Normal notes use
-                // StartMilliseconds; note types above 50 use EndMilliseconds.
-                // Sound, Scratch and Flick return before this call in retail.
+                // ConcurrentNoteEntity by its scheduler key. Only Hold and
+                // ScratchHold bodies use EndMilliseconds. HoldStart (80-83),
+                // like ordinary tap notes, uses StartMilliseconds even though
+                // its numeric NoteType is above Flick. Sound, Scratch and Flick
+                // return before this call in retail.
                 var noteType = (int)result.NoteType;
-                if (noteType > 50)
+                if (IsHoldBody(noteType))
                 {
                     CompleteConcurrentLine(result.EndMilliseconds);
                 }

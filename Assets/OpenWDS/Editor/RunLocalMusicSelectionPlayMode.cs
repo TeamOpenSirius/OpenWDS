@@ -2526,6 +2526,8 @@ namespace OpenWDS.Editor
                 }
                 var introduction = UnityEngine.Object.FindObjectOfType<
                     Sirius.Game.GameIntroductionAnimationController>();
+                var pause = UnityEngine.Object.FindObjectOfType<
+                    RecoveredGamePauseRuntime>();
                 if (introduction == null || !introduction.IsPlaying)
                 {
                     Finish(
@@ -2534,13 +2536,31 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
+                if (pause == null)
+                {
+                    Finish(
+                        false,
+                        "Pause runtime was unavailable for focus-loss regression.",
+                        elapsed);
+                    return;
+                }
                 introduction.SendMessage(
                     "OnApplicationFocus", false,
                     SendMessageOptions.RequireReceiver);
-                game.SetPaused(true);
+                pause.SendMessage(
+                    "OnApplicationFocus", false,
+                    SendMessageOptions.RequireReceiver);
                 if (!introduction.IsAnimationPaused)
                 {
                     Finish(false, "Focus loss did not freeze GameIntroduction.", elapsed);
+                    return;
+                }
+                if (game.IsPaused || pause.IsDialogOpen)
+                {
+                    Finish(
+                        false,
+                        "Focus loss opened an unreachable Pause before gameplay started.",
+                        elapsed);
                     return;
                 }
                 SessionState.SetFloat(
@@ -2554,7 +2574,9 @@ namespace OpenWDS.Editor
                 var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
                 var introduction = UnityEngine.Object.FindObjectOfType<
                     Sirius.Game.GameIntroductionAnimationController>();
-                if (game == null || introduction == null) return;
+                var pause = UnityEngine.Object.FindObjectOfType<
+                    RecoveredGamePauseRuntime>();
+                if (game == null || introduction == null || pause == null) return;
                 var pausedTime = SessionState.GetFloat(
                     IntroductionFocusTimeKey, -1f);
                 if (!introduction.IsPlaying ||
@@ -2563,18 +2585,29 @@ namespace OpenWDS.Editor
                 {
                     Finish(
                         false,
-                        "GameIntroduction advanced while focus/game pause was active.",
+                        "GameIntroduction advanced while application focus was lost.",
                         elapsed);
                     return;
                 }
                 introduction.SendMessage(
                     "OnApplicationFocus", true,
                     SendMessageOptions.RequireReceiver);
+                pause.SendMessage(
+                    "OnApplicationFocus", true,
+                    SendMessageOptions.RequireReceiver);
                 if (introduction.IsAnimationPaused)
                 {
                     Finish(
                         false,
-                        "Focus regain did not continue GameIntroduction while the game pause remained active.",
+                        "Focus regain did not continue GameIntroduction.",
+                        elapsed);
+                    return;
+                }
+                if (game.IsPaused || pause.IsDialogOpen)
+                {
+                    Finish(
+                        false,
+                        "Focus regain left GameIntroduction behind an invisible Pause.",
                         elapsed);
                     return;
                 }
@@ -2593,7 +2626,9 @@ namespace OpenWDS.Editor
                 if (introduction != null && introduction.IsPlaying &&
                     introduction.NormalizedTime <= pausedTime + 0.001f)
                     return;
-                game.SetPaused(false);
+                if (!game.IsGameplayStarted || game.IsPaused ||
+                    game.GameHud == null || !game.GameHud.IsVisible)
+                    return;
                 SessionState.SetBool(IntroductionFocusValidKey, true);
                 SessionState.SetString(PhaseKey, "return-retire");
                 game.RetireGame();

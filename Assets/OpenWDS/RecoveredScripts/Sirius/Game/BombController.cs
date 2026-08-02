@@ -5,6 +5,7 @@ namespace Sirius.Game
     public interface IRecoveredBombController
     {
         float AnimationTime { get; }
+        void ApplyTapEffectType(bool isDefaultTapEffect);
         void Initialize(int laneCount, long startMilliseconds, bool isStrong);
         void InitializeColor(bool isScratch);
         void Play();
@@ -38,6 +39,18 @@ namespace Sirius.Game
         private float _startedAt;
 
         public float AnimationTime => _animationTime;
+
+        public virtual void ApplyTapEffectType(bool isDefaultTapEffect)
+        {
+            if (isDefaultTapEffect) return;
+            // BombController.SetUpLightParticles RVA 0xB94FFFC: Light keeps
+            // Square and Flare, and disables these five authored groups.
+            SetActive(_bombBoxes, false);
+            SetActive(_bombPillers, false);
+            SetActive(_bombParticle, false);
+            SetActive(_bombStar, false);
+            SetActive(_bombStarCenter, false);
+        }
 
         public virtual void InitializeColor(bool isScratch) { }
 
@@ -164,7 +177,9 @@ namespace Sirius.Game
         public virtual void Play()
         {
             _startedAt = Time.time;
-            foreach (var particle in GetComponentsInChildren<ParticleSystem>(true))
+            // Original OnInitializedParticles runs after light-only objects are
+            // disabled and caches only active child systems.
+            foreach (var particle in GetComponentsInChildren<ParticleSystem>())
                 particle.Play(true);
         }
 
@@ -180,5 +195,16 @@ namespace Sirius.Game
         }
 
         protected void ResetSimulationSpeed() => ChangeSpeed(1f);
+
+        protected static void SetActive(ParticleSystem particle, bool active)
+        {
+            if (particle != null) particle.gameObject.SetActive(active);
+        }
+
+        protected static void SetActive(ParticleSystem[] particles, bool active)
+        {
+            if (particles == null) return;
+            foreach (var particle in particles) SetActive(particle, active);
+        }
     }
 }

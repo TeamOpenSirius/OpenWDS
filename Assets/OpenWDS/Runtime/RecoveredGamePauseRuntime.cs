@@ -188,9 +188,15 @@ namespace OpenWDS.Runtime
         private void PauseForApplicationSuspension()
         {
             // The retail gameplay presenter opens Pause when the application
-            // leaves the foreground. Regaining focus never resumes implicitly;
+            // leaves the foreground only after play has entered the gameplay
+            // state. During GameIntroduction the HUD canvas is intentionally
+            // hidden and the introduction controller owns focus suspension;
+            // opening Pause there would create an unreachable dialog and keep
+            // RecoveredGameRuntime from ever calling BeginGameplay.
+            // Regaining focus never resumes an active gameplay Pause implicitly;
             // the player must use the normal three-second resume path.
             if (_gameRuntime == null || !_gameRuntime.IsInitialized ||
+                !_gameRuntime.IsGameplayStarted ||
                 _gameRuntime.IsPaused || _dialogInstance != null ||
                 _resumeCountDownInstance != null)
                 return;

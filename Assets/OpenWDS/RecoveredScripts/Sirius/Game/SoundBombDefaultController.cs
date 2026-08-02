@@ -15,6 +15,9 @@ namespace Sirius.Game
         private float _startedAt;
         public float AnimationTime => _animationTime;
 
+        // SoundBombController.Initialize has no IsDefaultTapEffect branch.
+        public void ApplyTapEffectType(bool isDefaultTapEffect) { }
+
         public void Initialize(int laneCount, long startMilliseconds, bool isStrong)
         {
             if (_bombEffects == null) return;
@@ -46,7 +49,7 @@ namespace Sirius.Game
         public void Play()
         {
             _startedAt = Time.time;
-            foreach (var particle in GetComponentsInChildren<ParticleSystem>(true))
+            foreach (var particle in GetComponentsInChildren<ParticleSystem>())
                 particle.Play(true);
         }
 

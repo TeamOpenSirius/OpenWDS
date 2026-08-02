@@ -21,6 +21,19 @@ namespace Sirius.Game
         private float _startedAt;
         public float AnimationTime => _animationTime;
 
+        public virtual void ApplyTapEffectType(bool isDefaultTapEffect)
+        {
+            if (isDefaultTapEffect) return;
+            // BombSakuraController.SetUpLightParticles RVA 0xB976B64.
+            SetActive(_bombSmoke, false);
+            SetActive(_bombLights, false);
+            SetActive(_bombPetals, false);
+            SetActive(_bombLeafs, false);
+            SetActive(_bombTrail, false);
+            SetActive(_bombLine1, false);
+            SetActive(_bombLine2, false);
+        }
+
         public virtual void Initialize(int laneCount, long startMilliseconds, bool isStrong)
         {
             var width = laneCount * LaneWidth;
@@ -78,7 +91,7 @@ namespace Sirius.Game
         public void Play()
         {
             _startedAt = Time.time;
-            foreach (var particle in GetComponentsInChildren<ParticleSystem>(true))
+            foreach (var particle in GetComponentsInChildren<ParticleSystem>())
                 particle.Play(true);
         }
 
@@ -99,6 +112,17 @@ namespace Sirius.Game
             }
             var velocity = particle.velocityOverLifetime;
             velocity.speedModifierMultiplier = speed;
+        }
+
+        protected static void SetActive(ParticleSystem particle, bool active)
+        {
+            if (particle != null) particle.gameObject.SetActive(active);
+        }
+
+        protected static void SetActive(ParticleSystem[] particles, bool active)
+        {
+            if (particles == null) return;
+            foreach (var particle in particles) SetActive(particle, active);
         }
     }
 }

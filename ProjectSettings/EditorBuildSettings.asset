@@ -6,9 +6,6 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/OpenWDS/Scenes/LocalMusicSelection.unity
-    guid: 466c7349d0741f146b3ea5251736e33d
-  - enabled: 1
     path: Assets/OpenWDS/Scenes/OfflineRhythmPreview.unity
     guid: 8e835408f3e527646a139afa8b8f68bd
   m_configObjects: {}

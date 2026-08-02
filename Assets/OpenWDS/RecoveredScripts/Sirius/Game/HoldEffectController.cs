@@ -45,7 +45,11 @@ namespace Sirius.Game
                     var particle = _bombBoxes[index];
                     if (particle == null) continue;
                     var main = particle.main;
-                    main.startSizeXMultiplier = width;
+                    // Retail writes the lane width only to BoxTop/BoxUnder.
+                    // BoxLeft/BoxRight keep their authored size and are merely
+                    // moved to the two edges; widening them creates the tall
+                    // endpoint bars visible as an incorrect "H".
+                    if (index < 2) main.startSizeXMultiplier = width;
                     main.loop = true;
                     if (index == 2 || index == 3)
                     {

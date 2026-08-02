@@ -6,6 +6,17 @@ using UnityEngine;
 
 namespace OpenWDS.Runtime
 {
+    /// <summary>
+    /// Original AppConst.SpritEffectSettingType values. The misspelling is kept
+    /// because it is part of the serialized settings contract.
+    /// </summary>
+    public enum RecoveredSpritEffectSettingType
+    {
+        Rich = 0,
+        Normal = 1,
+        Light = 2,
+    }
+
     /// <summary>Runtime loader/pool boundary for the original online SplitEffects.</summary>
     public sealed class RecoveredSplitLaneAssetRuntime : IDisposable
     {
@@ -16,6 +27,8 @@ namespace OpenWDS.Runtime
         private readonly Dictionary<int, Sirius.Game.SplitEffectController> _active =
             new Dictionary<int, Sirius.Game.SplitEffectController>();
         private readonly Transform _parent;
+        private readonly bool _lightSetting;
+        private readonly int _lineOpacity;
 
         public int BundleCount => _bundles.Count;
         public int PrefabCount => _prefabs.Count;
@@ -37,9 +50,17 @@ namespace OpenWDS.Runtime
                 },
             };
 
-        public RecoveredSplitLaneAssetRuntime(Transform parent)
+        public RecoveredSplitLaneAssetRuntime(
+            Transform parent,
+            int spritEffectSettingType = (int)RecoveredSpritEffectSettingType.Normal,
+            int splitEffectLineOpacity = 100)
         {
             _parent = parent ?? throw new ArgumentNullException(nameof(parent));
+            _lightSetting = IsLightSetting(spritEffectSettingType);
+            _lineOpacity = Mathf.Clamp(
+                splitEffectLineOpacity,
+                RecoveredGameSettings.MinimumSplitEffectLineOpacity,
+                RecoveredGameSettings.MaximumSplitEffectLineOpacity);
             var root = Path.Combine(Application.streamingAssetsPath, RelativeRoot);
             if (!Directory.Exists(root)) return;
             var files = Directory.GetFiles(root, "*.bundle", SearchOption.AllDirectories)
@@ -79,6 +100,13 @@ namespace OpenWDS.Runtime
                     UnityEngine.Object.Destroy(instance);
                     return;
                 }
+                var minimumOpacity = RecoveredGameSettings.MinimumSplitEffectLineOpacity;
+                var maximumOpacity = RecoveredGameSettings.MaximumSplitEffectLineOpacity;
+                controller.Initialize(
+                    _lightSetting,
+                    _lineOpacity,
+                    in minimumOpacity,
+                    in maximumOpacity);
                 controller.OnFadeIn(entry.SplitCount, (int)entry.SplitLaneType);
                 ApplyCompatibleShaders(instance);
                 _active[entry.Id] = controller;
@@ -89,6 +117,14 @@ namespace OpenWDS.Runtime
             active.OnFadeOut();
             _active.Remove(entry.Id);
             UnityEngine.Object.Destroy(active.gameObject, 0.5f);
+        }
+
+        public static bool IsLightSetting(int spritEffectSettingType)
+        {
+            // SplitEffectObjectPool.CreateInstance ARM64 compares the enum value
+            // with literal 2 and passes the equality result to Initialize.
+            return spritEffectSettingType ==
+                (int)RecoveredSpritEffectSettingType.Light;
         }
 
         public static int ApplyCompatibleShaders(GameObject root)

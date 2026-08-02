@@ -78,6 +78,8 @@ namespace OpenWDS.Runtime
     {
         private const long IgnorePlayMilliseconds = 25;
         private const int MaxEntriesPerFrame = 25;
+        private readonly List<HistoryKey> _expiredHistoryKeys =
+            new List<HistoryKey>(MaxEntriesPerFrame);
 
         private enum SeCue
         {
@@ -478,13 +480,13 @@ namespace OpenWDS.Runtime
         private void ExpireHistory(long chartMilliseconds)
         {
             if (_history.Count == 0) return;
-            var expired = new List<HistoryKey>();
+            _expiredHistoryKeys.Clear();
             foreach (var item in _history)
             {
                 if (item.Value + IgnorePlayMilliseconds < chartMilliseconds)
-                    expired.Add(item.Key);
+                    _expiredHistoryKeys.Add(item.Key);
             }
-            foreach (var key in expired) _history.Remove(key);
+            foreach (var key in _expiredHistoryKeys) _history.Remove(key);
         }
 
         private static bool UsesEndMilliseconds(RecoveredNoteType noteType) =>

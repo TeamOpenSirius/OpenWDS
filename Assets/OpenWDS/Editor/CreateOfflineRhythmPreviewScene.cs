@@ -681,6 +681,53 @@ namespace OpenWDS.Editor
             CreateLocalMusicSelectionScene.Run();
         }
 
+        // Focused batch gate for Bomb/Hold recovery. The full scene gate also
+        // captures SplitLane through Camera.Render, which can crash Unity's
+        // native headless renderer before these independent checks execute.
+        public static void RunBombHoldVisualValidation()
+        {
+            var laneGroupObject = InstantiatePrefab(LaneGroupPath, null);
+            try
+            {
+                var laneGroup = laneGroupObject.GetComponent<Sirius.Game.LaneGroup>();
+                if (laneGroup == null || laneGroup.LaneEffectParent == null)
+                    throw new InvalidOperationException(
+                        "LaneGroup effect references are required.");
+                var bombValid = ValidateBombEffects();
+                var lifecycleValid = ValidateLaneEffectLifecycle(
+                    laneGroup, laneGroup.LaneEffectParent);
+                Debug.Log("OPENWDS_BOMB_HOLD_VISUAL_VALIDATION bomb=" +
+                          bombValid + " lifecycle=" + lifecycleValid);
+                if (!bombValid || !lifecycleValid)
+                    throw new InvalidOperationException(
+                        "Bomb/Hold visual validation failed.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(laneGroupObject);
+            }
+        }
+
+        // Focused batch gate for the independent ConcurrentLine dictionary
+        // lifecycle. Keep this separate from the full scene render gate so
+        // display/completion regressions can be checked without Camera.Render.
+        public static void RunConcurrentLineVisualValidation()
+        {
+            var root = new GameObject("ConcurrentLineVisualValidation");
+            try
+            {
+                var valid = ValidateConcurrentLineCompletion(root.transform);
+                Debug.Log("OPENWDS_CONCURRENT_LINE_VISUAL_VALIDATION valid=" + valid);
+                if (!valid)
+                    throw new InvalidOperationException(
+                        "ConcurrentLine visual validation failed.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
         private static bool ValidateTapAction()
         {
             var tap = new RecoveredNotationNote
@@ -3659,7 +3706,18 @@ namespace OpenWDS.Editor
                     }
                     var childCountBefore = instance.GetComponentsInChildren<
                         Transform>(true).Length;
-                    if (controller != null) controller.OnFadeIn(3, 3);
+                    if (controller != null)
+                    {
+                        var minimumOpacity =
+                            RecoveredGameSettings.MinimumSplitEffectLineOpacity;
+                        var maximumOpacity =
+                            RecoveredGameSettings.MaximumSplitEffectLineOpacity;
+                        controller.Initialize(
+                            false, 100, in minimumOpacity, in maximumOpacity);
+                        controller.OnFadeIn(3, 3);
+                    }
+                    var settingBehaviorValid = ValidateSplitEffectSettings(
+                        prefab, splitEffectParent);
                     var compatibleShaderReplacements =
                         RecoveredSplitLaneAssetRuntime.ApplyCompatibleShaders(instance);
                     var spawnedChildren = instance.GetComponentsInChildren<
@@ -3734,7 +3792,7 @@ namespace OpenWDS.Editor
                         "positions={9},positionValid={10},shaderReplacements={11}," +
                         "elementParents={12},elementParentsValid={13}," +
                         "unsupportedShaders={14},splitParentValid={15}," +
-                        "lineShadersValid={16}]",
+                        "lineShadersValid={16},settingBehaviorValid={17}]",
                         prefab.name,
                         instance.GetComponentsInChildren<Animator>(true).Length,
                         instance.GetComponentsInChildren<SpriteRenderer>(true).Length,
@@ -3751,14 +3809,15 @@ namespace OpenWDS.Editor
                         elementParentsValid,
                         string.Join("/", new List<string>(unsupportedShaders).ToArray()),
                         splitEffectParentValid,
-                        lineShadersValid));
+                        lineShadersValid,
+                        settingBehaviorValid));
                     if (instance.GetComponentsInChildren<Animator>(true).Length == 1 &&
                         instance.GetComponentsInChildren<SpriteRenderer>(true).Length == 7 &&
                         controller != null && elementSlots > 0 &&
                         elementReferences == elementSlots && spawnedChildren > 0 &&
                         splitPositionsValid && elementParentsValid &&
                         splitEffectParentValid && lineShadersValid && missing == 0 &&
-                        unsupportedShaders.Count == 0)
+                        unsupportedShaders.Count == 0 && settingBehaviorValid)
                         validPrefabs++;
                     UnityEngine.Object.DestroyImmediate(instance);
                 }
@@ -3771,6 +3830,98 @@ namespace OpenWDS.Editor
             foreach (var bundle in bundles) bundle.Unload(false);
             return files.Length == 14 && bundles.Count == 14 && validPrefabs == 3 &&
                    splitPreviewCaptured;
+        }
+
+        private static bool ValidateSplitEffectSettings(
+            GameObject prefab, Transform parent)
+        {
+            if (prefab == null || parent == null) return false;
+            if (RecoveredSplitLaneAssetRuntime.IsLightSetting(
+                    (int)RecoveredSpritEffectSettingType.Rich) ||
+                RecoveredSplitLaneAssetRuntime.IsLightSetting(
+                    (int)RecoveredSpritEffectSettingType.Normal) ||
+                !RecoveredSplitLaneAssetRuntime.IsLightSetting(
+                    (int)RecoveredSpritEffectSettingType.Light))
+                return false;
+
+            var normal = UnityEngine.Object.Instantiate(prefab, parent, false);
+            var globalLight = UnityEngine.Object.Instantiate(prefab, parent, false);
+            var dim = UnityEngine.Object.Instantiate(prefab, parent, false);
+            try
+            {
+                var minimumOpacity =
+                    RecoveredGameSettings.MinimumSplitEffectLineOpacity;
+                var maximumOpacity =
+                    RecoveredGameSettings.MaximumSplitEffectLineOpacity;
+                var normalController = normal.GetComponent<
+                    Sirius.Game.SplitEffectController>();
+                var lightController = globalLight.GetComponent<
+                    Sirius.Game.SplitEffectController>();
+                var dimController = dim.GetComponent<
+                    Sirius.Game.SplitEffectController>();
+                if (normalController == null || lightController == null ||
+                    dimController == null)
+                    return false;
+
+                normalController.Initialize(
+                    false, 100, in minimumOpacity, in maximumOpacity);
+                normalController.OnFadeIn(3, (int)RecoveredSplitLaneType.Full);
+                var fullParticles = CountPlayingParticles(normal);
+                normalController.Clear();
+                normalController.OnFadeIn(3, (int)RecoveredSplitLaneType.BothEnds);
+                var bothEndParticles = CountPlayingParticles(normal);
+                normalController.Clear();
+                normalController.OnFadeIn(3, (int)RecoveredSplitLaneType.Light);
+                var chartLightParticles = CountPlayingParticles(normal);
+                normalController.Clear();
+                normalController.OnFadeIn(3, (int)RecoveredSplitLaneType.Ignore);
+                var ignoreParticles = CountPlayingParticles(normal);
+
+                lightController.Initialize(
+                    true, 100, in minimumOpacity, in maximumOpacity);
+                lightController.OnFadeIn(3, (int)RecoveredSplitLaneType.Full);
+                var globalLightParticles = CountPlayingParticles(globalLight);
+
+                dimController.Initialize(
+                    false, 10, in minimumOpacity, in maximumOpacity);
+                var opacityValid = true;
+                var dimElements = dim.GetComponentsInChildren<
+                    Sirius.Game.SplitEffectElement>(true);
+                var checkedLines = 0;
+                foreach (var element in dimElements)
+                {
+                    if (element.transform.parent == null) continue;
+                    var line = element.transform.parent.GetComponent<SpriteRenderer>();
+                    if (line == null) continue;
+                    var source = element.LineColor;
+                    var actual = line.color;
+                    opacityValid &= Mathf.Approximately(actual.r, source.r * 0.1f) &&
+                                    Mathf.Approximately(actual.g, source.g * 0.1f) &&
+                                    Mathf.Approximately(actual.b, source.b * 0.1f) &&
+                                    Mathf.Approximately(actual.a, source.a);
+                    checkedLines++;
+                }
+
+                return fullParticles > 0 && bothEndParticles > 0 &&
+                       bothEndParticles < fullParticles &&
+                       chartLightParticles == 0 && ignoreParticles == 0 &&
+                       globalLightParticles == 0 && checkedLines == 7 &&
+                       opacityValid;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(normal);
+                UnityEngine.Object.DestroyImmediate(globalLight);
+                UnityEngine.Object.DestroyImmediate(dim);
+            }
+        }
+
+        private static int CountPlayingParticles(GameObject root)
+        {
+            var count = 0;
+            foreach (var particle in root.GetComponentsInChildren<ParticleSystem>(true))
+                if (particle.isPlaying) count++;
+            return count;
         }
 
         private static void LogSplitLaneParticleState(
@@ -4199,6 +4350,15 @@ namespace OpenWDS.Editor
                 Lane = 3,
                 Width = 2,
             };
+            var shifted = new RecoveredNotationNote
+            {
+                Id = 9102,
+                StartTickCount = 2f,
+                EndTickCount = 3f,
+                NoteType = (int)RecoveredNoteType.ScratchHold,
+                Lane = 8,
+                Width = 3,
+            };
             beamDisabledRuntime.OnEffect(RecoveredInputEffectEntity.OnBeam(
                 start, RecoveredTimingType.PerfectStar));
             if (beamDisabledRuntime.ActiveBeamCount != 0 ||
@@ -4207,6 +4367,7 @@ namespace OpenWDS.Editor
             runtime.OnEffect(RecoveredInputEffectEntity.OnHoldStart(start));
             var instance = FindChild(effectParent, "Runtime_Hold_9100");
             if (instance == null) return false;
+            Transform shiftedInstance = null;
             try
             {
                 var firstX = effectParent.InverseTransformPoint(
@@ -4228,11 +4389,25 @@ namespace OpenWDS.Editor
                 {
                     if (particle.main.loop) return false;
                 }
-                return true;
+                runtime.OnEffect(RecoveredInputEffectEntity.OnHoldStart(shifted));
+                shiftedInstance = FindChild(effectParent, "Runtime_Hold_9102");
+                if (shiftedInstance == null || shiftedInstance == instance)
+                    return false;
+                var shiftedFirstX = effectParent.InverseTransformPoint(
+                    laneGroup.GetLaneCollider(8).position).x;
+                var shiftedLastX = effectParent.InverseTransformPoint(
+                    laneGroup.GetLaneCollider(10).position).x;
+                return Mathf.Approximately(
+                           shiftedInstance.localPosition.x,
+                           (shiftedFirstX + shiftedLastX) * 0.5f) &&
+                       Mathf.Approximately(shiftedInstance.localPosition.y, 0f) &&
+                       Mathf.Approximately(shiftedInstance.localPosition.z, 0f);
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(instance.gameObject);
+                if (shiftedInstance != null)
+                    UnityEngine.Object.DestroyImmediate(shiftedInstance.gameObject);
             }
         }
 
@@ -4252,7 +4427,9 @@ namespace OpenWDS.Editor
                     sakuraPrefabs) != sakuraPrefabs ||
                 (int)RecoveredBombType.Default != 1 ||
                 (int)RecoveredBombType.Notes != 2 ||
-                (int)RecoveredBombType.Sakura != 3)
+                (int)RecoveredBombType.Sakura != 3 ||
+                (int)RecoveredGameTapEffectType.Default != 0 ||
+                (int)RecoveredGameTapEffectType.Light != 1)
                 return false;
             if (RecoveredLaneEffectRuntime.GetBombPrefabIndex(
                     RecoveredNoteType.Normal) != 0 ||
@@ -4304,10 +4481,22 @@ namespace OpenWDS.Editor
                     return false;
                 }
 
-                hold.Initialize(4, false, RecoveredLaneEffectRuntime.SingleLaneWidth);
                 var holdSerialized = new SerializedObject(hold);
                 var holdSquare = holdSerialized.FindProperty("_bombSquare")
                     .objectReferenceValue as ParticleSystem;
+                var holdBoxes = holdSerialized.FindProperty("_bombBoxes");
+                if (holdBoxes == null || holdBoxes.arraySize != 4) return false;
+                var holdSideLeft = holdBoxes.GetArrayElementAtIndex(2)
+                    .objectReferenceValue as ParticleSystem;
+                var holdSideRight = holdBoxes.GetArrayElementAtIndex(3)
+                    .objectReferenceValue as ParticleSystem;
+                var authoredSideLeftSize = holdSideLeft != null
+                    ? holdSideLeft.main.startSizeXMultiplier : 0f;
+                var authoredSideRightSize = holdSideRight != null
+                    ? holdSideRight.main.startSizeXMultiplier : 0f;
+                // Re-run after capturing the authored endpoint sizes. Retail
+                // changes only the first two box widths.
+                hold.Initialize(4, false, RecoveredLaneEffectRuntime.SingleLaneWidth);
                 var holdParticle = holdSerialized.FindProperty("_bombParticle")
                     .objectReferenceValue as ParticleSystem;
                 var holdStar = holdSerialized.FindProperty("_bombStar")
@@ -4315,6 +4504,13 @@ namespace OpenWDS.Editor
                 if (holdSquare == null || holdParticle == null || holdStar == null ||
                     !Mathf.Approximately(holdSquare.main.startSizeX.constantMin, 2.9f) ||
                     !Mathf.Approximately(holdSquare.main.startSizeX.constantMax, 3.7f) ||
+                    holdSideLeft == null || holdSideRight == null ||
+                    !Mathf.Approximately(
+                        holdSideLeft.main.startSizeXMultiplier,
+                        authoredSideLeftSize) ||
+                    !Mathf.Approximately(
+                        holdSideRight.main.startSizeXMultiplier,
+                        authoredSideRightSize) ||
                     !Mathf.Approximately(holdParticle.shape.scale.x, 3.7f) ||
                     !Mathf.Approximately(
                         holdParticle.emission.rateOverTime.constant, 120f) ||
@@ -4329,13 +4525,187 @@ namespace OpenWDS.Editor
                     if (particle.main.loop) return false;
                 }
                 return ValidateAlternateBombStyle(notesPrefabs, true) &&
-                       ValidateAlternateBombStyle(sakuraPrefabs, false);
+                       ValidateAlternateBombStyle(sakuraPrefabs, false) &&
+                       ValidateTapEffectModes(
+                           defaultPrefabs, notesPrefabs, sakuraPrefabs);
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(bombObject);
                 UnityEngine.Object.DestroyImmediate(holdObject);
             }
+        }
+
+        private static bool ValidateTapEffectModes(
+            GameObject[] defaultPrefabs,
+            GameObject[] notesPrefabs,
+            GameObject[] sakuraPrefabs)
+        {
+            var defaultBomb = UnityEngine.Object.Instantiate(defaultPrefabs[0]);
+            var notesBomb = UnityEngine.Object.Instantiate(notesPrefabs[0]);
+            var sakuraBomb = UnityEngine.Object.Instantiate(sakuraPrefabs[0]);
+            var scratchBomb = UnityEngine.Object.Instantiate(defaultPrefabs[4]);
+            var soundBomb = UnityEngine.Object.Instantiate(defaultPrefabs[5]);
+            try
+            {
+                var defaultController = defaultBomb.GetComponent<
+                    Sirius.Game.IRecoveredBombController>();
+                var notesController = notesBomb.GetComponent<
+                    Sirius.Game.IRecoveredBombController>();
+                var sakuraController = sakuraBomb.GetComponent<
+                    Sirius.Game.IRecoveredBombController>();
+                var scratchController = scratchBomb.GetComponent<
+                    Sirius.Game.IRecoveredBombController>();
+                var soundController = soundBomb.GetComponent<
+                    Sirius.Game.IRecoveredBombController>();
+                if (defaultController == null || notesController == null ||
+                    sakuraController == null || scratchController == null ||
+                    soundController == null)
+                    return false;
+
+                var defaultSerialized = new SerializedObject(
+                    defaultBomb.GetComponent<Sirius.Game.BombController>());
+                var notesSerialized = new SerializedObject(
+                    notesBomb.GetComponent<Sirius.Game.BombNotesController>());
+                var sakuraSerialized = new SerializedObject(
+                    sakuraBomb.GetComponent<Sirius.Game.BombSakuraController>());
+                var defaultSquareBefore = ParticleActive(
+                    defaultSerialized, "_bombSquare");
+                var defaultFlareBefore = ParticleActive(
+                    defaultSerialized, "_bombFlare");
+                var notesCircleBefore = ParticleActive(
+                    notesSerialized, "_bombCircle");
+                var notesRoteBefore = ParticleActive(
+                    notesSerialized, "_bombRote");
+                var sakuraFlowerBefore = ParticleActive(
+                    sakuraSerialized, "_bombFlower");
+                var soundActiveBefore = soundBomb.GetComponentsInChildren<
+                    ParticleSystem>(true).Count(x => x.gameObject.activeSelf);
+                defaultController.ApplyTapEffectType(false);
+                notesController.ApplyTapEffectType(false);
+                sakuraController.ApplyTapEffectType(false);
+                scratchController.ApplyTapEffectType(false);
+                soundController.ApplyTapEffectType(false);
+
+                if (ParticleActive(defaultSerialized, "_bombSquare") !=
+                        defaultSquareBefore ||
+                    ParticleActive(defaultSerialized, "_bombFlare") !=
+                        defaultFlareBefore ||
+                    !ParticleArrayInactive(defaultSerialized, "_bombBoxes") ||
+                    !ParticleArrayInactive(defaultSerialized, "_bombPillers") ||
+                    !ParticleInactive(defaultSerialized, "_bombParticle") ||
+                    !ParticleInactive(defaultSerialized, "_bombStar") ||
+                    !ParticleInactive(defaultSerialized, "_bombStarCenter"))
+                {
+                    Debug.Log("OPENWDS_TAP_EFFECT_LIGHT invalid=Default");
+                    return false;
+                }
+
+                if (ParticleActive(notesSerialized, "_bombCircle") !=
+                        notesCircleBefore ||
+                    ParticleActive(notesSerialized, "_bombRote") !=
+                        notesRoteBefore ||
+                    !ParticleInactive(notesSerialized, "_bombLight") ||
+                    !ParticleArrayInactive(notesSerialized, "_bombLights") ||
+                    !ParticleInactive(notesSerialized, "_bombNotes") ||
+                    !ParticleInactive(notesSerialized, "_bombLines") ||
+                    !ParticleInactive(notesSerialized, "_bombRings1") ||
+                    !ParticleInactive(notesSerialized, "_bombRings2"))
+                {
+                    Debug.Log("OPENWDS_TAP_EFFECT_LIGHT invalid=Notes");
+                    return false;
+                }
+
+                if (ParticleActive(sakuraSerialized, "_bombFlower") !=
+                        sakuraFlowerBefore ||
+                    !ParticleInactive(sakuraSerialized, "_bombSmoke") ||
+                    !ParticleArrayInactive(sakuraSerialized, "_bombLights") ||
+                    !ParticleInactive(sakuraSerialized, "_bombPetals") ||
+                    !ParticleInactive(sakuraSerialized, "_bombLeafs") ||
+                    !ParticleInactive(sakuraSerialized, "_bombTrail") ||
+                    !ParticleInactive(sakuraSerialized, "_bombLine1") ||
+                    !ParticleInactive(sakuraSerialized, "_bombLine2"))
+                {
+                    Debug.Log("OPENWDS_TAP_EFFECT_LIGHT invalid=Sakura");
+                    return false;
+                }
+
+                var scratch = scratchBomb.GetComponent<
+                    Sirius.Game.ScratchBombController>();
+                var scratchSerialized = new SerializedObject(scratch);
+                var slash = scratchSerialized.FindProperty("_slashEffectTransform")
+                    ?.objectReferenceValue as Transform;
+                var flare = scratchSerialized.FindProperty("_scratchBombFlare")
+                    ?.objectReferenceValue as Transform;
+                if (slash == null || flare == null)
+                {
+                    Debug.Log("OPENWDS_TAP_EFFECT_LIGHT invalid=ScratchReferences");
+                    return false;
+                }
+                var disabledScratchRenderers = 0;
+                foreach (var renderer in slash.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (renderer.gameObject == flare.gameObject)
+                        continue;
+                    if (renderer.enabled)
+                    {
+                        Debug.Log("OPENWDS_TAP_EFFECT_LIGHT invalid=ScratchRenderer");
+                        return false;
+                    }
+                    disabledScratchRenderers++;
+                }
+                scratchController.Initialize(4, 1000, true);
+                var flareRenderer = flare.GetComponent<Renderer>();
+                if (!slash.gameObject.activeSelf || !flare.gameObject.activeSelf ||
+                    flareRenderer == null || !flareRenderer.enabled)
+                {
+                    Debug.Log("OPENWDS_TAP_EFFECT_LIGHT invalid=ScratchStrongFlare");
+                    return false;
+                }
+
+                var soundActiveAfter = soundBomb.GetComponentsInChildren<
+                    ParticleSystem>(true).Count(x => x.gameObject.activeSelf);
+                return disabledScratchRenderers > 0 &&
+                       soundActiveBefore == soundActiveAfter;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(defaultBomb);
+                UnityEngine.Object.DestroyImmediate(notesBomb);
+                UnityEngine.Object.DestroyImmediate(sakuraBomb);
+                UnityEngine.Object.DestroyImmediate(scratchBomb);
+                UnityEngine.Object.DestroyImmediate(soundBomb);
+            }
+        }
+
+        private static bool ParticleActive(SerializedObject owner, string field)
+        {
+            var particle = owner.FindProperty(field)?.objectReferenceValue as
+                ParticleSystem;
+            return particle != null && particle.gameObject.activeSelf;
+        }
+
+        private static bool ParticleInactive(SerializedObject owner, string field)
+        {
+            var particle = owner.FindProperty(field)?.objectReferenceValue as
+                ParticleSystem;
+            // Retail SetUpLightParticles null-checks every serialized reference.
+            return particle == null || !particle.gameObject.activeSelf;
+        }
+
+        private static bool ParticleArrayInactive(
+            SerializedObject owner, string field)
+        {
+            var particles = owner.FindProperty(field);
+            if (particles == null || !particles.isArray || particles.arraySize == 0)
+                return true;
+            for (var index = 0; index < particles.arraySize; index++)
+            {
+                var particle = particles.GetArrayElementAtIndex(index)
+                    .objectReferenceValue as ParticleSystem;
+                if (particle != null && particle.gameObject.activeSelf) return false;
+            }
+            return true;
         }
 
         private static bool ValidateAlternateBombStyle(
@@ -4548,11 +4918,51 @@ namespace OpenWDS.Editor
                 StartTickCount = 2f,
                 EndTickCount = -0.001f,
             };
+            var holdStart = new RecoveredNotationNote
+            {
+                Id = 990005,
+                NoteType = (int)RecoveredNoteType.HoldStart,
+                Lane = 1,
+                Width = 1,
+                StartTickCount = 4f,
+                EndTickCount = -0.001f,
+            };
+            var holdStartPair = new RecoveredNotationNote
+            {
+                Id = 990006,
+                NoteType = (int)RecoveredNoteType.CriticalHoldStart,
+                Lane = 10,
+                Width = 1,
+                StartTickCount = 4f,
+                EndTickCount = -0.001f,
+            };
+            var holdBody = new RecoveredNotationNote
+            {
+                Id = 990007,
+                NoteType = (int)RecoveredNoteType.Hold,
+                Lane = 2,
+                Width = 1,
+                StartTickCount = 5f,
+                EndTickCount = 6f,
+            };
+            var holdBodyPair = new RecoveredNotationNote
+            {
+                Id = 990008,
+                NoteType = (int)RecoveredNoteType.ScratchHold,
+                Lane = 9,
+                Width = 1,
+                StartTickCount = 5f,
+                EndTickCount = 6f,
+            };
             var runtime = new RecoveredNoteVisualRuntime(
-                new[] { first, firstPair, missed, missedPair },
+                new[]
+                {
+                    first, firstPair, missed, missedPair,
+                    holdStart, holdStartPair, holdBody, holdBodyPair,
+                },
                 parent, LoadRuntimeNotePrefabs(), 5d);
             runtime.Tick(1000L);
-            if (runtime.TotalConcurrentLineCount != 2 ||
+            if (runtime.TotalConcurrentLineCount != 4 ||
                 runtime.ActiveConcurrentLineCount != 2)
             {
                 return false;
@@ -4577,8 +4987,44 @@ namespace OpenWDS.Editor
             {
                 RecoveredInputResultEntity.OnMiss(missed),
             });
-            return runtime.ActiveConcurrentLineCount == 1 &&
-                   runtime.CompletedConcurrentLineCount == 1;
+            if (runtime.ActiveConcurrentLineCount != 1 ||
+                runtime.CompletedConcurrentLineCount != 1)
+            {
+                return false;
+            }
+
+            // HoldStart has EndMilliseconds=-1 in notation. Retail still clears
+            // its concurrent line with StartMilliseconds, not by the broad
+            // numeric test NoteType > Flick that the old recovery used.
+            runtime.Tick(4000L);
+            runtime.OnInputResults(new[]
+            {
+                RecoveredInputResultEntity.Create(
+                    holdStart,
+                    new RecoveredTimingDecision(
+                        RecoveredTimingType.PerfectStar,
+                        RecoveredTimingAssistType.None,
+                        0L)),
+            });
+            if (runtime.ActiveConcurrentLineCount != 0 ||
+                runtime.CompletedConcurrentLineCount != 2)
+            {
+                return false;
+            }
+
+            // Hold/ScratchHold bodies are grouped and completed by EndMilliseconds.
+            runtime.Tick(6000L);
+            runtime.OnInputResults(new[]
+            {
+                RecoveredInputResultEntity.Create(
+                    holdBody,
+                    new RecoveredTimingDecision(
+                        RecoveredTimingType.PerfectStar,
+                        RecoveredTimingAssistType.None,
+                        0L)),
+            });
+            return runtime.ActiveConcurrentLineCount == 0 &&
+                   runtime.CompletedConcurrentLineCount == 3;
         }
 
         private static bool ValidateHoldVisualState(Transform parent)

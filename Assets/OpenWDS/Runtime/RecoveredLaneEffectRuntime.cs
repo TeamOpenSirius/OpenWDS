@@ -11,6 +11,12 @@ namespace OpenWDS.Runtime
         Sakura = 3,
     }
 
+    public enum RecoveredGameTapEffectType
+    {
+        Default = 0,
+        Light = 1,
+    }
+
     /// <summary>
     /// First executable slice of LaneEffectController: note Beam effects use the
     /// original prefab, lane coordinates and 0.925 lane pitch. Instances expire
@@ -25,6 +31,7 @@ namespace OpenWDS.Runtime
         private readonly GameObject _beamPrefab;
         private readonly GameObject[] _bombPrefabs;
         private readonly bool _isActiveKeyBeam;
+        private readonly bool _isDefaultTapEffect;
         private readonly List<Sirius.Game.BeamEffectController> _beams =
             new List<Sirius.Game.BeamEffectController>(32);
         private readonly Stack<GameObject> _beamPool = new Stack<GameObject>(16);
@@ -68,12 +75,21 @@ namespace OpenWDS.Runtime
             GameObject[] defaultBombPrefabs,
             GameObject[] notesBombPrefabs,
             GameObject[] sakuraBombPrefabs,
-            bool isActiveKeyBeam = true)
+            bool isActiveKeyBeam = true,
+            RecoveredGameTapEffectType tapEffectType =
+                RecoveredGameTapEffectType.Default)
         {
             _laneGroup = laneGroup ?? throw new ArgumentNullException(nameof(laneGroup));
             _parent = parent ?? throw new ArgumentNullException(nameof(parent));
             _beamPrefab = beamPrefab ?? throw new ArgumentNullException(nameof(beamPrefab));
             _isActiveKeyBeam = isActiveKeyBeam;
+            if (tapEffectType != RecoveredGameTapEffectType.Default &&
+                tapEffectType != RecoveredGameTapEffectType.Light)
+                throw new ArgumentOutOfRangeException(
+                    nameof(tapEffectType), tapEffectType,
+                    "Original GameTapEffectType values are Default=0, Light=1.");
+            _isDefaultTapEffect =
+                tapEffectType == RecoveredGameTapEffectType.Default;
             _bombPrefabs = SelectBombPrefabs(
                 bombType, defaultBombPrefabs, notesBombPrefabs, sakuraBombPrefabs);
             if (_bombPrefabs.Length != 6)
@@ -81,6 +97,49 @@ namespace OpenWDS.Runtime
             _bombPools = new Stack<GameObject>[_bombPrefabs.Length];
             for (var index = 0; index < _bombPools.Length; index++)
                 _bombPools[index] = new Stack<GameObject>(16);
+            PrewarmPools();
+        }
+
+        private void PrewarmPools()
+        {
+            // Retail LaneEffectSpawner and BombSpawner preload their ObjectPools.
+            // Pre-create and evaluate one instance per concrete prefab before the
+            // first judgment; Rent retains its existing concurrency fallback.
+            if (_isActiveKeyBeam)
+                Prewarm(_beamPrefab, _beamPool);
+            for (var index = 0; index < _bombPrefabs.Length; index++)
+                // Index 2 is the continuous HoldEffect, not a BombControllerBase
+                // object and has no GameTapEffectType consumer in retail code.
+                Prewarm(_bombPrefabs[index], _bombPools[index], index != 2);
+        }
+
+        private void Prewarm(
+            GameObject prefab, Stack<GameObject> pool, bool applyTapEffect = false)
+        {
+            var instance = UnityEngine.Object.Instantiate(prefab, _parent, false);
+            if (applyTapEffect)
+            {
+                var bomb = instance.GetComponent<Sirius.Game.IRecoveredBombController>();
+                if (bomb == null)
+                    throw new InvalidOperationException(
+                        "Recovered bomb controller is required.");
+                bomb.ApplyTapEffectType(_isDefaultTapEffect);
+            }
+            foreach (var animator in
+                     instance.GetComponentsInChildren<Animator>(true))
+            {
+                animator.Rebind();
+                animator.Update(0f);
+            }
+            foreach (var particle in
+                     instance.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                particle.Simulate(0f, true, true, true);
+                particle.Stop(
+                    true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
+            instance.SetActive(false);
+            pool.Push(instance);
         }
 
         public void OnEffect(in RecoveredInputEffectEntity effect)
@@ -131,6 +190,7 @@ namespace OpenWDS.Runtime
             var bomb = instance.GetComponent<Sirius.Game.IRecoveredBombController>();
             if (bomb == null)
                 throw new InvalidOperationException("Recovered bomb controller is required.");
+            bomb.ApplyTapEffectType(_isDefaultTapEffect);
             bomb.Initialize(effect.Width, effect.StartMilliseconds, strong);
             var isScratch = IsScratch(effect.NoteType) ||
                             effect.NoteType == RecoveredNoteType.SoundPurple;

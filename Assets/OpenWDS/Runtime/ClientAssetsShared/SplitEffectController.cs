@@ -149,7 +149,7 @@ namespace Sirius.Game
         private void EnsureInitialized()
         {
             if (_cachedTransform != null) return;
-            var minimumOpacity = 0;
+            var minimumOpacity = 10;
             var maximumOpacity = 100;
             Initialize(false, 100, in minimumOpacity, in maximumOpacity);
         }
