@@ -728,6 +728,117 @@ namespace OpenWDS.Editor
             }
         }
 
+        // Focused, render-free gate for the 10170 authored particle motion.
+        // SplitEffectController.Initialize ARM64 writes Y=27 to the Animator
+        // Transform, not to the controller root. Keeping this independent of
+        // Camera.Render makes the scale/arc contract safe to run headlessly.
+        public static void RunSplitLaneShaderParticleValidation()
+        {
+            var root = Path.Combine(
+                Application.streamingAssetsPath, "OpenWDS/SplitLane/1.96.0");
+            var files = Directory.GetFiles(
+                root, "*.bundle", SearchOption.AllDirectories);
+            Array.Sort(files, (left, right) =>
+            {
+                var leftMain = left.Contains(
+                    "game_splitlane_assets_spliteffects") ? 1 : 0;
+                var rightMain = right.Contains(
+                    "game_splitlane_assets_spliteffects") ? 1 : 0;
+                var compare = leftMain.CompareTo(rightMain);
+                return compare != 0
+                    ? compare : string.CompareOrdinal(left, right);
+            });
+
+            var bundles = new List<AssetBundle>();
+            GameObject instance = null;
+            try
+            {
+                foreach (var file in files)
+                {
+                    var bundle = AssetBundle.LoadFromFile(file);
+                    if (bundle == null) continue;
+                    bundles.Add(bundle);
+                    if (!file.Contains("game_splitlane_assets_spliteffects"))
+                    {
+                        bundle.LoadAllAssets<UnityEngine.Object>();
+                        continue;
+                    }
+                    foreach (var prefab in bundle.LoadAllAssets<GameObject>())
+                        if (prefab.name == "10170")
+                            instance = UnityEngine.Object.Instantiate(prefab);
+                }
+
+                var controller = instance != null
+                    ? instance.GetComponent<Sirius.Game.SplitEffectController>()
+                    : null;
+                if (controller == null)
+                    throw new InvalidOperationException(
+                        "SplitEffect 10170 controller was not resolved.");
+                var minimumOpacity =
+                    RecoveredGameSettings.MinimumSplitEffectLineOpacity;
+                var maximumOpacity =
+                    RecoveredGameSettings.MaximumSplitEffectLineOpacity;
+                controller.Initialize(
+                    false, 100, in minimumOpacity, in maximumOpacity);
+
+                var animator = instance.GetComponentInChildren<Animator>(true);
+                var rootScaleY = instance.transform.localScale.y;
+                var animatorScaleY = animator != null
+                    ? animator.transform.localScale.y : float.NaN;
+                var circleSystems = 0;
+                var authoredArcSystems = 0;
+                var worldLocalSystems = 0;
+                var maxLossyScaleY = 0f;
+                foreach (var particle in instance.GetComponentsInChildren<
+                             ParticleSystem>(true))
+                {
+                    maxLossyScaleY = Mathf.Max(
+                        maxLossyScaleY, particle.transform.lossyScale.y);
+                    var main = particle.main;
+                    if (main.simulationSpace ==
+                            ParticleSystemSimulationSpace.World &&
+                        main.scalingMode == ParticleSystemScalingMode.Local)
+                        worldLocalSystems++;
+                    var shape = particle.shape;
+                    if (shape.shapeType != ParticleSystemShapeType.Circle ||
+                        shape.arcMode != ParticleSystemShapeMultiModeValue.Loop)
+                        continue;
+                    circleSystems++;
+                    if (shape.arcSpeed.mode ==
+                            ParticleSystemCurveMode.Curve &&
+                        Mathf.Approximately(shape.arcSpeedMultiplier, 40f))
+                        authoredArcSystems++;
+                }
+
+                var systems = instance.GetComponentsInChildren<ParticleSystem>(
+                    true).Length;
+                var valid = files.Length == 14 && bundles.Count == 14 &&
+                    Mathf.Approximately(rootScaleY, 1f) &&
+                    Mathf.Approximately(animatorScaleY, 27f) &&
+                    Mathf.Approximately(maxLossyScaleY, 27f) &&
+                    systems == 35 && worldLocalSystems == 35 &&
+                    circleSystems == 21 && authoredArcSystems == 21;
+                Debug.Log(
+                    "OPENWDS_SPLIT_SHADER_PARTICLE_VALIDATION valid=" + valid +
+                    " rootScaleY=" + rootScaleY +
+                    " animatorScaleY=" + animatorScaleY +
+                    " maxLossyScaleY=" + maxLossyScaleY +
+                    " systems=" + systems +
+                    " worldLocal=" + worldLocalSystems +
+                    " circles=" + circleSystems +
+                    " authoredArc40=" + authoredArcSystems);
+                if (!valid)
+                    throw new InvalidOperationException(
+                        "SplitEffect 10170 transform/particle validation failed.");
+            }
+            finally
+            {
+                if (instance != null)
+                    UnityEngine.Object.DestroyImmediate(instance);
+                foreach (var bundle in bundles) bundle.Unload(false);
+            }
+        }
+
         private static bool ValidateTapAction()
         {
             var tap = new RecoveredNotationNote
@@ -3718,6 +3829,14 @@ namespace OpenWDS.Editor
                     }
                     var settingBehaviorValid = ValidateSplitEffectSettings(
                         prefab, splitEffectParent);
+                    var transformScaleValid = false;
+                    var scaleAnimator = instance.GetComponentInChildren<Animator>(true);
+                    if (scaleAnimator != null)
+                    {
+                        transformScaleValid =
+                            Mathf.Approximately(instance.transform.localScale.y, 1f) &&
+                            Mathf.Approximately(scaleAnimator.transform.localScale.y, 27f);
+                    }
                     var compatibleShaderReplacements =
                         RecoveredSplitLaneAssetRuntime.ApplyCompatibleShaders(instance);
                     var spawnedChildren = instance.GetComponentsInChildren<
@@ -3792,7 +3911,8 @@ namespace OpenWDS.Editor
                         "positions={9},positionValid={10},shaderReplacements={11}," +
                         "elementParents={12},elementParentsValid={13}," +
                         "unsupportedShaders={14},splitParentValid={15}," +
-                        "lineShadersValid={16},settingBehaviorValid={17}]",
+                        "lineShadersValid={16},settingBehaviorValid={17}," +
+                        "transformScaleValid={18}]",
                         prefab.name,
                         instance.GetComponentsInChildren<Animator>(true).Length,
                         instance.GetComponentsInChildren<SpriteRenderer>(true).Length,
@@ -3810,14 +3930,16 @@ namespace OpenWDS.Editor
                         string.Join("/", new List<string>(unsupportedShaders).ToArray()),
                         splitEffectParentValid,
                         lineShadersValid,
-                        settingBehaviorValid));
+                        settingBehaviorValid,
+                        transformScaleValid));
                     if (instance.GetComponentsInChildren<Animator>(true).Length == 1 &&
                         instance.GetComponentsInChildren<SpriteRenderer>(true).Length == 7 &&
                         controller != null && elementSlots > 0 &&
                         elementReferences == elementSlots && spawnedChildren > 0 &&
                         splitPositionsValid && elementParentsValid &&
                         splitEffectParentValid && lineShadersValid && missing == 0 &&
-                        unsupportedShaders.Count == 0 && settingBehaviorValid)
+                        unsupportedShaders.Count == 0 && settingBehaviorValid &&
+                        transformScaleValid)
                         validPrefabs++;
                     UnityEngine.Object.DestroyImmediate(instance);
                 }

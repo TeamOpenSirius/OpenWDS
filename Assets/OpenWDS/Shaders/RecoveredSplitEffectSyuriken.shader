@@ -71,7 +71,7 @@ Shader "OpenWDS/Recovered/SplitEffect/SplitEffectSyuriken"
                 outer = outer * outer * (3.0 - 2.0 * outer);
                 float2 outerPair = 1.0 - (outer.wy + outer.zx);
                 float colorMask = 1.0 - outerPair.x * outerPair.y;
-                colorMask = 1.0 - min(pow(abs(colorMask), 4.0), 1.0);
+                colorMask = min(pow(abs(colorMask), 4.0), 1.0);
 
                 float4 inner = input.uv.xxyx +
                     float4(-0.25, -0.75, -0.25, -0.544999957);

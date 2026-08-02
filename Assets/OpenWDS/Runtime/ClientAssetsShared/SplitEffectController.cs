@@ -37,14 +37,20 @@ namespace Sirius.Game
             _cachedTransform = transform;
             _splitEffectLightSetting = splitEffectLightSetting;
 
-            var scale = _cachedTransform.localScale;
-            scale.y = LineHeight;
-            _cachedTransform.localScale = scale;
             if (_splitEffectAnimator != null)
             {
-                var animatorPosition = _splitEffectAnimator.transform.localPosition;
+                // ARM64 0x597D7C8 reloads _splitEffectAnimator (+0x40), gets
+                // its Transform, and only then writes Y=27. It does not scale
+                // the controller root cached above at +0x70. Scaling the root
+                // multiplied the authored animator-node Y scale (21) into 567
+                // and made world-space particles traverse the lane 21x faster.
+                var animatorTransform = _splitEffectAnimator.transform;
+                var animatorScale = animatorTransform.localScale;
+                animatorScale.y = LineHeight;
+                animatorTransform.localScale = animatorScale;
+                var animatorPosition = animatorTransform.localPosition;
                 animatorPosition.y = LineOffsetPosition;
-                _splitEffectAnimator.transform.localPosition = animatorPosition;
+                animatorTransform.localPosition = animatorPosition;
             }
 
             var lineCount = _splitLines != null ? _splitLines.Length : 0;
