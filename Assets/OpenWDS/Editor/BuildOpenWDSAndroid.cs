@@ -35,11 +35,6 @@ namespace OpenWDS.Editor
                     "Unity could not activate the Android build target.");
             }
 
-            var renderPipeline = ConfigureOpenWDSUrp.EnsureConfigured();
-            Debug.Log("OPENWDS_ANDROID_RENDER_PIPELINE name=" +
-                      renderPipeline.name + " type=" +
-                      renderPipeline.GetType().FullName);
-
             PlayerSettings.companyName = "OpenWDS";
             PlayerSettings.productName = "OpenWDS Touch Test";
             PlayerSettings.bundleVersion = "0.1.0";
