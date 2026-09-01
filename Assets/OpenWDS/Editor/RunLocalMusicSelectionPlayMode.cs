@@ -165,8 +165,8 @@ namespace OpenWDS.Editor
                         ?.GetComponent<Text>()
                     : null;
                 if (runtime.AvailableDifficultyCount != 5 ||
-                    runtime.BoundCellCount != 10 ||
-                    runtime.PhysicalCellCount != 30 ||
+                    runtime.BoundCellCount != runtime.CatalogMusicCount ||
+                    runtime.PhysicalCellCount != runtime.CatalogMusicCount * 3 ||
                     runtime.FocusedMusicId != 1 ||
                     runtime.Selection.Live.Difficulty !=
                     RecoveredMusicDifficulty.Stella ||
@@ -1211,7 +1211,7 @@ namespace OpenWDS.Editor
                 if (runtime == null ||
                     GameObject.Find("RecoveredMusicSortFilterDialog") != null)
                     return;
-                if (runtime.BoundCellCount != 10)
+                if (runtime.BoundCellCount != runtime.CatalogMusicCount)
                 {
                     Finish(false, "HUD filter Cancel leaked draft state.", elapsed);
                     return;
@@ -1296,7 +1296,8 @@ namespace OpenWDS.Editor
                 if (runtime == null ||
                     GameObject.Find("RecoveredMusicSortFilterDialog") != null)
                     return;
-                if (runtime.BoundCellCount != 5)
+                if (runtime.BoundCellCount !=
+                    runtime.CountCatalogMusicsForActor(101))
                 {
                     Finish(false, "HUD filter OK did not apply actor matching.", elapsed);
                     return;
@@ -1353,7 +1354,7 @@ namespace OpenWDS.Editor
                 if (runtime == null ||
                     GameObject.Find("RecoveredMusicSortFilterDialog") != null)
                     return;
-                if (runtime.BoundCellCount != 10)
+                if (runtime.BoundCellCount != runtime.CatalogMusicCount)
                 {
                     Finish(false, "HUD actor all/OK did not restore the list.", elapsed);
                     return;
@@ -1675,7 +1676,7 @@ namespace OpenWDS.Editor
                 if (runtime == null ||
                     runtime.IsMusicListRebuilding ||
                     runtime.BookmarkFilter != RecoveredMusicBookmarkFlags.None ||
-                    runtime.BoundCellCount != 10)
+                    runtime.BoundCellCount != runtime.CatalogMusicCount)
                     return;
                 var initiallyOn =
                     (SessionState.GetInt(BookmarkFlagsKey, 0) & 1) != 0;
@@ -1936,7 +1937,7 @@ namespace OpenWDS.Editor
                 runtime.OnListBeginDrag();
                 scroll.velocity = Vector2.up * 600f;
                 scroll.content.anchoredPosition +=
-                    Vector2.up * (188f * 21f);
+                    Vector2.up * (188f * (runtime.CatalogMusicCount * 2 + 1));
                 SessionState.SetString(PhaseKey, "selection-large-loop-rebase");
                 return;
             }
@@ -2053,7 +2054,7 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
-                for (var musicId = 1; musicId <= 10; musicId++)
+                foreach (var musicId in runtime.CatalogMusicIds)
                 {
                     if (!MarkerUses(
                             musicId, "img_live_common_list_level_olivier"))
@@ -2103,12 +2104,13 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
-                var tenthCell = GameObject.Find("LocalMusic_10");
+                var lastMusicId = runtime.CatalogMusicIds.Last();
+                var lastCell = GameObject.Find("LocalMusic_" + lastMusicId);
                 var switchButton =
-                    tenthCell?.GetComponentInChildren<Button>(true);
+                    lastCell?.GetComponentInChildren<Button>(true);
                 if (switchButton == null)
                 {
-                    Finish(false, "Music 10 selection button is unavailable.", elapsed);
+                    Finish(false, "Last music selection button is unavailable.", elapsed);
                     return;
                 }
                 SessionState.SetString(PhaseKey, "selection-music10");
@@ -2128,12 +2130,15 @@ namespace OpenWDS.Editor
                 var jacket = GameObject.Find(
                     "MusicSelectionView/TicketMacine/MusicInformationPanel/" +
                     "MusicJackets/MusicJacketFront")?.GetComponent<Image>();
+                var lastMusicId = runtime != null
+                    ? runtime.CatalogMusicIds.Last()
+                    : 0;
                 if (runtime == null || runtime.Selection == null ||
-                    runtime.Selection.Music.Id != 10 ||
+                    runtime.Selection.Music.Id != lastMusicId ||
                     runtime.Selection.Live.Difficulty != RecoveredMusicDifficulty.Stella ||
                     runtime.IsFocusTransitionActive ||
-                    preview == null || preview.MusicId != 10 ||
-                    title == null || title.text != "名もなき恋人よ" ||
+                    preview == null || preview.MusicId != lastMusicId ||
+                    title == null || title.text != "LIVE OUR STAR" ||
                     jacket == null || jacket.overrideSprite == null)
                     return;
                 runtime.OnListBeginDrag();
@@ -2702,6 +2707,9 @@ namespace OpenWDS.Editor
             if (phase == "result-replay-button")
             {
                 var root = GameObject.Find("RightBotton");
+                // Retail GameResultNextPanel remains inactive until the result
+                // entrance/count presentation has completed.
+                if (root == null) return;
                 var next = root != null
                     ? FindNamedTransform(root.transform, "NextButton")
                         ?.GetComponent<Button>()
@@ -2731,7 +2739,18 @@ namespace OpenWDS.Editor
                     nextAnimator?.runtimeAnimatorController?.name != "ButtonScale" ||
                     replayAnimator?.runtimeAnimatorController?.name != "ButtonScale")
                 {
-                    Finish(false, "Original result navigation buttons are invalid.", elapsed);
+                    Finish(
+                        false,
+                        "Original result navigation buttons are invalid: " +
+                        $"next={next != null} replay={replay != null} " +
+                        $"back={FindNamedTransform(root.transform, "BackButton") != null} " +
+                        $"nextText={nextText?.text ?? "null"} " +
+                        $"replayText={replayText?.text ?? "null"} " +
+                        $"nextTransition={next?.transition.ToString() ?? "null"} " +
+                        $"replayTransition={replay?.transition.ToString() ?? "null"} " +
+                        $"nextAnimator={nextAnimator?.runtimeAnimatorController?.name ?? "null"} " +
+                        $"replayAnimator={replayAnimator?.runtimeAnimatorController?.name ?? "null"}",
+                        elapsed);
                     return;
                 }
                 var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
@@ -2802,6 +2821,19 @@ namespace OpenWDS.Editor
                 var runtime = UnityEngine.Object.FindObjectOfType<
                     RecoveredLocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null) return;
+                var returned = RecoveredLocalMusicSelectionSession.Selection;
+                if (returned == null ||
+                    runtime.Selection.Music.Id != returned.Music.Id ||
+                    runtime.Selection.Live.Difficulty !=
+                        returned.Live.Difficulty ||
+                    runtime.FocusedMusicId != returned.Music.Id)
+                {
+                    Finish(
+                        false,
+                        "Result return did not restore the selected music and difficulty.",
+                        elapsed);
+                    return;
+                }
                 if (UnityEngine.Object.FindObjectsOfType<EventSystem>().Length != 1)
                 {
                     Finish(
@@ -2921,7 +2953,7 @@ namespace OpenWDS.Editor
                 MarkerUses(musicId, expectedSprite);
         }
 
-        private static bool MarkerUses(int musicId, string expectedSprite)
+        private static bool MarkerUses(long musicId, string expectedSprite)
         {
             var cell = GameObject.Find("LocalMusic_" + musicId);
             if (cell == null) return false;

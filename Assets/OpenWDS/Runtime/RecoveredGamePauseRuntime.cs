@@ -1,7 +1,6 @@
 using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace OpenWDS.Runtime
@@ -1288,7 +1287,8 @@ namespace OpenWDS.Runtime
                 _session.AcceptSavedValues();
                 DestroyDialog();
                 DestroyTouchBlock();
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                if (_pauseInstance != null) _pauseInstance.SetActive(false);
+                _gameRuntime.RestartPerformance();
                 return;
             }
             OpenPauseMenu();
@@ -1321,7 +1321,8 @@ namespace OpenWDS.Runtime
         {
             DestroyDialog();
             DestroyTouchBlock();
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            if (_pauseInstance != null) _pauseInstance.SetActive(false);
+            _gameRuntime.RestartPerformance();
         }
 
         private void Retire()

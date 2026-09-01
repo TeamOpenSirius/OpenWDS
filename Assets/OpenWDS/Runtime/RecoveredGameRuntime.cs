@@ -603,7 +603,8 @@ namespace OpenWDS.Runtime
                 inputMusicMilliseconds +
                 RecoveredTapTimingDecider.BadMilliseconds)
             {
-                return new RecoveredCandidateDecision(false, 0, true);
+                return new RecoveredCandidateDecision(
+                    false, 0, deleteCandidate: false, stopScanning: true);
             }
             if (RecoveredInputFireCore.GetCandidateAction(note.NoteType) ==
                 RecoveredCandidateAction.Tap)
@@ -622,15 +623,28 @@ namespace OpenWDS.Runtime
                 return new RecoveredCandidateDecision(true, result.LaneId);
             }
 
-            if (!IsIncludedInLane(beganHitLane, note)) return default;
+            if (!RecoveredNotationNoteProvider.TryGetIncludedLane(
+                    beganHitLane, note, out var flickLaneId))
+            {
+                return default;
+            }
             var flick = _flickAction.TryFlick(input, note);
-            if (!flick.Consumed) return default;
+            if (!flick.Handled) return default;
+            if (!flick.Consumed)
+            {
+                return new RecoveredCandidateDecision(
+                    true,
+                    flickLaneId,
+                    deleteCandidate: false);
+            }
             ConsumedFlickCount++;
             _inputResults.Add(RecoveredInputResultEntity.Create(
                 flick.Note, flick.Timing));
             PublishNoteEffects(flick.Note, flick.Timing.TimingType);
             return new RecoveredCandidateDecision(
-                true, beganHitLane.GetLaneIdOrDefault());
+                true,
+                flickLaneId,
+                deleteCandidate: flick.DeletedNote);
         }
 
         private void PublishNoteEffects(
@@ -642,23 +656,6 @@ namespace OpenWDS.Runtime
             _inputEffects.Add(RecoveredInputEffectEntity.OnBeam(note, timingType));
             _inputEffects.Add(RecoveredInputEffectEntity.OnBomb(note, timingType));
         }
-
-        private static bool IsIncludedInLane(
-            in RecoveredHitLaneEntity hitLane,
-            RecoveredNotationNote note)
-        {
-            if (note == null) return false;
-            return IsIncludedLane(hitLane.HitMainLaneId, note) ||
-                   IsIncludedLane(hitLane.HitSubLeftInnerLaneId, note) ||
-                   IsIncludedLane(hitLane.HitSubRightInnerLaneId, note) ||
-                   IsIncludedLane(hitLane.HitSubLeftOuterLaneId, note) ||
-                   IsIncludedLane(hitLane.HitSubRightOuterLaneId, note);
-        }
-
-        private static bool IsIncludedLane(
-            int lane,
-            RecoveredNotationNote note) =>
-            lane != 0 && note.Lane <= lane && lane <= note.EndLane;
 
         private static IEnumerable<RecoveredNotationNote> GetFlickNotes(
             IReadOnlyList<RecoveredNotationNote> notation)
@@ -700,6 +697,7 @@ namespace OpenWDS.Runtime
         [SerializeField] private RecoveredGameSeRuntime _gameSe;
         [SerializeField] private RecoveredGameClearSeRuntime _clearSe;
         [SerializeField] private RecoveredGameResultSeRuntime _resultSe;
+        [SerializeField] private RecoveredGameResultBgmRuntime _resultBgm;
         [SerializeField] private GameObject _gameBackgroundPrefab;
         [SerializeField] private GameObject _gameResultPrefab;
         [SerializeField] private GameObject _gameResultBackgroundPrefab;
@@ -745,6 +743,7 @@ namespace OpenWDS.Runtime
         private float _clearPerformanceEndsAt;
         private bool _resultShown;
         private bool _resultNavigationPending;
+        private bool _restartPending;
         private int _gameResultPresentationCount;
         private bool _shouldShowPerfectStar = true;
         private bool _isPaused;
@@ -764,11 +763,13 @@ namespace OpenWDS.Runtime
         public RecoveredGameHudRuntime GameHud => _gameHud;
         public RecoveredGameClearSeRuntime ClearSe => _clearSe;
         public RecoveredGameResultSeRuntime ResultSe => _resultSe;
+        public RecoveredGameResultBgmRuntime ResultBgm => _resultBgm;
         public TextAsset ChartAsset => _chartAsset;
         public RecoveredMusicDifficulty MusicDifficulty => _musicDifficulty;
         public bool IsPaused => _isPaused;
         public bool IsRetired => _isRetired;
         public bool IsResultShown => _resultShown;
+        public bool IsRestartPending => _restartPending;
         public int GameResultPresentationCount =>
             _gameResultPresentationCount;
         public bool IsIntroductionPlaying =>
@@ -888,8 +889,9 @@ namespace OpenWDS.Runtime
 
         public void ReplayFromResult()
         {
-            if (!_resultShown || _resultNavigationPending) return;
+            if (!_resultShown || _resultNavigationPending || _restartPending) return;
             _resultNavigationPending = true;
+            _restartPending = true;
             StartCoroutine(ReplayAfterSe());
         }
 
@@ -897,7 +899,57 @@ namespace OpenWDS.Runtime
         {
             _sharedSe?.Play(RecoveredUiSeRuntime.Cue.ButtonGo);
             yield return new WaitForSecondsRealtime(0.12f);
+            yield return PrepareAndRestartPerformance();
+        }
+
+        /// <summary>
+        /// Restarts the current performance through the same Android
+        /// StreamingAssets boundary as a fresh selection. The first game load
+        /// consumes and clears the prepared SplitLane bytes, so a direct scene
+        /// reload cannot initialize its AssetBundles from the APK jar.
+        /// </summary>
+        public void RestartPerformance()
+        {
+            if (_restartPending || _resultNavigationPending || _isRetired) return;
+            _restartPending = true;
+            StartCoroutine(PrepareAndRestartPerformance());
+        }
+
+        private IEnumerator PrepareAndRestartPerformance()
+        {
+            if (_chartAsset == null || string.IsNullOrEmpty(_chartAsset.text))
+            {
+                HandleRestartPreparationFailure(
+                    new InvalidOperationException(
+                        "Current chart is unavailable for performance restart."));
+                yield break;
+            }
+
+            yield return RecoveredSplitLaneAssetRuntime
+                .PrepareStreamingAssets(_chartAsset.text);
+            try
+            {
+                RecoveredSplitLaneAssetRuntime
+                    .ThrowIfStreamingAssetPreparationFailed();
+            }
+            catch (Exception error)
+            {
+                HandleRestartPreparationFailure(error);
+                yield break;
+            }
+
+            Debug.Log("OPENWDS_GAME_RESTART_PREPARED scene=" +
+                SceneManager.GetActiveScene().name);
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
+        private void HandleRestartPreparationFailure(Exception error)
+        {
+            _restartPending = false;
+            _resultNavigationPending = false;
+            Debug.LogError("OPENWDS_GAME_RESTART_FAILED " + error.Message);
+            if (_isPaused && !_resultShown && !_isRetired)
+                SetPaused(false);
         }
 
         public void Configure(
@@ -1035,6 +1087,12 @@ namespace OpenWDS.Runtime
             if (_resultSe == null)
                 _resultSe = gameObject.AddComponent<RecoveredGameResultSeRuntime>();
             _resultSe.Configure(_sharedSe);
+            _resultBgm = GetComponent<RecoveredGameResultBgmRuntime>();
+            if (_resultBgm == null)
+                _resultBgm = gameObject.AddComponent<RecoveredGameResultBgmRuntime>();
+            _resultBgm.SetVolume(RecoveredGameSettings.CalculateCombinedVolume(
+                persistedSettings.SoundVolumeSettings.GameMaster,
+                persistedSettings.SoundVolumeSettings.GameBGM));
             var gameSeVolume = RecoveredGameSettings.CalculateCombinedVolume(
                 persistedSettings.SoundVolumeSettings.GameMaster,
                 persistedSettings.SoundVolumeSettings.GameSE);
@@ -1101,7 +1159,8 @@ namespace OpenWDS.Runtime
             _splitLaneAssets = new RecoveredSplitLaneAssetRuntime(
                 _splitEffectParent,
                 persistedSettings.GameSettings.SpritEffectSettingType,
-                persistedSettings.GameSettings.SplitEffectLineOpacity);
+                persistedSettings.GameSettings.SplitEffectLineOpacity,
+                notation);
             _gameResultRuntime = new RecoveredGameResultRuntime(notation);
             _gameHud = GetComponent<RecoveredGameHudRuntime>();
             _gameHud?.ApplyRecoveredSettings(
@@ -1424,6 +1483,9 @@ namespace OpenWDS.Runtime
                 // inactive root, so reproduce that controller call here.
                 _gameResultBackgroundInstance.SetActive(true);
             }
+            // GameResultStandbyController.PlayStandbyMove publishes
+            // BgmType.GameResult (enum value 2) at this scene boundary.
+            _resultBgm?.Play();
 
             // Game and GameResult are separate original scenes. The curtain
             // subtree contains the authored GameResult camera at depth -1;
@@ -1547,8 +1609,6 @@ namespace OpenWDS.Runtime
                     isNewPlayerRate);
             panel.Initialize(viewData);
             BindResultNavigation();
-            _resultSe?.Begin(
-                viewData.IsNewNotationRate || viewData.IsNewPlayerRate);
 
             // GameResultView.ShowAsync sets the original root Animator's "Next"
             // trigger before awaiting its entrance state. Without the removed
@@ -1558,6 +1618,9 @@ namespace OpenWDS.Runtime
             var slideAnimator = _gameResultInstance.GetComponent<Animator>();
             if (slideAnimator != null)
                 slideAnimator.SetTrigger(Animator.StringToHash("Next"));
+            StartCoroutine(CompleteResultPresentation(
+                slideAnimator,
+                viewData.IsNewNotationRate || viewData.IsNewPlayerRate));
 
             // GamePresenter stops the Game presentation before opening the
             // separately-authored GameResult presentation.
@@ -1578,13 +1641,44 @@ namespace OpenWDS.Runtime
             if (root == null || next == null || replay == null)
                 throw new InvalidOperationException(
                     "Original GameResult NextButton/InGameButton are missing.");
-            root.gameObject.SetActive(true);
+            // GameResultView.Initialize calls GameResultNextPanel.Inactivate.
+            // The Presenter activates the whole panel only after the entrance
+            // and its numeric result animation have completed.
             next.gameObject.SetActive(true);
             replay.gameObject.SetActive(true);
+            root.gameObject.SetActive(false);
             next.onClick.RemoveAllListeners();
             replay.onClick.RemoveAllListeners();
             next.onClick.AddListener(ReturnFromResult);
             replay.onClick.AddListener(ReplayFromResult);
+        }
+
+        private IEnumerator CompleteResultPresentation(
+            Animator slideAnimator,
+            bool playCompletionCue)
+        {
+            if (slideAnimator != null)
+            {
+                // Let the trigger transition be evaluated, then reproduce
+                // GameResultView.ShowAsync's normalized-time completion wait.
+                yield return null;
+                while (slideAnimator != null &&
+                       (slideAnimator.IsInTransition(0) ||
+                        slideAnimator.GetCurrentAnimatorStateInfo(0)
+                            .normalizedTime < 1f))
+                {
+                    yield return null;
+                }
+            }
+
+            _resultSe?.Begin(playCompletionCue);
+            while (_resultSe != null && _resultSe.IsCounting)
+                yield return null;
+
+            if (_gameResultInstance == null) yield break;
+            var navigation = _gameResultInstance.transform.Find("RightBotton");
+            if (navigation != null)
+                navigation.gameObject.SetActive(true);
         }
 
         private void OnDestroy()

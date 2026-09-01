@@ -2,7 +2,6 @@ namespace OpenWDS.Runtime
 {
     /// <summary>
     /// Values read from the original serialized GameConfig in sharedassets1.assets.
-    /// See reverse/reports/game-config.json and tools/extract_game_config.py.
     /// </summary>
     public static class RecoveredOriginalGameConfig
     {

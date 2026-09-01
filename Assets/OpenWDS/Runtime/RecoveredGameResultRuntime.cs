@@ -17,6 +17,8 @@ namespace OpenWDS.Runtime
             new Dictionary<RecoveredTimingType, int>();
         private readonly Dictionary<int, int> _inputDiffSummary =
             new Dictionary<int, int>();
+        private readonly List<RecoveredInputResultEntity> _nonPerfectResults =
+            new List<RecoveredInputResultEntity>();
         private const int InputDiffBucketMilliseconds = 5;
         private const int InputDiffMaxBucket = 25;
         private readonly int _achievementRateNoteCount;
@@ -36,6 +38,8 @@ namespace OpenWDS.Runtime
             _timingCounts;
         public IReadOnlyDictionary<int, int> InputDiffSummary =>
             _inputDiffSummary;
+        public IReadOnlyList<RecoveredInputResultEntity> NonPerfectResults =>
+            _nonPerfectResults;
 
         // Combo.get_IsFullCombo/get_IsAllPerfect compare the successful perfect
         // counter with the current combo after first rejecting any failed input.
@@ -88,6 +92,8 @@ namespace OpenWDS.Runtime
             if (!_timingCounts.ContainsKey(result.TimingType))
                 _timingCounts[result.TimingType] = 0;
             _timingCounts[result.TimingType]++;
+            if (result.TimingType != RecoveredTimingType.PerfectStar)
+                _nonPerfectResults.Add(result);
             CollectCombo(result.TimingType);
 
             if (result.TimingType != RecoveredTimingType.Miss &&

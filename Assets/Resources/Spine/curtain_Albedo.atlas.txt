@@ -1,9 +1,0 @@
-curtain_Albedo.png
-size:2048,2048
-filter:Linear,Linear
-pma:true
-curtain_L
-bounds:2,2,1018,1024
-rotate:90
-curtain_R
-bounds:2,1022,1024,1024

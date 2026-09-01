@@ -237,15 +237,18 @@ namespace OpenWDS.Runtime
     {
         public readonly bool Consumed;
         public readonly int LaneId;
+        public readonly bool DeleteCandidate;
         public readonly bool StopScanning;
 
         public RecoveredCandidateDecision(
             bool consumed,
             int laneId,
+            bool deleteCandidate = true,
             bool stopScanning = false)
         {
             Consumed = consumed;
             LaneId = laneId;
+            DeleteCandidate = deleteCandidate;
             StopScanning = stopScanning;
         }
     }
@@ -334,7 +337,8 @@ namespace OpenWDS.Runtime
                         continue;
                     }
 
-                    candidates.RemoveAt(noteIndex);
+                    if (decision.DeleteCandidate)
+                        candidates.RemoveAt(noteIndex);
                     laneHits.Set(input.TouchId, decision.LaneId);
                     consumedTouch = true;
                     break;

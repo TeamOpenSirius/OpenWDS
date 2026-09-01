@@ -83,7 +83,11 @@ Shader "OpenWDS/Recovered/SplitEffect/SplitEffectSyuriken"
                 float innerReverse = 1.0 - inner.z;
                 float checker = 1.0 - innerReverse * innerPair;
                 checker = 1.0 - min(pow(abs(checker), 1200.0), 1.0);
-                colorMask *= checker;
+                // Vulkan reuses _100.xy here. Its `(-_100) + 1` inverts
+                // both components, including the outer mask already stored
+                // in X; overlooking that vector-wide write produced solid
+                // white bars along the split boundaries.
+                colorMask = (1.0 - colorMask) * checker;
 
                 float3 rgb = lerp(input.color.rgb, input.maxColor.xxx, colorMask);
 

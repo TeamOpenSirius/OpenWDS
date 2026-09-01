@@ -81,12 +81,17 @@ namespace Sirius.Game
                 lineColor.g *= opacity;
                 lineColor.b *= opacity;
                 line.color = lineColor;
+                var randomSeed = (uint)Random.Range(0, 1000);
                 if (element.LineEffects != null)
                 {
                     foreach (var particle in element.LineEffects)
-                        if (particle != null)
-                            particle.Stop(
-                                true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                    {
+                        if (particle == null) continue;
+                        particle.Stop(
+                            true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                        if (!particle.useAutoRandomSeed)
+                            particle.randomSeed = randomSeed;
+                    }
                 }
                 _splitEffects[index] = element;
             }
@@ -102,7 +107,7 @@ namespace Sirius.Game
             {
                 for (var index = 0; index < _splitLines.Length; index++)
                     if (_splitLines[index] != null)
-                        _splitLines[index].gameObject.SetActive(index <= splitCount);
+                        _splitLines[index].enabled = index <= splitCount;
             }
 
             // Original branch: Ignore(7), Light(5), and the global light setting

@@ -160,14 +160,19 @@ namespace OpenWDS.Editor
             var curtainGraphicMaterial =
                 RequireAsset<Material>(CurtainGraphicMaterialPath);
             var catalog = RequireAsset<TextAsset>(CatalogPath);
-            var jackets = new Sprite[10];
-            for (var index = 0; index < jackets.Length; index++)
-            {
-                var path =
-                    $"Assets/OpenWDS/OfflineData/Music{index + 1}Jacket.png";
-                EnsureSpriteImporter(path);
-                jackets[index] = RequireAsset<Sprite>(path);
-            }
+            var parsedCatalog = RecoveredLocalMusicCatalog.FromJson(catalog.text);
+            var jacketMusicIds = parsedCatalog.Musics
+                .Select(music => music.Id)
+                .ToArray();
+            var jackets = jacketMusicIds
+                .Select(musicId =>
+                {
+                    var path =
+                        $"Assets/OpenWDS/OfflineData/Music{musicId}Jacket.png";
+                    EnsureSpriteImporter(path);
+                    return RequireAsset<Sprite>(path);
+                })
+                .ToArray();
             var difficultyMarkers = new[]
             {
                 RequireAsset<Sprite>(
@@ -217,7 +222,6 @@ namespace OpenWDS.Editor
             }.Select(name => RequireAsset<Sprite>(
                 DifficultySpriteRoot + "img_live_common_grade_" + name + ".asset"))
                 .ToArray();
-            var parsedCatalog = RecoveredLocalMusicCatalog.FromJson(catalog.text);
             var characterBaseIds = parsedCatalog.CharacterBases
                 .Select(character => character.Id)
                 .ToArray();
@@ -292,6 +296,7 @@ namespace OpenWDS.Editor
                 view,
                 cellPrefab,
                 catalog,
+                jacketMusicIds,
                 jackets,
                 difficultyMarkers,
                 difficultyButtonOnSprites,
@@ -344,6 +349,9 @@ namespace OpenWDS.Editor
             {
                 if (component == null) missing++;
             }
+            var expectedMusicCount = parsedCatalog.Musics.Length;
+            var expectedChartCount = parsedCatalog.Musics.Sum(
+                music => music.Lives.Length);
             var report = new ValidationReport
             {
                 scenePath = ScenePath,
@@ -356,7 +364,7 @@ namespace OpenWDS.Editor
                 hasOriginalView = PrefabUtility.GetCorrespondingObjectFromSource(view) ==
                     viewPrefab,
                 hasListCellPrefab = cellPrefab != null,
-                hasCatalog = parsedCatalog.Musics.Length == 10,
+                hasCatalog = expectedMusicCount > 0,
                 hasDifficultyMarkers = Array.TrueForAll(
                     difficultyMarkers, marker => marker != null),
                 hasSelectionClearLampSprites = Array.TrueForAll(
@@ -412,7 +420,7 @@ namespace OpenWDS.Editor
             if (report.viewGameObjects < 200 ||
                 report.sceneDependencies < 50 ||
                 report.missingComponents != 0 ||
-                report.musicCount != 10 ||
+                report.musicCount != expectedMusicCount ||
                 report.availableDifficulties != 5 ||
                 !report.hasEventSystem ||
                 !report.hasOriginalView ||
@@ -428,8 +436,8 @@ namespace OpenWDS.Editor
                 !report.hasOriginalGameSimulation ||
                 !report.hasCurtainTransition ||
                 !report.ratingRulesValid ||
-                runtime.SerializedMusicAssetCount != 10 ||
-                runtime.SerializedChartAssetCount != 50 ||
+                runtime.SerializedMusicAssetCount != expectedMusicCount ||
+                runtime.SerializedChartAssetCount != expectedChartCount ||
                 !report.buildLoopValid)
                 throw new InvalidOperationException(
                     "Local MusicSelection validation failed.");

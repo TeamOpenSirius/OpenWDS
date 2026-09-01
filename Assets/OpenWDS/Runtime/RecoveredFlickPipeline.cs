@@ -14,6 +14,7 @@ namespace OpenWDS.Runtime
 
     public readonly struct RecoveredFlickActionResult
     {
+        public readonly bool Handled;
         public readonly bool Consumed;
         public readonly bool DeletedNote;
         public readonly RecoveredNotationNote Note;
@@ -21,12 +22,14 @@ namespace OpenWDS.Runtime
         public readonly RecoveredFlickCompletionReason CompletionReason;
 
         public RecoveredFlickActionResult(
+            bool handled,
             bool consumed,
             bool deletedNote,
             RecoveredNotationNote note,
             RecoveredTimingDecision timing,
             RecoveredFlickCompletionReason completionReason)
         {
+            Handled = handled;
             Consumed = consumed;
             DeletedNote = deletedNote;
             Note = note;
@@ -182,13 +185,13 @@ namespace OpenWDS.Runtime
             {
                 if (input.DeltaPosition.sqrMagnitude <= _flickDistance)
                 {
-                    return default;
+                    return HandledWithoutCompletion(note);
                 }
                 timing = RecoveredFlickTimingDecider.Decide(
                     _clock, input.Milliseconds, note);
                 if (timing.TimingType == RecoveredTimingType.None)
                 {
-                    return default;
+                    return HandledWithoutCompletion(note);
                 }
                 reason = RecoveredFlickCompletionReason.Moved;
             }
@@ -199,14 +202,28 @@ namespace OpenWDS.Runtime
             }
             else
             {
-                return default;
+                // InputAction.TryFlick returns true once the input belongs to a
+                // valid Flick, even when TryFlickCore has not completed it yet.
+                // isDeletedNote remains false, so InputHandler consumes this
+                // touch occurrence without deleting the candidate.
+                return HandledWithoutCompletion(note);
             }
 
             var deleted = _noteManager.DeleteFlickNote(note);
             _inputManager.Remove(input.TouchId);
             return new RecoveredFlickActionResult(
-                true, deleted, note, timing, reason);
+                true, true, deleted, note, timing, reason);
         }
+
+        private static RecoveredFlickActionResult HandledWithoutCompletion(
+            RecoveredNotationNote note) =>
+            new RecoveredFlickActionResult(
+                true,
+                false,
+                false,
+                note,
+                default,
+                RecoveredFlickCompletionReason.None);
 
         private static RecoveredTimingDecision GreatDecision() =>
             new RecoveredTimingDecision(

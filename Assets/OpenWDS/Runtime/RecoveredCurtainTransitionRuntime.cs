@@ -17,6 +17,7 @@ namespace OpenWDS.Runtime
         private SkeletonGraphic _skeleton;
         private string _destination;
         private bool _animationComplete;
+        private bool _transitionFailed;
 
         public static bool IsTransitioning { get; private set; }
         public static string CurrentAnimation { get; private set; }
@@ -90,6 +91,11 @@ namespace OpenWDS.Runtime
         private IEnumerator Run()
         {
             yield return Play("close");
+            if (_transitionFailed)
+            {
+                FinishFailedTransition();
+                yield break;
+            }
             SceneManager.LoadScene(_destination);
             // GlobalNavigator keeps the curtain closed until the destination
             // presenter has completed its own initialization. Starting "open"
@@ -108,8 +114,13 @@ namespace OpenWDS.Runtime
                 yield return null;
             }
             if (gameRuntime == null || !gameRuntime.IsInitialized)
-                throw new System.TimeoutException(
-                    "Destination gameplay did not initialize before curtain open.");
+            {
+                Debug.LogError(
+                    "OPENWDS_CURTAIN_DESTINATION_INIT_FAILED scene=" +
+                    _destination);
+                FinishFailedTransition();
+                yield break;
+            }
             DestinationInitializedBeforeOpen = true;
             Canvas.ForceUpdateCanvases();
             // WaitForEndOfFrame is not pumped by Unity batchmode. Two normal
@@ -118,6 +129,11 @@ namespace OpenWDS.Runtime
             yield return null;
             yield return null;
             yield return Play("open");
+            if (_transitionFailed)
+            {
+                FinishFailedTransition();
+                yield break;
+            }
             IsTransitioning = false;
             CurrentAnimation = null;
             Destroy(gameObject);
@@ -145,8 +161,13 @@ namespace OpenWDS.Runtime
                 yield return null;
             entry.Complete -= OnAnimationComplete;
             if (!_animationComplete)
-                throw new System.TimeoutException(
-                    $"Curtain animation did not complete: {animationName}");
+            {
+                _transitionFailed = true;
+                Debug.LogError(
+                    "OPENWDS_CURTAIN_ANIMATION_FAILED animation=" +
+                    animationName);
+                yield break;
+            }
             if (animationName == "close") CloseCompleted = true;
             if (animationName == "open") OpenCompleted = true;
         }
@@ -154,6 +175,13 @@ namespace OpenWDS.Runtime
         private void OnAnimationComplete(TrackEntry entry)
         {
             _animationComplete = true;
+        }
+
+        private void FinishFailedTransition()
+        {
+            IsTransitioning = false;
+            CurrentAnimation = null;
+            Destroy(gameObject);
         }
 
         private void OnDestroy()

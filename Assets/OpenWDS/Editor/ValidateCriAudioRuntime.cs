@@ -20,6 +20,7 @@ namespace OpenWDS.Editor
             var customSe = Path.Combine(root, "CRI", "GameCustomSE_1.acb");
             var sharedSe = Path.Combine(root, "CRI", "SE.acb");
             var clearSe = Path.Combine(root, "CRI", "ClearSE.acb");
+            var resultBgm = Path.Combine(root, "CRI", "BGM.acb");
             if (!File.Exists(acf) || !File.Exists(acb))
                 throw new FileNotFoundException("CRI fixture is incomplete.");
 
@@ -37,6 +38,7 @@ namespace OpenWDS.Editor
             OpenWDS.Runtime.RecoveredUiSeRuntime sharedSeRuntime = null;
             OpenWDS.Runtime.RecoveredGameClearSeRuntime clearSeRuntime = null;
             OpenWDS.Runtime.RecoveredGameResultSeRuntime resultSeRuntime = null;
+            OpenWDS.Runtime.RecoveredGameResultBgmRuntime resultBgmRuntime = null;
             GameObject effectSeOwner = null;
             try
             {
@@ -173,6 +175,27 @@ namespace OpenWDS.Editor
                 Debug.Log(
                     "OPENWDS_CRI_RESULT_SE countCue=COUNT_UP_2 " +
                     "completionCue=BADGE_NEW_GOT sequence=valid");
+
+                if (!File.Exists(resultBgm))
+                    throw new FileNotFoundException(
+                        "Result BGM fixture is missing.", resultBgm);
+                resultBgmRuntime = owner.AddComponent<
+                    OpenWDS.Runtime.RecoveredGameResultBgmRuntime>();
+                resultBgmRuntime.Play();
+                if (!resultBgmRuntime.IsInitialized ||
+                    resultBgmRuntime.PlayCount != 1 ||
+                    resultBgmRuntime.LastPlayback.id ==
+                    CriAtomExPlayback.invalidId)
+                {
+                    throw new InvalidOperationException(
+                        "GameResult BGM did not play the original cue.");
+                }
+                Debug.Log(
+                    "OPENWDS_CRI_RESULT_BGM " +
+                    $"bank={new FileInfo(resultBgm).Length} " +
+                    "cue=GameResult " +
+                    $"playback={resultBgmRuntime.LastPlayback.id} " +
+                    $"status={resultBgmRuntime.LastPlayback.GetStatus()}");
             }
             finally
             {
@@ -182,6 +205,8 @@ namespace OpenWDS.Editor
                     UnityEngine.Object.DestroyImmediate(sharedSeRuntime);
                 if (resultSeRuntime != null)
                     UnityEngine.Object.DestroyImmediate(resultSeRuntime);
+                if (resultBgmRuntime != null)
+                    UnityEngine.Object.DestroyImmediate(resultBgmRuntime);
                 if (clearSeRuntime != null)
                     UnityEngine.Object.DestroyImmediate(clearSeRuntime);
                 if (gameSe != null) UnityEngine.Object.DestroyImmediate(gameSe);

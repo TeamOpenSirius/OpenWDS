@@ -189,6 +189,7 @@ namespace OpenWDS.Runtime
         private bool _mirror;
         private bool _splitRandom;
         private bool _skipPreLiveConfirmation;
+        private bool _gameStartPending;
         private int _musicSortMode;
         private int _draftMusicSortMode;
         private readonly HashSet<int> _clearLampFilters = new HashSet<int>();
@@ -274,6 +275,18 @@ namespace OpenWDS.Runtime
         }
         public int BoundCellCount => _listCells.Count;
         public int PhysicalCellCount => _physicalCells.Count;
+        public int CatalogMusicCount =>
+            _allMusics != null ? _allMusics.Length : 0;
+        public long[] CatalogMusicIds =>
+            _allMusics != null
+                ? _allMusics.Select(music => music.Id).ToArray()
+                : Array.Empty<long>();
+        public int CountCatalogMusicsForActor(long actorId) =>
+            _allMusics != null
+                ? _allMusics.Count(
+                    music => music.ActorIds != null &&
+                        Array.IndexOf(music.ActorIds, actorId) >= 0)
+                : 0;
         public long FocusedMusicId =>
             _focusedCell != null ? _focusedCell.music.Id : 0;
         public ScrollRect ListScrollRect => _listScrollRect;
@@ -313,6 +326,7 @@ namespace OpenWDS.Runtime
             GameObject view,
             GameObject listCellPrefab,
             TextAsset catalogJson,
+            long[] jacketMusicIds,
             Sprite[] jackets,
             Sprite[] difficultyMarkers,
             Sprite[] difficultyButtonOnSprites,
@@ -325,13 +339,18 @@ namespace OpenWDS.Runtime
             _view = view;
             _listCellPrefab = listCellPrefab;
             _catalogJson = catalogJson;
+            if (jacketMusicIds == null)
+                throw new ArgumentNullException(nameof(jacketMusicIds));
             if (jackets == null) throw new ArgumentNullException(nameof(jackets));
+            if (jacketMusicIds.Length != jackets.Length)
+                throw new ArgumentException(
+                    "Jacket music ids and sprites must have the same length.");
             _musicJackets = new MusicJacketAsset[jackets.Length];
             for (var index = 0; index < jackets.Length; index++)
             {
                 _musicJackets[index] = new MusicJacketAsset
                 {
-                    musicId = index + 1,
+                    musicId = jacketMusicIds[index],
                     jacket = jackets[index],
                 };
             }
@@ -570,23 +589,41 @@ namespace OpenWDS.Runtime
             }
             _preview = gameObject.AddComponent<RecoveredMusicSelectionPreviewRuntime>();
             _preview.Configure(_view.transform);
-            LoadMusicAssets(_catalog.Musics[0]);
-            BindView(_catalog.Musics[0]);
+            var initialMusic = _catalog.Musics[0];
+            var initialDifficulty = RecoveredMusicDifficulty.Stella;
+            if (RecoveredLocalMusicSelectionSession.HasSelection)
+            {
+                var returnedSelection =
+                    RecoveredLocalMusicSelectionSession.Selection;
+                var returnedMusic = _catalog.Musics.FirstOrDefault(
+                    item => item.Id == returnedSelection.Music.Id);
+                if (returnedMusic != null)
+                {
+                    initialMusic = returnedMusic;
+                    initialDifficulty = returnedSelection.Live.Difficulty;
+                }
+            }
+            LoadMusicAssets(initialMusic);
+            BindView(initialMusic);
             BindMusicList();
             BindSelectionAuxiliaryControls();
             RefreshPlayerRateHeader();
-            var initial = RecoveredMusicDifficulty.Stella;
-            if (!_charts.ContainsKey(initial))
+            if (!_charts.ContainsKey(initialDifficulty) ||
+                !TryGetLive(initialMusic, initialDifficulty, out _))
             {
                 foreach (var difficulty in _charts.Keys)
                 {
-                    initial = difficulty;
+                    initialDifficulty = difficulty;
                     break;
                 }
             }
-            SelectDifficulty(initial, false);
-            FocusCell(_physicalCells[_catalog.Musics.Length]);
-            _preview.Play(_catalog.Musics[0].Id);
+            SelectDifficulty(initialDifficulty, false);
+            if (_listCells.TryGetValue(initialMusic.Id, out var copies) &&
+                copies.Count > 1)
+                FocusCell(copies[1]);
+            else
+                FocusCell(_physicalCells[_catalog.Musics.Length]);
+            _preview.Play(initialMusic.Id);
             RecoveredLocalGameFlowRouter.EnsureExists();
         }
 
@@ -3901,9 +3938,31 @@ namespace OpenWDS.Runtime
 
         private void BeginSelectedGame()
         {
+            if (_gameStartPending) return;
+            _gameStartPending = true;
+            StartCoroutine(BeginSelectedGameAfterAssetPreparation());
+        }
+
+        private IEnumerator BeginSelectedGameAfterAssetPreparation()
+        {
             if (_selection == null ||
                 !_charts.TryGetValue(_selection.Live.Difficulty, out var chart))
-                return;
+            {
+                _gameStartPending = false;
+                yield break;
+            }
+            yield return RecoveredSplitLaneAssetRuntime
+                .PrepareStreamingAssets(chart.text);
+            try
+            {
+                RecoveredSplitLaneAssetRuntime
+                    .ThrowIfStreamingAssetPreparationFailed();
+            }
+            catch
+            {
+                _gameStartPending = false;
+                throw;
+            }
             _se.Play(RecoveredUiSeRuntime.Cue.ButtonGo);
             RecoveredLocalMusicSelectionSession.Set(
                 _selection,

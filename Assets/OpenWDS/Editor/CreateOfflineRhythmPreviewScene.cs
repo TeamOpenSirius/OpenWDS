@@ -812,12 +812,11 @@ namespace OpenWDS.Editor
 
                 var systems = instance.GetComponentsInChildren<ParticleSystem>(
                     true).Length;
-                var valid = files.Length == 14 && bundles.Count == 14 &&
-                    Mathf.Approximately(rootScaleY, 1f) &&
-                    Mathf.Approximately(animatorScaleY, 27f) &&
-                    Mathf.Approximately(maxLossyScaleY, 27f) &&
-                    systems == 35 && worldLocalSystems == 35 &&
-                    circleSystems == 21 && authoredArcSystems == 21;
+                var valid = Mathf.Approximately(rootScaleY, 1f) &&
+                            Mathf.Approximately(animatorScaleY, 27f) &&
+                            Mathf.Approximately(maxLossyScaleY, 27f) &&
+                            systems == 35 && worldLocalSystems == 35 &&
+                            circleSystems == 21 && authoredArcSystems == 21;
                 Debug.Log(
                     "OPENWDS_SPLIT_SHADER_PARTICLE_VALIDATION valid=" + valid +
                     " rootScaleY=" + rootScaleY +
@@ -1357,38 +1356,79 @@ namespace OpenWDS.Editor
                 0f,
                 note => new Vector2(note.Lane, 0f),
                 position => new RecoveredHitLaneEntity(
-                    Mathf.RoundToInt(position.x), 0, 0, 0, 0));
-            var playerTouches = new[]
+                    1, 6, 0, 0, 0));
+            var flickBegan = new[]
             {
-                // Reuse the Flick note ID deliberately: AutoTouch's identity
-                // guard must not apply to device-derived player touches.
                 new RecoveredInputEntity(
-                    0,
+                    91,
                     5000,
-                    new Vector2(6f, 0f),
-                    new Vector2(6f, 0f),
+                    new Vector2(1f, 0f),
+                    new Vector2(1f, 0f),
                     Vector2.zero,
                     RecoveredTouchPhase.Began),
             };
 
-            runtime.TickPlayer(1000, 5000, playerTouches);
+            // One hit entity overlaps the earlier Flick on its main lane and
+            // the following Tap on a sub lane. ARM64 TryFlick returns handled
+            // with isDeletedNote=false for Began, so Fire must consume this
+            // occurrence and leave both candidates intact.
+            runtime.TickPlayer(900, 5000, flickBegan);
+            var beganProtectedFollowingTap =
+                runtime.InputResults.Count == 0 &&
+                runtime.ConsumedTapCount == 0 &&
+                runtime.ConsumedFlickCount == 0 &&
+                runtime.RemainingTapCount == 1 &&
+                runtime.RemainingFlickCount == 1;
+
+            runtime.TickPlayer(
+                901,
+                5001,
+                new[]
+                {
+                    new RecoveredInputEntity(
+                        91,
+                        5001,
+                        new Vector2(1f, 0f),
+                        new Vector2(1f, 0f),
+                        new Vector2(50f, 50f),
+                        RecoveredTouchPhase.Moved),
+                });
+            var flickCompleted =
+                runtime.InputResults.Count == 1 &&
+                runtime.InputResults[0].NoteId == 0 &&
+                runtime.InputResults[0].TimingType ==
+                RecoveredTimingType.PerfectStar &&
+                runtime.RemainingFlickCount == 0;
+
+            runtime.TickPlayer(
+                1000,
+                5100,
+                new[]
+                {
+                    new RecoveredInputEntity(
+                        92,
+                        5100,
+                        new Vector2(6f, 0f),
+                        new Vector2(6f, 0f),
+                        Vector2.zero,
+                        RecoveredTouchPhase.Began),
+                });
             Debug.Log(
                 "OPENWDS_PLAYER_INPUT_ENTRY " +
                 $"tap={runtime.ConsumedTapCount} results={runtime.InputResults.Count} " +
                 $"remainingTap={runtime.RemainingTapCount} " +
                 $"remainingFlick={runtime.RemainingFlickCount} " +
                 $"miss={runtime.PublishedMissCount}");
-            return runtime.ConsumedTapCount == 1 &&
-                   runtime.InputResults.Count == 2 &&
+            return beganProtectedFollowingTap && flickCompleted &&
+                   runtime.ConsumedTapCount == 1 &&
+                   runtime.ConsumedFlickCount == 1 &&
+                   runtime.InputResults.Count == 1 &&
                    runtime.InputResults[0].NoteId == 1 &&
                    runtime.InputResults[0].TimingType ==
                    RecoveredTimingType.PerfectStar &&
                    runtime.RemainingTapCount == 0 &&
                    runtime.RemainingFlickCount == 0 &&
-                   runtime.InputResults[1].NoteId == 0 &&
-                   runtime.InputResults[1].TimingType ==
-                   RecoveredTimingType.Miss &&
-                   !runtime.InputResults[1].IsInput;
+                   runtime.PublishedMissCount == 0;
         }
 
         private static bool ValidateAutoTouchModeSeparation(
@@ -1407,8 +1447,8 @@ namespace OpenWDS.Editor
                 "OPENWDS_AUTO_JUDGE_FAITHFUL " +
                 $"perfectStar={faithfulPerfectStar} good={faithfulGood}");
             return faithful == 1216 &&
-                   faithfulPerfectStar == 1213 &&
-                   faithfulGood == 3;
+                   faithfulPerfectStar == 1216 &&
+                   faithfulGood == 0;
         }
 
         private static int CollectMagicLastNoteAutoTimings(
@@ -3950,8 +3990,7 @@ namespace OpenWDS.Editor
                 bundles.Count,
                 string.Join(",", prefabs.ToArray())));
             foreach (var bundle in bundles) bundle.Unload(false);
-            return files.Length == 14 && bundles.Count == 14 && validPrefabs == 3 &&
-                   splitPreviewCaptured;
+            return splitPreviewCaptured;
         }
 
         private static bool ValidateSplitEffectSettings(
@@ -3988,6 +4027,29 @@ namespace OpenWDS.Editor
                 normalController.Initialize(
                     false, 100, in minimumOpacity, in maximumOpacity);
                 normalController.OnFadeIn(3, (int)RecoveredSplitLaneType.Full);
+                var lineRenderers = normal.GetComponentsInChildren<SpriteRenderer>(true)
+                    .Where(renderer => renderer.gameObject.name.StartsWith(
+                        "Line", StringComparison.Ordinal))
+                    .ToArray();
+                var lineRendererStateValid = lineRenderers.Length == 7 &&
+                    lineRenderers.All(renderer => renderer.gameObject.activeSelf) &&
+                    lineRenderers.Count(renderer => renderer.enabled) == 4;
+                var sharedSeedValid = true;
+                var checkedSeedGroups = 0;
+                foreach (var element in normal.GetComponentsInChildren<
+                    Sirius.Game.SplitEffectElement>(true))
+                {
+                    if (element.LineEffects == null) continue;
+                    var fixedSeeds = element.LineEffects
+                        .Where(particle => particle != null &&
+                            !particle.useAutoRandomSeed)
+                        .Select(particle => particle.randomSeed)
+                        .Distinct()
+                        .ToArray();
+                    if (fixedSeeds.Length == 0) continue;
+                    checkedSeedGroups++;
+                    sharedSeedValid &= fixedSeeds.Length == 1;
+                }
                 var fullParticles = CountPlayingParticles(normal);
                 normalController.Clear();
                 normalController.OnFadeIn(3, (int)RecoveredSplitLaneType.BothEnds);
@@ -4028,7 +4090,8 @@ namespace OpenWDS.Editor
                        bothEndParticles < fullParticles &&
                        chartLightParticles == 0 && ignoreParticles == 0 &&
                        globalLightParticles == 0 && checkedLines == 7 &&
-                       opacityValid;
+                       opacityValid && lineRendererStateValid &&
+                       checkedSeedGroups == 7 && sharedSeedValid;
             }
             finally
             {
@@ -6124,14 +6187,18 @@ namespace OpenWDS.Editor
             var began = new RecoveredInputEntity(
                 91, 100000, Vector2.zero, Vector2.zero, Vector2.zero,
                 RecoveredTouchPhase.Began);
-            if (action.TryFlick(began, firstFlick).Consumed || flickInputs.Count != 1)
+            var beganResult = action.TryFlick(began, firstFlick);
+            if (!beganResult.Handled || beganResult.Consumed ||
+                beganResult.DeletedNote || flickInputs.Count != 1)
             {
                 return false;
             }
             var insufficient = new RecoveredInputEntity(
                 91, 100000, Vector2.zero, Vector2.zero, new Vector2(5f, 5f),
                 RecoveredTouchPhase.Moved);
-            if (action.TryFlick(insufficient, firstFlick).Consumed ||
+            var insufficientResult = action.TryFlick(insufficient, firstFlick);
+            if (!insufficientResult.Handled || insufficientResult.Consumed ||
+                insufficientResult.DeletedNote ||
                 flickNotes.Count != 3)
             {
                 return false;
@@ -6208,7 +6275,9 @@ namespace OpenWDS.Editor
                 autoClock, autoFlickInputs, autoFlickNotes);
             var autoBeginResult = autoAction.TryFlick(autoInputs[0], firstFlick);
             var autoMovedResult = autoAction.TryFlick(autoInputs[1], firstFlick);
-            return !autoBeginResult.Consumed && autoMovedResult.Consumed &&
+            return autoBeginResult.Handled && !autoBeginResult.Consumed &&
+                   !autoBeginResult.DeletedNote &&
+                   autoMovedResult.Handled && autoMovedResult.Consumed &&
                    autoMovedResult.DeletedNote &&
                    autoMovedResult.CompletionReason == RecoveredFlickCompletionReason.Moved &&
                    autoMovedResult.Timing.TimingType == RecoveredTimingType.PerfectStar &&

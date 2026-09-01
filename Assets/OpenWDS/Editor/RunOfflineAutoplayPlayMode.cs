@@ -41,6 +41,8 @@ namespace OpenWDS.Editor
             "OpenWDS.AutoplayPlayMode.ClearCaptureStarted";
         private const string TargetedChartKey =
             "OpenWDS.AutoplayPlayMode.TargetedChart";
+        private const string MusicTimeSecondsKey =
+            "OpenWDS.AutoplayPlayMode.MusicTimeSeconds";
         private const string MusicIdKey =
             "OpenWDS.AutoplayPlayMode.MusicId";
         private const string DifficultyKey =
@@ -73,6 +75,7 @@ namespace OpenWDS.Editor
             public int good;
             public int bad;
             public int miss;
+            public string nonPerfectResults;
             public int remainingTap;
             public int remainingFlick;
             public string remainingFlickNotes;
@@ -135,6 +138,7 @@ namespace OpenWDS.Editor
                 Environment.GetEnvironmentVariable(
                     "OPENWDS_CLEAR_CAPTURE_ONLY") == "1");
             SessionState.SetBool(ClearCaptureStartedKey, false);
+            SessionState.SetInt(MusicTimeSecondsKey, 0);
             for (var index = 1; index <= 9; index++)
                 SessionState.SetBool(
                     "OpenWDS.AutoplayPlayMode.IntroductionFrame" + index,
@@ -246,7 +250,9 @@ namespace OpenWDS.Editor
             ObserveSenseCutInVisual(runtime);
             if (!runtime.InputHandler.IsGameCompleted ||
                 !runtime.IsResultShown) return;
-            if (runtime.ResultSe == null || runtime.ResultSe.IsCounting) return;
+            if (runtime.ResultSe == null ||
+                runtime.ResultSe.PresentationCount == 0 ||
+                runtime.ResultSe.IsCounting) return;
             // GameResult_left_in keeps the entire LeftPanel transparent until
             // 1.67 s into its authored entrance clip. Sampling immediately
             // after result SE counting therefore reports every child (including
@@ -299,6 +305,10 @@ namespace OpenWDS.Editor
                             runtime.ClearSe.LastPlayback.id !=
                             CriWare.CriAtomExPlayback.invalidId &&
                             runtime.ResultSe.PresentationCount == 1 &&
+                            runtime.ResultBgm != null &&
+                            runtime.ResultBgm.PlayCount == 1 &&
+                            runtime.ResultBgm.LastPlayback.id !=
+                                CriWare.CriAtomExPlayback.invalidId &&
                             runtime.GameHud.AchievementRatePanel != null &&
                             !runtime.GameHud.AchievementRatePanel
                                 .IsAnimationEnabled &&
@@ -389,6 +399,7 @@ namespace OpenWDS.Editor
                 good = GetCount(result, RecoveredTimingType.Good),
                 bad = GetCount(result, RecoveredTimingType.Bad),
                 miss = GetCount(result, RecoveredTimingType.Miss),
+                nonPerfectResults = FormatNonPerfectResults(result),
                 remainingTap = input.RemainingTapCount,
                 remainingFlick = input.RemainingFlickCount,
                 remainingFlickNotes = FormatRemainingFlickNotes(input),
@@ -648,6 +659,8 @@ namespace OpenWDS.Editor
 
             SessionState.SetBool(TargetedChartKey, true);
             SessionState.SetInt(MusicIdKey, checked((int)musicId));
+            SessionState.SetInt(
+                MusicTimeSecondsKey, selection.Music.MusicTimeSecond);
             SessionState.SetString(DifficultyKey, difficulty.ToString());
             Debug.Log(
                 "OPENWDS_PLAYMODE_AUTO_JUDGE_TARGET " +
@@ -1952,6 +1965,16 @@ namespace OpenWDS.Editor
             return string.Join(",", values);
         }
 
+        private static string FormatNonPerfectResults(
+            RecoveredGameResultRuntime result)
+        {
+            return string.Join(
+                ",",
+                result.NonPerfectResults.Select(value =>
+                    value.NoteId + ":" + (int)value.NoteType + "@" +
+                    value.StartMilliseconds + "=" + value.TimingType));
+        }
+
         private static string FormatRemainingFlickInputDiagnostics(
             RecoveredInputHandlerRuntime input)
         {
@@ -2030,9 +2053,10 @@ namespace OpenWDS.Editor
         {
             var raw = Environment.GetEnvironmentVariable(
                 "OPENWDS_PLAYMODE_TIMEOUT_SECONDS");
-            return double.TryParse(raw, out var seconds) && seconds > 0d
-                ? seconds
-                : 180d;
+            if (double.TryParse(raw, out var seconds) && seconds > 0d)
+                return seconds;
+            var musicTimeSeconds = SessionState.GetInt(MusicTimeSecondsKey, 0);
+            return Math.Max(180d, musicTimeSeconds + 60d);
         }
 
         private static void OnLog(string condition, string stackTrace, LogType type)
