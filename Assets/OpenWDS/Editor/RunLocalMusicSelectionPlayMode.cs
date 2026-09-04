@@ -32,6 +32,12 @@ namespace OpenWDS.Editor
             "OpenWDS.MusicSelectionPlayMode.IntroductionFocusValid";
         private const string ResultGameInstanceKey =
             "OpenWDS.MusicSelectionPlayMode.ResultGameInstance";
+        private const string FirstArrowGroupMusicKey =
+            "OpenWDS.MusicSelectionPlayMode.FirstArrowGroupMusic";
+        private const string ArrowReturnGroupMusicKey =
+            "OpenWDS.MusicSelectionPlayMode.ArrowReturnGroupMusic";
+        private const string SelectionStartCountKey =
+            "OpenWDS.MusicSelectionPlayMode.SelectionStartCount";
         private const string ExitPhase = "exit";
         private static string _lastLoggedPhase;
 
@@ -83,6 +89,9 @@ namespace OpenWDS.Editor
             SessionState.EraseString(ErrorKey);
             SessionState.SetBool(CaptureKey, false);
             SessionState.SetBool(IntroductionFocusValidKey, false);
+            SessionState.EraseInt(FirstArrowGroupMusicKey);
+            SessionState.EraseInt(ArrowReturnGroupMusicKey);
+            SessionState.EraseInt(SelectionStartCountKey);
             var screenshot = ScreenshotPath();
             if (File.Exists(screenshot)) File.Delete(screenshot);
             var noteSpeedScreenshot = NoteSpeedScreenshotPath();
@@ -166,7 +175,9 @@ namespace OpenWDS.Editor
                     : null;
                 if (runtime.AvailableDifficultyCount != 5 ||
                     runtime.BoundCellCount != runtime.CatalogMusicCount ||
-                    runtime.PhysicalCellCount != runtime.CatalogMusicCount * 3 ||
+                    runtime.PhysicalCellCount <= 0 ||
+                    runtime.PhysicalCellCount > 32 ||
+                    runtime.VisibleBoundCellCount > runtime.PhysicalCellCount ||
                     runtime.FocusedMusicId != 1 ||
                     runtime.Selection.Live.Difficulty !=
                     RecoveredMusicDifficulty.Stella ||
@@ -696,8 +707,11 @@ namespace OpenWDS.Editor
                 var runtime = UnityEngine.Object.FindObjectOfType<
                     RecoveredLocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsFocusTransitionActive ||
-                    runtime.FocusedMusicId != 2)
+                    runtime.FocusedMusicId == 0 ||
+                    runtime.FocusedMusicId == 1)
                     return;
+                SessionState.SetInt(
+                    FirstArrowGroupMusicKey, (int)runtime.FocusedMusicId);
                 var arrowDown = GameObject.Find(
                     "MusicSelectionView/ArrowDownButton")?.GetComponent<Button>();
                 if (arrowDown == null)
@@ -715,10 +729,10 @@ namespace OpenWDS.Editor
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
                     RecoveredLocalMusicSelectionRuntime>();
-                // Stella Lv 26 (Music 2) must jump to the next level group,
-                // Lv 28 (Music 7), instead of adjacent Music 3 at Lv 25.
                 if (runtime == null || runtime.IsFocusTransitionActive ||
-                    runtime.FocusedMusicId != 7)
+                    runtime.FocusedMusicId == 0 ||
+                    runtime.FocusedMusicId ==
+                        SessionState.GetInt(FirstArrowGroupMusicKey, 0))
                     return;
                 var arrowUp = GameObject.Find(
                     "MusicSelectionView/ArrowUpButton")?.GetComponent<Button>();
@@ -737,7 +751,8 @@ namespace OpenWDS.Editor
                 var runtime = UnityEngine.Object.FindObjectOfType<
                     RecoveredLocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsFocusTransitionActive ||
-                    runtime.FocusedMusicId != 2)
+                    runtime.FocusedMusicId !=
+                        SessionState.GetInt(FirstArrowGroupMusicKey, 0))
                     return;
                 var arrowUp = GameObject.Find(
                     "MusicSelectionView/ArrowUpButton")?.GetComponent<Button>();
@@ -757,8 +772,12 @@ namespace OpenWDS.Editor
                 var runtime = UnityEngine.Object.FindObjectOfType<
                     RecoveredLocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsFocusTransitionActive ||
-                    runtime.FocusedMusicId != 1)
+                    runtime.FocusedMusicId == 0 ||
+                    runtime.FocusedMusicId ==
+                        SessionState.GetInt(FirstArrowGroupMusicKey, 0))
                     return;
+                SessionState.SetInt(
+                    ArrowReturnGroupMusicKey, (int)runtime.FocusedMusicId);
                 var random = GameObject.Find(
                     "MusicSelectionView/Random/RandomButton")
                     ?.GetComponent<Button>();
@@ -778,7 +797,8 @@ namespace OpenWDS.Editor
                     RecoveredLocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsFocusTransitionActive ||
                     runtime.FocusedMusicId == 0 ||
-                    runtime.FocusedMusicId == 1)
+                    runtime.FocusedMusicId ==
+                        SessionState.GetInt(ArrowReturnGroupMusicKey, 0))
                     return;
                 var filterButton = GameObject.Find(
                     "MusicSelectionHeaderView/FilterButtonPanel/" +
@@ -2054,7 +2074,7 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
-                foreach (var musicId in runtime.CatalogMusicIds)
+                foreach (var musicId in runtime.VisibleMusicIds)
                 {
                     if (!MarkerUses(
                             musicId, "img_live_common_list_level_olivier"))
@@ -2138,7 +2158,8 @@ namespace OpenWDS.Editor
                     runtime.Selection.Live.Difficulty != RecoveredMusicDifficulty.Stella ||
                     runtime.IsFocusTransitionActive ||
                     preview == null || preview.MusicId != lastMusicId ||
-                    title == null || title.text != "LIVE OUR STAR" ||
+                    title == null ||
+                    title.text != runtime.Selection.Music.Name ||
                     jacket == null || jacket.overrideSprite == null)
                     return;
                 runtime.OnListBeginDrag();
@@ -2239,6 +2260,18 @@ namespace OpenWDS.Editor
                     Finish(false, "Selection button was not changed to 開演.", elapsed);
                     return;
                 }
+                if (runtime.CachedJacketCount < 2 ||
+                    !runtime.HasLoadedJacket(1))
+                {
+                    Finish(
+                        false,
+                        "Visible non-selected jackets were not retained in cache.",
+                        elapsed);
+                    return;
+                }
+                SessionState.SetInt(
+                    SelectionStartCountKey,
+                    runtime.StartInvocationCount);
                 var persisted = new RecoveredSettingsStore().LoadOrDefault();
                 persisted.GameSettings.NoteSpeed = 9d;
                 persisted.GameSettings.NoteOffsetValue = 0d;
@@ -2647,6 +2680,15 @@ namespace OpenWDS.Editor
                 var runtime = UnityEngine.Object.FindObjectOfType<
                     RecoveredLocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null) return;
+                if (runtime.StartInvocationCount != SessionState.GetInt(
+                        SelectionStartCountKey, -1))
+                {
+                    Finish(
+                        false,
+                        "Retire return recreated the selection runtime.",
+                        elapsed);
+                    return;
+                }
                 if (UnityEngine.Object.FindObjectsOfType<EventSystem>().Length != 1)
                 {
                     Finish(
@@ -2821,6 +2863,15 @@ namespace OpenWDS.Editor
                 var runtime = UnityEngine.Object.FindObjectOfType<
                     RecoveredLocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null) return;
+                if (runtime.StartInvocationCount != SessionState.GetInt(
+                        SelectionStartCountKey, -1))
+                {
+                    Finish(
+                        false,
+                        "Result return recreated the selection runtime.",
+                        elapsed);
+                    return;
+                }
                 var returned = RecoveredLocalMusicSelectionSession.Selection;
                 if (returned == null ||
                     runtime.Selection.Music.Id != returned.Music.Id ||

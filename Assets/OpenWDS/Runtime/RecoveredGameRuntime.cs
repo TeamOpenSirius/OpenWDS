@@ -940,7 +940,9 @@ namespace OpenWDS.Runtime
 
             Debug.Log("OPENWDS_GAME_RESTART_PREPARED scene=" +
                 SceneManager.GetActiveScene().name);
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            if (!RecoveredCurtainTransitionRuntime
+                    .ReloadActiveSceneWithRetainedSource())
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
         private void HandleRestartPreparationFailure(Exception error)
@@ -1077,7 +1079,9 @@ namespace OpenWDS.Runtime
             _gameSe?.SetVolume(RecoveredGameSettings.CalculateCombinedVolume(
                 persistedSettings.SoundVolumeSettings.GameMaster,
                 persistedSettings.SoundVolumeSettings.GameNotesTap));
-            _sharedSe = GetComponent<RecoveredUiSeRuntime>();
+            _sharedSe = RecoveredUiSeRuntime.Instance;
+            if (_sharedSe == null)
+                _sharedSe = GetComponent<RecoveredUiSeRuntime>();
             if (_sharedSe == null)
                 _sharedSe = gameObject.AddComponent<RecoveredUiSeRuntime>();
             _clearSe = GetComponent<RecoveredGameClearSeRuntime>();
@@ -1127,6 +1131,13 @@ namespace OpenWDS.Runtime
             // filesystem paths remain an Editor/desktop fallback.
             var notation = RecoveredStandardNotation.Parse(
                 _chartAsset != null ? _chartAsset.text : File.ReadAllText(chartPath));
+            if (persistedSettings.GameDetailSettings.IsActiveSplitRandom)
+            {
+                RecoveredNotationNoteProcessor.UpdateForSplitRandom(notation);
+                // Lane changes alter adjacency, so rebuild the derived collider
+                // suppression flags after the retail randomization pass.
+                RecoveredNotationNoteProcessor.SetOuterCollider(notation);
+            }
             var config = RecoveredStandardNotation.ParseMusicConfig(
                 _musicConfigAsset != null
                     ? _musicConfigAsset.text

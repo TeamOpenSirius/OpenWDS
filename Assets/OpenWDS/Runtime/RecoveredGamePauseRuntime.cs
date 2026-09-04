@@ -139,7 +139,8 @@ namespace OpenWDS.Runtime
 
             _store = new RecoveredSettingsStore();
             _session = new RecoveredSettingsSession(_store.LoadOrDefault());
-            _uiSe = GetComponent<RecoveredUiSeRuntime>();
+            _uiSe = RecoveredUiSeRuntime.Instance;
+            if (_uiSe == null) _uiSe = GetComponent<RecoveredUiSeRuntime>();
             if (_uiSe == null) _uiSe = gameObject.AddComponent<RecoveredUiSeRuntime>();
 
             // TouchBlockFactory.Initialize receives the shared UI parent in the
