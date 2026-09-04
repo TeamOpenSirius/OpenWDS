@@ -124,6 +124,77 @@ namespace OpenWDS.Runtime
     /// </summary>
     public static class RecoveredNotationNoteProcessor
     {
+        private static readonly int[] Split2LaneIds = { 1, 7 };
+        private static readonly int[] Split3LaneIds = { 1, 5, 9 };
+        private static readonly int[] Split4LaneIds = { 1, 4, 7, 10 };
+        private static readonly int[] Split5LaneIds = { 1, 4, 6, 8, 10 };
+        private static readonly int[] Split6LaneIds = { 1, 3, 5, 7, 9, 11 };
+
+        /// <summary>
+        /// Restores NotationNoteProcessor.UpdateForSplitRandom. Each non-empty
+        /// split-lane interval receives its own random permutation of the
+        /// official lane starts. Notes at both interval endpoints are included.
+        /// </summary>
+        public static RecoveredNotationNote[] UpdateForSplitRandom(
+            RecoveredNotationNote[] notes)
+        {
+            if (notes == null) throw new ArgumentNullException(nameof(notes));
+
+            var splitLanes = notes.Where(note =>
+                    note != null &&
+                    RecoveredSplitLaneRuntime.IsSplitLane(note.GimmickType) &&
+                    note.EndMilliseconds > note.StartMilliseconds)
+                .ToArray();
+            if (splitLanes.Length == 0) return notes;
+
+            foreach (var splitLane in splitLanes)
+            {
+                var splitCount = splitLane.GimmickType % 10;
+                var laneIds = GetSplitRandomLaneIds(splitCount);
+                if (laneIds.Length == 0) continue;
+
+                // The retail method uses OrderBy(_ => Guid.NewGuid()).
+                var shuffledLaneIds = laneIds
+                    .OrderBy(_ => Guid.NewGuid())
+                    .ToArray();
+                var laneMap = laneIds
+                    .Select((lane, index) => (lane, index))
+                    .ToDictionary(pair => pair.lane,
+                        pair => shuffledLaneIds[pair.index]);
+
+                foreach (var note in notes.Where(note =>
+                             note != null &&
+                             !RecoveredSplitLaneRuntime.IsSplitLane(
+                                 note.GimmickType) &&
+                             note.StartMilliseconds >= splitLane.StartMilliseconds &&
+                             note.StartMilliseconds <= splitLane.EndMilliseconds))
+                {
+                    if (laneMap.TryGetValue(note.Lane, out var shuffledLane))
+                        note.Lane = shuffledLane;
+
+                    if (splitCount == 5)
+                        note.Width = note.Lane == 1 || note.Lane == 10 ? 3 : 2;
+                }
+            }
+
+            return notes;
+        }
+
+        private static int[] GetSplitRandomLaneIds(int splitCount)
+        {
+            switch (splitCount)
+            {
+                case 1: return Array.Empty<int>();
+                case 2: return Split2LaneIds;
+                case 3: return Split3LaneIds;
+                case 4: return Split4LaneIds;
+                case 5: return Split5LaneIds;
+                case 6: return Split6LaneIds;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(splitCount));
+            }
+        }
+
         public static void SetOuterCollider(IReadOnlyList<RecoveredNotationNote> notes)
         {
             if (notes == null) throw new ArgumentNullException(nameof(notes));

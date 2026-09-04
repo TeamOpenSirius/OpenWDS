@@ -20,9 +20,29 @@ Shader "OpenWDS/Recovered/SplitEffect/ButterflyEffect"
             Fog { Mode Off }
 
             CGPROGRAM
+// Upgrade NOTE: excluded shader from OpenGL ES 2.0 because it uses non-square matrices
+#pragma exclude_renderers gles
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_instancing
+            #pragma instancing_options procedural:vertInstancingSetup
+
+            // The original ParticleSystemRenderer streams are
+            // Position, Normal, Color, UV, AnimFrame and Custom1XY. Unity's
+            // particle instancing contract requires the instanced fields to
+            // follow transform in their renderer-stream order.
+            #define UNITY_PARTICLE_INSTANCE_DATA ButterflyParticleInstanceData
+            struct ButterflyParticleInstanceData
+            {
+                float3x4 transform;
+                uint color;
+                float animFrame;
+                float2 custom1;
+            };
+
             #include "UnityCG.cginc"
+            #include "UnityStandardParticleInstancing.cginc"
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
@@ -33,6 +53,7 @@ Shader "OpenWDS/Recovered/SplitEffect/ButterflyEffect"
                 float4 position : POSITION;
                 float2 uv : TEXCOORD0;
                 fixed4 color : COLOR;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct VertexOutput
@@ -45,10 +66,38 @@ Shader "OpenWDS/Recovered/SplitEffect/ButterflyEffect"
 
             VertexOutput vert(VertexInput input)
             {
+                UNITY_SETUP_INSTANCE_ID(input);
+
                 VertexOutput output;
-                output.position = UnityObjectToClipPos(input.position);
-                output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 output.color = input.color;
+
+#if defined(UNITY_PARTICLE_INSTANCING_ENABLED)
+                vertInstancingColor(output.color);
+                vertInstancingUVs(input.uv, output.uv);
+
+                UNITY_PARTICLE_INSTANCE_DATA particle =
+                    unity_ParticleInstanceData[unity_InstanceID];
+
+                // Original Vulkan/GLES vertex program:
+                // theta = Custom1.y * vertex.x * 7.5, then rotate X/Z.
+                float theta = particle.custom1.y * input.position.x * 7.5;
+                float sine;
+                float cosine;
+                sincos(theta, sine, cosine);
+                float originalX = input.position.x;
+                float originalZ = input.position.z;
+                input.position.x = cosine * originalX + sine * originalZ;
+                input.position.z = -sine * originalX + cosine * originalZ;
+
+                // The original shader clamps the particle/mesh RGB first,
+                // then applies Custom1.x + 1 as its authored brightness.
+                output.color.rgb =
+                    min(output.color.rgb, 1.0) * (particle.custom1.x + 1.0);
+#else
+                output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+#endif
+
+                output.position = UnityObjectToClipPos(input.position);
                 output.projectedPosition = ComputeScreenPos(output.position);
                 output.projectedPosition.z =
                     -UnityObjectToViewPos(input.position).z;

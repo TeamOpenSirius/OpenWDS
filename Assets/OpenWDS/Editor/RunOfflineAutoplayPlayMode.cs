@@ -971,7 +971,7 @@ namespace OpenWDS.Editor
                             laneAlphaBefore)) > 0.0001f ||
                     Math.Abs(
                         formalLaneGroup.LaneDarknessAlpha -
-                        laneAlphaBefore / 100f) > 0.0001f ||
+                        0.8f * laneAlphaBefore / 100f) > 0.0001f ||
                     Math.Abs(
                         formalLaneGroup.LaneScaleX -
                         RecoveredGameSettings.CalculateLaneScale(

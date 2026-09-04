@@ -188,8 +188,8 @@ MonoBehaviour:
   _laneGroup: {fileID: 1051990265}
   _chartRelativePath: OpenWDS/StandardCharts/1/1/4.csv
   _musicConfigRelativePath: OpenWDS/StandardCharts/1/1/music_config.csv
-  _chartAsset: {fileID: 4900000, guid: 6e258e6790daa024f830f81277d4a90f, type: 2}
-  _musicConfigAsset: {fileID: 4900000, guid: db476ac54191e244885d6ea7e7568e92, type: 2}
+  _chartAsset: {fileID: 0}
+  _musicConfigAsset: {fileID: 0}
   _enableAutoJudge: 1
   _noteSpeed: 5
   _noteStartOffset: 0
@@ -244,7 +244,7 @@ MonoBehaviour:
   _musicId: 1
   _musicInfo: "\u4F5C\u8A5E\uFF1A\u677E\u4E95\u6D0B\u5E73\u3000\u4F5C\u66F2\uFF1A\u5149\u5897\u30CF\u30B8\u30E1\uFF08FirstCall\uFF09\u3000\u7DE8\u66F2\uFF1AEFFY\uFF08FirstCall\uFF09"
   _musicDifficulty: 4
-  _musicJacketSprite: {fileID: 21300000, guid: 81d42640a57c9094fb7b6d0ce3cc0377, type: 3}
+  _musicJacketSprite: {fileID: 0}
   _testPlayerUnitAsset: {fileID: 4900000, guid: 4c69266a156bf9f4e8d767adbd9ac187, type: 2}
   _localMusicCatalogAsset: {fileID: 4900000, guid: 8d756f72719341978e0ad668626ae0e5, type: 3}
 --- !u!114 &93902521
@@ -388,7 +388,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4583e2e1f6c1efb41851823bee724248, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _musicConfigAsset: {fileID: 4900000, guid: db476ac54191e244885d6ea7e7568e92, type: 2}
+  _musicConfigAsset: {fileID: 0}
   _musicConfigRelativePath: OpenWDS/StandardCharts/1/1/music_config.csv
   _acbRelativePath: OpenWDS/StandardCharts/1/cri/music_1.acb.bundle
   _cueName: 1

@@ -63,6 +63,7 @@ namespace OpenWDS.Runtime
         public float DelaySeconds;
         public int VocalVersion = 1;
         public RecoveredMusicVideoType MusicVideoType;
+        public string JacketAssetPath;
         public RecoveredLocalLiveEntry[] Lives;
     }
 
@@ -160,7 +161,6 @@ namespace OpenWDS.Runtime
                 if (music.VocalVersion <= 0 ||
                     string.IsNullOrEmpty(music.Vocals) ||
                     music.ActorIds == null ||
-                    music.ActorIds.Length == 0 ||
                     music.Lives == null ||
                     music.Lives.Length == 0)
                 {

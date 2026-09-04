@@ -93,7 +93,7 @@ namespace OpenWDS.Runtime
     }
 
 
-    /// <summary>Scalar values extracted from the original serialized GameConfig.</summary>
+    /// <summary>Values extracted from the original serialized GameConfig.</summary>
     public static class RecoveredGameConfigValues
     {
         public const float MaxNoteMoveSeconds = 4.6f;
@@ -101,6 +101,7 @@ namespace OpenWDS.Runtime
         public const float LaneBorderWidth = 0.01f;
         public const float NoteStartPositionY = 58f;
         public const float CameraFieldOfView = 50f;
+        public static readonly Vector3 JudgeAreaOffset = new Vector3(0f, -3.9f, 0f);
         public const int NoteVisibleTimeRate1 = 5000;
         public const int NoteVisibleTimeRate2 = 3;
         public const float MaxNoteVisiblePositionY = 4.45f;

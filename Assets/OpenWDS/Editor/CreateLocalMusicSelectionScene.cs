@@ -161,18 +161,6 @@ namespace OpenWDS.Editor
                 RequireAsset<Material>(CurtainGraphicMaterialPath);
             var catalog = RequireAsset<TextAsset>(CatalogPath);
             var parsedCatalog = RecoveredLocalMusicCatalog.FromJson(catalog.text);
-            var jacketMusicIds = parsedCatalog.Musics
-                .Select(music => music.Id)
-                .ToArray();
-            var jackets = jacketMusicIds
-                .Select(musicId =>
-                {
-                    var path =
-                        $"Assets/OpenWDS/OfflineData/Music{musicId}Jacket.png";
-                    EnsureSpriteImporter(path);
-                    return RequireAsset<Sprite>(path);
-                })
-                .ToArray();
             var difficultyMarkers = new[]
             {
                 RequireAsset<Sprite>(
@@ -229,26 +217,6 @@ namespace OpenWDS.Editor
                 .Select(id => RequireAsset<Sprite>(
                     CharacterBaseIconRoot + id + ".png"))
                 .ToArray();
-            var musicConfigs = new string[parsedCatalog.Musics.Length];
-            var chartAssets = new string[parsedCatalog.Musics.Length][];
-            for (var musicIndex = 0;
-                 musicIndex < parsedCatalog.Musics.Length;
-                 musicIndex++)
-            {
-                var music = parsedCatalog.Musics[musicIndex];
-                chartAssets[musicIndex] = new string[music.Lives.Length];
-                for (var liveIndex = 0;
-                     liveIndex < music.Lives.Length;
-                     liveIndex++)
-                {
-                    var live = music.Lives[liveIndex];
-                    chartAssets[musicIndex][liveIndex] =
-                        ReadStreamingText(live.DebugNotationAssetPath);
-                }
-                musicConfigs[musicIndex] = ReadStreamingText(
-                    music.Lives[0].DebugMusicConfigAssetPath);
-            }
-
             var scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var cameraObject = new GameObject("UICamera", typeof(Camera));
@@ -296,8 +264,8 @@ namespace OpenWDS.Editor
                 view,
                 cellPrefab,
                 catalog,
-                jacketMusicIds,
-                jackets,
+                Array.Empty<long>(),
+                Array.Empty<Sprite>(),
                 difficultyMarkers,
                 difficultyButtonOnSprites,
                 difficultyButtonOffSprite,
@@ -305,8 +273,6 @@ namespace OpenWDS.Editor
                 listJacketTargetMaskSprite,
                 clearLampSprites,
                 rateGradeSprites);
-            runtime.ConfigureMusicAssets(
-                parsedCatalog.Musics, musicConfigs, chartAssets);
             runtime.ConfigureCharacterBaseIcons(
                 characterBaseIds, characterBaseIcons);
             runtime.ConfigureHud(
@@ -350,8 +316,6 @@ namespace OpenWDS.Editor
                 if (component == null) missing++;
             }
             var expectedMusicCount = parsedCatalog.Musics.Length;
-            var expectedChartCount = parsedCatalog.Musics.Sum(
-                music => music.Lives.Length);
             var report = new ValidationReport
             {
                 scenePath = ScenePath,
@@ -436,8 +400,8 @@ namespace OpenWDS.Editor
                 !report.hasOriginalGameSimulation ||
                 !report.hasCurtainTransition ||
                 !report.ratingRulesValid ||
-                runtime.SerializedMusicAssetCount != expectedMusicCount ||
-                runtime.SerializedChartAssetCount != expectedChartCount ||
+                runtime.SerializedMusicAssetCount != 0 ||
+                runtime.SerializedChartAssetCount != 0 ||
                 !report.buildLoopValid)
                 throw new InvalidOperationException(
                     "Local MusicSelection validation failed.");
@@ -549,32 +513,6 @@ namespace OpenWDS.Editor
                     ImportAssetOptions.ForceUpdate);
             }
             NormalizeGeneratedYaml(BackgroundJacketFocusClipPath);
-        }
-
-        private static string ReadStreamingText(string relativePath)
-        {
-            var path = Path.Combine(
-                Application.dataPath, "StreamingAssets", relativePath);
-            if (!File.Exists(path))
-                throw new FileNotFoundException(
-                    "Required LocalMusicSelection text is missing.", path);
-            return File.ReadAllText(path);
-        }
-
-        private static void EnsureSpriteImporter(string path)
-        {
-            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer == null)
-                throw new FileNotFoundException(
-                    $"Required LocalMusicSelection texture is missing: {path}");
-            if (importer.textureType == TextureImporterType.Sprite &&
-                importer.spriteImportMode == SpriteImportMode.Single)
-                return;
-            importer.textureType = TextureImporterType.Sprite;
-            importer.spriteImportMode = SpriteImportMode.Single;
-            importer.spritePixelsPerUnit = 100f;
-            importer.mipmapEnabled = false;
-            importer.SaveAndReimport();
         }
 
         private static void WriteReport(ValidationReport report)

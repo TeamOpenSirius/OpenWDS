@@ -61,14 +61,8 @@ namespace OpenWDS.Editor
             "Assets/Resources/Material/Game/ScratchLongNotesSprite.mat";
         private const string MusicConfigSourcePath =
             "Assets/StreamingAssets/OpenWDS/StandardCharts/1/1/music_config.csv";
-        private const string HardChartTextAssetPath =
-            "Assets/OpenWDS/OfflineData/Music1Hard.asset";
-        private const string StellaChartTextAssetPath =
-            "Assets/OpenWDS/OfflineData/Music1Stella.asset";
-        private const string MusicConfigTextAssetPath =
-            "Assets/OpenWDS/OfflineData/Music1Config.asset";
         private const string MusicJacketPath =
-            "Assets/OpenWDS/OfflineData/Music1Jacket.png";
+            "Assets/StreamingAssets/OpenWDS/StandardCharts/1/jacket.bundle";
         private const string TestPlayerUnitPath =
             "Assets/StreamingAssets/OpenWDS/TestPlayer/stella-principal-gauge-unit.json";
         private const string TestPlayerUnitTextAssetPath =
@@ -340,10 +334,8 @@ namespace OpenWDS.Editor
             if (laneEffectController == null || laneEffectController.SplitEffectParent == null)
                 throw new InvalidOperationException(
                     "LaneEffect/SplitEffectParent was not restored from the original prefab.");
-            var musicConfigAsset = SyncTextAsset(
-                MusicConfigSourcePath, MusicConfigTextAssetPath);
             var criMusic = runtimeRoot.AddComponent<RecoveredCriMusicRuntime>();
-            criMusic.Configure(musicConfigAsset, false);
+            criMusic.Configure(null, false);
             var gameSe = runtimeRoot.AddComponent<RecoveredGameSeRuntime>();
             var customSettings = RecoveredGameSettings.Custom.Default();
             var detailSettings = RecoveredGameSettings.Detail.Default();
@@ -385,8 +377,8 @@ namespace OpenWDS.Editor
             gameRuntime.Configure(
                 camera,
                 laneGroupController,
-                SyncTextAsset(StellaChartSourcePath, StellaChartTextAssetPath),
-                musicConfigAsset,
+                null,
+                null,
                 LoadRuntimeNotePrefabs(),
                 AssetDatabase.LoadAssetAtPath<Material>(ScratchHoldMaterialPath),
                 effectParent,
@@ -2327,21 +2319,22 @@ namespace OpenWDS.Editor
 
         private static Sprite PrepareMusicJacket()
         {
-            var importer = AssetImporter.GetAtPath(MusicJacketPath) as TextureImporter;
-            if (importer == null)
+            var fullPath = Path.GetFullPath(MusicJacketPath);
+            if (!File.Exists(fullPath))
                 throw new FileNotFoundException(
-                    "Music 1 jacket is missing; run tools/sync_music_jacket.py");
-            var changed = importer.textureType != TextureImporterType.Sprite ||
-                          importer.spriteImportMode != SpriteImportMode.Single;
-            importer.textureType = TextureImporterType.Sprite;
-            importer.spriteImportMode = SpriteImportMode.Single;
-            importer.alphaIsTransparency = true;
-            importer.mipmapEnabled = false;
-            if (changed) importer.SaveAndReimport();
-            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(MusicJacketPath);
+                    "Music 1 Jacket bundle is missing; run " +
+                    "tools/sync_all_music_to_unity.py", fullPath);
+            var bundle = AssetBundle.LoadFromFile(fullPath);
+            if (bundle == null)
+                throw new InvalidDataException(
+                    "Music 1 Jacket bundle could not be loaded.");
+            var sprites = bundle.LoadAllAssets<Sprite>();
+            var sprite = sprites.Length == 1 ? sprites[0] : null;
+            bundle.Unload(false);
             if (sprite == null || sprite.texture == null ||
                 sprite.texture.width != 800 || sprite.texture.height != 800)
-                throw new InvalidDataException("Music 1 jacket import is not an 800x800 Sprite");
+                throw new InvalidDataException(
+                    "Music 1 Jacket bundle does not contain one 800x800 Sprite");
             return sprite;
         }
 
@@ -2922,10 +2915,9 @@ namespace OpenWDS.Editor
             if (asset == null) return false;
 
             var fixture = RecoveredPlayerUnitFixture.Parse(asset);
-            var chart = AssetDatabase.LoadAssetAtPath<TextAsset>(
-                StellaChartTextAssetPath);
-            if (chart == null) return false;
-            var notation = RecoveredStandardNotation.Parse(chart.text);
+            if (!File.Exists(StellaChartSourcePath)) return false;
+            var notation = RecoveredStandardNotation.Parse(
+                File.ReadAllText(StellaChartSourcePath));
             var resultRuntime = new RecoveredGameResultRuntime(notation);
             var noteIds = resultRuntime.GetScoreNoteIds(notation);
             var context = fixture.CreateScoreContext(noteIds);
@@ -7365,7 +7357,72 @@ namespace OpenWDS.Editor
                    config.CueName == "1" &&
                    Mathf.Approximately(config.DelayStartSeconds, 3.019f) &&
                    config.CueSheetDirectory == "Game" &&
-                   adjacentColliderOwnershipValid;
+                   adjacentColliderOwnershipValid &&
+                   ValidateSplitRandomProcessor();
+        }
+
+        private static bool ValidateSplitRandomProcessor()
+        {
+            var split3 = new RecoveredNotationNote
+            {
+                Id = 1, StartTickCount = 1f, EndTickCount = 2f,
+                GimmickType = 13,
+            };
+            var split5 = new RecoveredNotationNote
+            {
+                Id = 6, StartTickCount = 3f, EndTickCount = 4f,
+                GimmickType = 15,
+            };
+            var split3Notes = new[]
+            {
+                new RecoveredNotationNote { Id = 2, StartTickCount = 1f, Lane = 1, Width = 1 },
+                new RecoveredNotationNote { Id = 3, StartTickCount = 1.5f, Lane = 5, Width = 1 },
+                new RecoveredNotationNote { Id = 4, StartTickCount = 2f, Lane = 9, Width = 1 },
+            };
+            var unmapped = new RecoveredNotationNote
+            {
+                Id = 5, StartTickCount = 1.5f, Lane = 2, Width = 1,
+            };
+            var split5Notes = new[]
+            {
+                new RecoveredNotationNote { Id = 7, StartTickCount = 3f, Lane = 1, Width = 99 },
+                new RecoveredNotationNote { Id = 8, StartTickCount = 3.25f, Lane = 4, Width = 99 },
+                new RecoveredNotationNote { Id = 9, StartTickCount = 3.5f, Lane = 6, Width = 99 },
+                new RecoveredNotationNote { Id = 10, StartTickCount = 3.75f, Lane = 8, Width = 99 },
+                new RecoveredNotationNote { Id = 11, StartTickCount = 4f, Lane = 10, Width = 99 },
+            };
+            var outside = new RecoveredNotationNote
+            {
+                Id = 12, StartTickCount = 5f, Lane = 1, Width = 4,
+            };
+            var zeroLengthSplit = new RecoveredNotationNote
+            {
+                Id = 13, StartTickCount = 6f, EndTickCount = 6f,
+                GimmickType = 16,
+            };
+            var zeroLengthTarget = new RecoveredNotationNote
+            {
+                Id = 14, StartTickCount = 6f, Lane = 1, Width = 4,
+            };
+            var notation = new[]
+            {
+                split3, split3Notes[0], split3Notes[1], split3Notes[2], unmapped,
+                split5, split5Notes[0], split5Notes[1], split5Notes[2],
+                split5Notes[3], split5Notes[4], outside, zeroLengthSplit,
+                zeroLengthTarget,
+            };
+
+            var returned = RecoveredNotationNoteProcessor.UpdateForSplitRandom(notation);
+            var split3Lanes = new HashSet<int>(split3Notes.Select(note => note.Lane));
+            var split5Lanes = new HashSet<int>(split5Notes.Select(note => note.Lane));
+            return ReferenceEquals(returned, notation) &&
+                   split3Lanes.SetEquals(new[] { 1, 5, 9 }) &&
+                   split5Lanes.SetEquals(new[] { 1, 4, 6, 8, 10 }) &&
+                   split5Notes.All(note => note.Width ==
+                       (note.Lane == 1 || note.Lane == 10 ? 3 : 2)) &&
+                   unmapped.Lane == 2 && unmapped.Width == 1 &&
+                   outside.Lane == 1 && outside.Width == 4 &&
+                   zeroLengthTarget.Lane == 1 && zeroLengthTarget.Width == 4;
         }
 
         private static bool ValidateSplitLaneScheduler(

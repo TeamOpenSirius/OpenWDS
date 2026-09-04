@@ -29,6 +29,8 @@ namespace Sirius.Game
         public float LaneBorderAlpha => _laneBorderAlpha;
         public float LaneDarknessAlpha =>
             _laneSpriteRenderer != null ? _laneSpriteRenderer.color.a : 0f;
+        public Vector3 JudgeAreaLocalPosition =>
+            _judgeArea != null ? _judgeArea.localPosition : Vector3.zero;
         public float LaneScaleX =>
             _laneGroupMain != null ? _laneGroupMain.localScale.x : 0f;
 
@@ -37,16 +39,22 @@ namespace Sirius.Game
             ApplyRecoveredLaneWidth(laneWidth);
             if (_laneSpriteRenderer != null)
             {
-                // LaneGroup.Initialize ARM64 writes LaneAlphaValue / 100 to
-                // _laneSpriteRenderer. The 14..51 / 255 calculation belongs
-                // to GameDetailSettings.SplitEffectLineOpacity and the
-                // separate _laneBorderSpriteRenderer.
+                // Retail LaneGroup.Initialize preserves RGB and multiplies the
+                // serialized renderer alpha by LaneAlphaValue / 100.
                 var color = _laneSpriteRenderer.color;
-                color.a =
-                    RecoveredGameSettings.CalculateLaneDarknessAlpha(
-                        laneAlphaValue);
+                color.a *= laneAlphaValue / 100f;
                 _laneSpriteRenderer.color = color;
             }
+            ApplyRecoveredJudgeAreaOffset(
+                RecoveredGameConfigValues.JudgeAreaOffset);
+        }
+
+        public void ApplyRecoveredJudgeAreaOffset(Vector3 judgeAreaOffset)
+        {
+            if (_judgeArea == null) return;
+            var position = _judgeArea.localPosition;
+            position.y = judgeAreaOffset.y;
+            _judgeArea.localPosition = position;
         }
 
         public void ApplyRecoveredLaneWidth(int laneWidth)
