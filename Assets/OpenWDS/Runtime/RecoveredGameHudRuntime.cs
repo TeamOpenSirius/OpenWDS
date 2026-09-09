@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -41,6 +43,7 @@ namespace OpenWDS.Runtime
         private readonly List<Sirius.Game.TimingAssistEffect> _timingAssistPool =
             new List<Sirius.Game.TimingAssistEffect>();
         private GameObject _canvasObject;
+        private CanvasGroup _introductionCanvasGroup;
         private Sirius.Game.UI.ComboPanel _comboPanel;
         private Sirius.Game.UI.LifeGauge _lifeGauge;
         private Sirius.Game.UI.PrincipalGauge _principalGauge;
@@ -90,6 +93,8 @@ namespace OpenWDS.Runtime
         public int TimingPoolCount => _timingPool.Count;
         public int TimingAssistPoolCount => _timingAssistPool.Count;
         public bool IsVisible => _initialized && _visible;
+        public float IntroductionAlpha =>
+            _introductionCanvasGroup != null ? _introductionCanvasGroup.alpha : 0f;
         public Sirius.Game.TimingEffect LastTimingEffect { get; private set; }
         public Sirius.Game.TimingAssistEffect LastTimingAssistEffect
         {
@@ -184,6 +189,7 @@ namespace OpenWDS.Runtime
             _canvasObject = new GameObject(
                 "RecoveredGameHudCanvas", typeof(RectTransform), typeof(Canvas),
                 typeof(CanvasScaler), typeof(GraphicRaycaster));
+            _introductionCanvasGroup = _canvasObject.AddComponent<CanvasGroup>();
             _canvasObject.transform.SetParent(transform, false);
             var canvas = _canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -552,6 +558,17 @@ namespace OpenWDS.Runtime
                 if (effect != null) effect.gameObject.SetActive(true);
             foreach (var effect in _timingAssistPool)
                 if (effect != null) effect.gameObject.SetActive(true);
+        }
+
+        public IEnumerator ShowIntroduction()
+        {
+            // GameIntroductionUIAnimationController ctor/ShowAsync and
+            // GameStartAnimationManager: await alpha 0 -> 1 before starting play.
+            if (!_initialized) yield break;
+            _introductionCanvasGroup.alpha = 0f;
+            Show();
+            yield return _introductionCanvasGroup.DOFade(1f, 0.2f)
+                .SetEase(Ease.InQuad).SetLink(_canvasObject).WaitForCompletion();
         }
 
         public static float CalculatePositionY(int timingEffectOffset)

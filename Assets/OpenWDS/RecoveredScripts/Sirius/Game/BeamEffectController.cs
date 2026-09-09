@@ -40,10 +40,15 @@ namespace Sirius.Game
                 var shape = frame.shape;
                 var position = shape.position;
                 position.x = width * (index < 3 ? -0.5f : 0.5f);
+                position.z = 0f;
                 shape.position = position;
-                // The two centre frame entries are the only ones whose gradient
-                // is not rewritten by the original loop.
-                if (index == 0 || index == 3) continue;
+                // ARM64 0xB9800A0: only the size setter skips entries 0/3.
+                // LT/LB/RT/RB (1/2/4/5) use the current note width.
+                if (index != 0 && index != 3)
+                {
+                    var main = frame.main;
+                    main.startSizeXMultiplier = width;
+                }
                 var colors = frame.colorOverLifetime;
                 colors.color = color;
             }

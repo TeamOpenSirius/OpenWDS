@@ -12,6 +12,7 @@ using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using DG.Tweening;
 
 namespace OpenWDS.Editor
 {
@@ -717,6 +718,94 @@ namespace OpenWDS.Editor
             finally
             {
                 UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        public static void RunPresentationVisualValidation()
+        {
+            if (!ValidateBeamEffect())
+                throw new InvalidOperationException("Beam frame width/color regression.");
+            RunConcurrentLineVisualValidation();
+            var instance = UnityEngine.Object.Instantiate(
+                AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/Resources/Prefabs/OrdinarySoloGameResult.prefab"));
+            Sequence sequence = null;
+            var criOwner = new GameObject("ResultCountUpCriValidation");
+            var initializer = criOwner.AddComponent<CriWare.CriWareInitializer>();
+            initializer.dontInitializeOnAwake = true;
+            initializer.initializesMana = false;
+            initializer.atomConfig.acfFileName = Path.Combine(Application.streamingAssetsPath, "OpenWDS/CRI/Sirius.acf");
+            initializer.Initialize();
+            var soundOwner = new GameObject("ResultCountUpAudioValidation");
+            var sharedSound = RecoveredUiSeRuntime.Instance ??
+                soundOwner.AddComponent<RecoveredUiSeRuntime>();
+            var resultSound = soundOwner.AddComponent<RecoveredGameResultSeRuntime>();
+            resultSound.Configure(sharedSound);
+            try
+            {
+                var panel = instance.GetComponentInChildren<Sirius.GameResult.GameResultPanel>(true);
+                var counts = new Dictionary<RecoveredTimingType, int>
+                {
+                    { RecoveredTimingType.PerfectStar, 100 },
+                    { RecoveredTimingType.Perfect, 20 },
+                    { RecoveredTimingType.Great, 0 },
+                    { RecoveredTimingType.Good, 0 },
+                    { RecoveredTimingType.Bad, 0 },
+                    { RecoveredTimingType.Miss, 0 },
+                };
+                panel.Initialize(new Sirius.GameResult.RecoveredGameResultViewData(
+                    120, 100.5, 100.5, 0, 0, 5, false, true, true, false,
+                    counts, new Dictionary<int, int>(),
+                    bestEverNotationRate: 30, thisTimeNotationRate: 33.87,
+                    beforePlayerRate: 999.99, afterPlayerRate: 1000,
+                    isNewNotationRate: true, isNewPlayerRate: true));
+                var combo = (Text)new SerializedObject(panel.ComboPanel)
+                    .FindProperty("_maxComboText").objectReferenceValue;
+                var rate = panel.transform.Find("ResultPanel /HeaderPanel/NextRewardPanel/ThisTimeRate")
+                    .GetComponent<Text>();
+                var timing = new SerializedObject(panel.InputResultPanel).FindProperty("_timingResults");
+                TMPro.TextMeshProUGUI perfectStar = null;
+                for (var i = 0; i < timing.arraySize; i++)
+                {
+                    var item = timing.GetArrayElementAtIndex(i);
+                    if (item.FindPropertyRelative("_key").intValue == 6)
+                        perfectStar = item.FindPropertyRelative("_value").objectReferenceValue as TMPro.TextMeshProUGUI;
+                }
+                var rankBadge = rate.transform.parent.Find("Badge");
+                sequence = panel.CreateCountUp(resultSound).SetAutoKill(false);
+                sequence.ForceInit();
+                if (combo.text != "0" || rate.text != "0.0000%" || rankBadge.gameObject.activeSelf)
+                    throw new InvalidOperationException("Result digits are not reset before entrance.");
+                sequence.Play();
+                sequence.ManualUpdate(0.175f, 0.175f);
+                if (!resultSound.IsCounting || resultSound.CountStartCount != 1 || resultSound.RankCueCount != 0)
+                    throw new InvalidOperationException($"Achievement SE/FX interval invalid: counting={resultSound.IsCounting} starts={resultSound.CountStartCount} stops={resultSound.CountStopCount} rank={resultSound.RankCueCount} presentation={resultSound.PresentationCount}");
+                if (rate.text != "50.2500%" || combo.text != "0")
+                    throw new InvalidOperationException("Achievement count-up midpoint/order is invalid: " + rate.text);
+                sequence.ManualUpdate(0.325f, 0.325f);
+                if (!rankBadge.gameObject.activeSelf || resultSound.RankCueCount != 1 ||
+                    resultSound.CountStartCount != 2 || resultSound.CountStopCount != 1)
+                    throw new InvalidOperationException("Rank cue/badge did not occur once after achievement count-up.");
+                if (perfectStar == null || Regex.Replace(perfectStar.text, "<[^>]*>", "") != "0050")
+                    throw new InvalidOperationException("Timing count-up midpoint/order is invalid.");
+                sequence.ManualUpdate(0.625f, 0.625f);
+                if (combo.text != "60")
+                    throw new InvalidOperationException("Combo count-up midpoint is invalid: " + combo.text);
+                sequence.ManualUpdate(sequence.Duration() - 1.125f, sequence.Duration() - 1.125f);
+                if (resultSound.PresentationCount != 1 || resultSound.CountStartCount != 5 ||
+                    resultSound.CountStopCount != 5 || resultSound.RankCueCount != 1 ||
+                    resultSound.CompletionCueCount != 2 || resultSound.IsCounting)
+                    throw new InvalidOperationException("Result SE counts differ from retail (5 loop pairs, 1 rank, 2 rate cues).");
+                if (panel.IsCounting || combo.text != "120" || rate.text != "100.5000%")
+                    throw new InvalidOperationException("Result count-up did not settle.");
+                Debug.Log("OPENWDS_PRESENTATION_VISUAL_VALIDATION beam=True concurrent=True countup=True");
+            }
+            finally
+            {
+                sequence?.Kill();
+                UnityEngine.Object.DestroyImmediate(instance);
+                UnityEngine.Object.DestroyImmediate(soundOwner);
+                UnityEngine.Object.DestroyImmediate(criOwner);
             }
         }
 
@@ -4469,6 +4558,27 @@ namespace OpenWDS.Editor
             {
                 var controller = instance.GetComponent<Sirius.Game.BeamEffectController>();
                 if (controller == null) return false;
+                var frames = (ParticleSystem[])typeof(Sirius.Game.BeamEffectController)
+                    .GetField("_beamFrames", System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.NonPublic).GetValue(controller);
+                var edgeSizes = new[] { frames[0].main.startSizeXMultiplier,
+                    frames[3].main.startSizeXMultiplier };
+                foreach (var lanes in new[] { 1, 12, 2, 4 })
+                {
+                    controller.Initialize(lanes, true, RecoveredLaneEffectRuntime.SingleLaneWidth);
+                    var width = lanes * RecoveredLaneEffectRuntime.SingleLaneWidth;
+                    for (var i = 0; i < frames.Length; i++)
+                    {
+                        var expectedSize = i == 0 ? edgeSizes[0] : i == 3 ? edgeSizes[1] : width;
+                        if (!Mathf.Approximately(frames[i].main.startSizeXMultiplier, expectedSize) ||
+                            !Mathf.Approximately(frames[i].shape.position.x, (i < 3 ? -0.5f : 0.5f) * width) ||
+                            frames[i].shape.position.z != 0f)
+                            return false;
+                        var expected = frames[1].colorOverLifetime.color.gradient.Evaluate(0.5f);
+                        if (frames[i].colorOverLifetime.color.gradient.Evaluate(0.5f) != expected)
+                            return false;
+                    }
+                }
                 controller.Initialize(
                     4, false, RecoveredLaneEffectRuntime.SingleLaneWidth);
                 var square = FindChild(instance.transform, "BeamSquare")
@@ -5173,6 +5283,11 @@ namespace OpenWDS.Editor
             // HoldStart has EndMilliseconds=-1 in notation. Retail still clears
             // its concurrent line with StartMilliseconds, not by the broad
             // numeric test NoteType > Flick that the old recovery used.
+            runtime.Tick(2000L + runtime.MoveMilliseconds);
+            var missedLine = FindChild(parent, "Runtime_Concurrent_2000");
+            if (missedLine == null || !missedLine.gameObject.activeSelf) return false;
+            runtime.Tick(2001L + runtime.MoveMilliseconds);
+            if (missedLine.gameObject.activeSelf) return false;
             runtime.Tick(4000L);
             runtime.OnInputResults(new[]
             {
@@ -5200,8 +5315,34 @@ namespace OpenWDS.Editor
                         RecoveredTimingAssistType.None,
                         0L)),
             });
-            return runtime.ActiveConcurrentLineCount == 0 &&
-                   runtime.CompletedConcurrentLineCount == 3;
+            if (runtime.ActiveConcurrentLineCount != 0 ||
+                runtime.CompletedConcurrentLineCount != 3) return false;
+            runtime.Reset();
+
+            // Both ordinary branches must clear immediately on successful
+            // Scratch/Flick, even when the paired note has not been hit yet.
+            foreach (var type in new[] { RecoveredNoteType.Scratch, RecoveredNoteType.Flick })
+            {
+                first.NoteType = (int)type;
+                var directional = new RecoveredNoteVisualRuntime(
+                    new[] { first, firstPair }, parent, LoadRuntimeNotePrefabs(), 5d);
+                directional.Tick(1000L);
+                if (directional.ActiveConcurrentLineCount != 1) return false;
+                directional.OnInputResults(new[] { RecoveredInputResultEntity.Create(first,
+                    new RecoveredTimingDecision(RecoveredTimingType.PerfectStar,
+                        RecoveredTimingAssistType.None, 0L)) });
+                if (directional.ActiveConcurrentLineCount != 0 ||
+                    directional.CompletedConcurrentLineCount != 1) return false;
+                directional.Tick(5000L);
+                if (directional.ActiveConcurrentLineCount != 0) return false;
+                directional.Reset();
+                directional.Tick(1000L);
+                if (directional.ActiveConcurrentLineCount != 1) return false;
+                directional.Tick(1001L + directional.MoveMilliseconds);
+                if (directional.ActiveConcurrentLineCount != 0) return false;
+                directional.Reset();
+            }
+            return true;
         }
 
         private static bool ValidateHoldVisualState(Transform parent)

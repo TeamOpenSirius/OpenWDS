@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening;
 
 namespace Sirius.GameResult
 {
@@ -22,6 +23,24 @@ namespace Sirius.GameResult
             if (_badgeEffectObjects == null || index >= _badgeEffectObjects.Length ||
                 _badgeEffectObjects[index] == null) return;
             _badgeEffectObjects[index].SetActive(active);
+        }
+
+        internal Tween CreateCountUp(RecoveredGameResultViewData data)
+        {
+            var value = 0;
+            _maxComboText.text = "0";
+            SetBadge(0, false);
+            SetBadge(1, false);
+            return DOTween.To(() => value, current =>
+            {
+                value = current;
+                _maxComboText.text = current.ToString();
+            }, data.MaxCombo, 0.35f).SetEase(Ease.Linear).OnComplete(() =>
+            {
+                var allPerfect = data.IsAllPerfect || data.IsPerfectStar;
+                SetBadge(0, allPerfect);
+                SetBadge(1, !allPerfect && data.IsFullCombo);
+            });
         }
     }
 }

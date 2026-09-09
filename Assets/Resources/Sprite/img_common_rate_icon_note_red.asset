@@ -9,14 +9,14 @@ Sprite:
   m_Name: img_common_rate_icon_note_red
   m_Rect:
     serializedVersion: 2
-    x: 1238.0762
-    y: 0.07612038
-    width: 200.84775
-    height: 247.84775
-  m_Offset: {x: 5.5000114, y: 1.4772877E-05}
+    x: 0
+    y: 0
+    width: 256
+    height: 256
+  m_Offset: {x: 0, y: 0}
   m_Border: {x: 0, y: 0, z: 0, w: 0}
   m_PixelsToUnits: 88.88889
-  m_Pivot: {x: 0.527384, y: 0.50000006}
+  m_Pivot: {x: 0.5, y: 0.5}
   m_Extrude: 1
   m_IsPolygon: 0
   m_AtlasName:
@@ -111,7 +111,7 @@ Sprite:
       y: 0.07612038
       width: 200.84775
       height: 247.84775
-    textureRectOffset: {x: 0, y: 0}
+    textureRectOffset: {x: 22.0761204, y: 4.07612038}
     atlasRectOffset: {x: 1216, y: -4}
     settingsRaw: 67
     uvTransform: {x: 88.88889, y: 1344, z: 88.88889, w: 124}

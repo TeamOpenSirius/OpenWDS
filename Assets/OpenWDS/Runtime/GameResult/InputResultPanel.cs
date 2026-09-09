@@ -1,6 +1,8 @@
 using System;
 using OpenWDS.Runtime;
 using TMPro;
+using DG.Tweening;
+using System.Linq;
 using UnityEngine;
 
 namespace Sirius.GameResult
@@ -16,6 +18,30 @@ namespace Sirius.GameResult
 
         [SerializeField] private GameObject _perfectStar;
         [SerializeField] private TimingResultReference[] _timingResults;
+
+        internal Sequence CreateCountUp(RecoveredGameResultViewData data)
+        {
+            // FireAnimationAsync: descending TimingTypes; skip zero counts;
+            // await each 0.3s linear integer tween before the next row.
+            var sequence = DOTween.Sequence();
+            foreach (var result in _timingResults.OrderByDescending(item => (int)item._key))
+            {
+                if (result._value == null) continue;
+                var label = result._value;
+                label.text = ZeroPaddingWithGray(0, 4);
+                if (!data.ShouldShowPerfectStar && result._key == RecoveredTimingType.PerfectStar)
+                    continue;
+                var target = data.GetDisplayedTimingCount(result._key);
+                if (target == 0) continue;
+                var value = 0;
+                sequence.Append(DOTween.To(() => value, current =>
+                {
+                    value = current;
+                    label.text = ZeroPaddingWithGray(current, 4);
+                }, target, 0.3f).SetEase(Ease.Linear));
+            }
+            return sequence;
+        }
 
         public override void Initialize(RecoveredGameResultViewData data)
         {

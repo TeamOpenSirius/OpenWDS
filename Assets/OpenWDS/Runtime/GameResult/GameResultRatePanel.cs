@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Globalization;
+using DG.Tweening;
 
 namespace Sirius.GameResult
 {
@@ -93,6 +94,48 @@ namespace Sirius.GameResult
             if (notRate != null) notRate.gameObject.SetActive(false);
             var notTarget = ratePanel.Find("NotRateTargetText");
             if (notTarget != null) notTarget.gameObject.SetActive(false);
+        }
+
+        internal Sequence CreateCountUp(RecoveredGameResultViewData data, System.Action completion)
+        {
+            // GameResultRatePanel joins the two independent rate sequences.
+            return DOTween.Sequence()
+                .Join(CreateRateCountUp(_notationRateText, data.ThisTimeNotationRate,
+                    data.IsNewNotationRate, completion))
+                .Join(CreateRateCountUp(_playerRateText, data.AfterPlayerRate,
+                    data.IsNewPlayerRate, completion));
+        }
+
+        private static Sequence CreateRateCountUp(Text label, double target,
+            bool isNewRecord, System.Action completion)
+        {
+            var panel = label.transform.parent.parent.Find("RatePanel");
+            var current = panel.Find("ThisTimeRate").GetComponent<Text>();
+            var previous = panel.Find("PreviousRate");
+            var previousGroup = previous.GetComponent<CanvasGroup>();
+            var value = 0d;
+            current.text = "0.00";
+            current.color = OpenWDS.Runtime.RecoveredPlayerRating.GetGameResultTextColor(0d);
+            if (isNewRecord)
+            {
+                previousGroup.alpha = 0f;
+                // Original prefab starts at its authored X; FireAnimationSequence
+                // moves PreviousRate to -198 after the numeric tween completes.
+            }
+            var sequence = DOTween.Sequence();
+            sequence.Append(DOTween.To(() => value, updated =>
+            {
+                value = updated;
+                current.text = updated.ToString("0.00", CultureInfo.InvariantCulture);
+                current.color = OpenWDS.Runtime.RecoveredPlayerRating.GetGameResultTextColor(updated);
+            }, target, 0.3f).SetEase(Ease.Linear));
+            sequence.AppendCallback(() => completion?.Invoke());
+            if (isNewRecord)
+            {
+                sequence.Append(previousGroup.DOFade(1f, 0.1f));
+                sequence.Join(previous.DOLocalMoveX(-198f, 0.2f));
+            }
+            return sequence;
         }
     }
 }

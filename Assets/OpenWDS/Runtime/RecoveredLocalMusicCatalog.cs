@@ -50,6 +50,11 @@ namespace OpenWDS.Runtime
         public string Name;
         public string Description;
         public string PronounceName;
+        // Nullable ReleasedAt and group-main ID projected by
+        // tools/sync_music_sort_metadata.py from the original Master tables.
+        public bool HasSortReleasedAt;
+        public long SortReleasedAtUtcTicks;
+        public long SortMusicId;
         public string LyricWriter;
         public string Composer;
         public string Arranger;

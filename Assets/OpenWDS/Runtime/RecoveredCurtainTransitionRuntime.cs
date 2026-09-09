@@ -56,9 +56,9 @@ namespace OpenWDS.Runtime
             canvas.sortingOrder = 32000;
             var scaler = root.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1200f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            // Original level0/TransitionFadeCanvas (CanvasScaler pathID 555).
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
 
             var runtime = root.GetComponent<RecoveredCurtainTransitionRuntime>();
             runtime._destination = destination;
@@ -69,21 +69,17 @@ namespace OpenWDS.Runtime
             runtime._skeleton.raycastTarget = true;
             runtime._skeleton.UnscaledTime = true;
             runtime._skeleton.Initialize(true);
-            // NewSkeletonGraphicGameObject starts from an arbitrary 100x100
-            // RectTransform. Capture the authored Spine bounds first, then use
-            // the package's envelope mode so every destination aspect ratio is
-            // covered vertically and horizontally during the transition.
-            if (runtime._skeleton.MatchRectTransformWithBounds())
-            {
-                runtime._skeleton.layoutScaleMode =
-                    SkeletonGraphic.LayoutMode.EnvelopeParent;
-            }
+            // Retail SkeletonGraphic has no bounds-based layout. Awake replaces
+            // the parent scale with ScreenHelper.GetFitScaleForAspectRatio;
+            // its child retains the authored 1.1 scale (level0 RectTransform 465).
+            runtime._skeleton.layoutScaleMode = SkeletonGraphic.LayoutMode.None;
             var rect = runtime._skeleton.rectTransform;
             rect.anchorMin = Vector2.zero;
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
-            rect.localScale = Vector3.one;
+            var fitScale = GetAuthoredFitScale(Screen.width, Screen.height);
+            rect.localScale = new Vector3(1.1f * fitScale, 1.1f * fitScale, 0f);
             IsTransitioning = true;
             ClosePlayed = false;
             OpenPlayed = false;
@@ -93,6 +89,16 @@ namespace OpenWDS.Runtime
             OpenRenderedInDestination = false;
             runtime.StartCoroutine(runtime.Run());
             return true;
+        }
+
+        public static float GetAuthoredFitScale(int width, int height)
+        {
+            if (width <= 0 || height <= 0)
+                throw new ArgumentOutOfRangeException("Screen dimensions must be positive.");
+            // 2.31.2 ScreenHelper.GetFitScaleForAspectRatio, VA 0xB4BFB34.
+            return width / 1.6f <= height
+                ? ((float)height / width) / 0.5625f + 0.03f
+                : ((float)width / height) / 1.7777778f + 0.03f;
         }
 
         public static bool ReturnToRetainedScene()

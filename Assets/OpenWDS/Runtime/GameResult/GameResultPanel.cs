@@ -2,6 +2,8 @@ using System;
 using System.Globalization;
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening;
+using OpenWDS.Runtime;
 
 namespace Sirius.GameResult
 {
@@ -36,6 +38,58 @@ namespace Sirius.GameResult
         public GameResultRatePanel RatePanel => _ratePanel;
         public GameResultTimingPanel TimingPanel => _timingPanel;
         public PanelType CurrentPanelType => _panelType;
+        public bool IsCounting { get; private set; }
+
+        public Sequence CreateCountUp(RecoveredGameResultSeRuntime sound)
+        {
+            var sequence = DOTween.Sequence().SetLink(gameObject).Pause();
+            if (_data.IsAuto) return sequence;
+            IsCounting = true;
+            var root = transform.Find("ResultPanel /HeaderPanel/NextRewardPanel");
+            var rateText = root.Find("ThisTimeRate").GetComponent<Text>();
+            var newRecord = root.Find("NewRecord");
+            var rankBadge = root.Find("Badge");
+            var value = 0d;
+            rateText.text = "0.0000%";
+            if (newRecord != null) newRecord.gameObject.SetActive(false);
+            if (rankBadge != null) rankBadge.gameObject.SetActive(false);
+            sequence.AppendCallback(() => sound?.BeginPresentation());
+            sequence.AppendCallback(() => sound?.StartCount());
+            sequence.Append(DOTween.To(() => value, current =>
+            {
+                value = current;
+                rateText.text = current.ToString("0.0000", CultureInfo.InvariantCulture) + "%";
+            }, _data.AchievementRate, 0.35f).SetEase(Ease.Linear));
+            sequence.AppendCallback(() =>
+            {
+                sound?.StopCount();
+                // NextRewardPanel publishes cue 7 even when RateGrade is None.
+                sound?.PlayRank();
+                BindNextReward(root, _data);
+                if (rankBadge != null)
+                    rankBadge.gameObject.SetActive(GetAchievementGrade(_data.AchievementRate) != 0);
+            });
+            sequence.AppendCallback(() => sound?.StartCount());
+            sequence.Append(_inputResultPanel.CreateCountUp(_data));
+            sequence.AppendCallback(() => sound?.StopCount());
+            sequence.AppendCallback(() => sound?.StartCount());
+            sequence.Append(_comboPanel.CreateCountUp(_data));
+            sequence.AppendCallback(() => sound?.StopCount());
+            _ratePanel.SetVisible(false);
+            sequence.AppendCallback(() => _ratePanel.SetVisible(_panelType == PanelType.TimingCount));
+            // Retail GameResultRate constructs its two sequences with immediate
+            // OnPlayLoop/OnStop, then each numeric completion publishes cue 8.
+            sequence.AppendCallback(() =>
+            {
+                sound?.StartCount();
+                sound?.StopCount();
+                sound?.StartCount();
+                sound?.StopCount();
+            });
+            sequence.Append(_ratePanel.CreateCountUp(_data, () => sound?.PlayCompletion()));
+            sequence.OnComplete(() => IsCounting = false);
+            return sequence;
+        }
 
         public override void Initialize(RecoveredGameResultViewData data)
         {
@@ -159,7 +213,7 @@ namespace Sirius.GameResult
                             "0.00", CultureInfo.InvariantCulture) + "％";
             }
 
-            var gradeRoot = root.Find("ThisTimeRate/Badge/Grade");
+            var gradeRoot = root.Find("Badge/Grade");
             if (gradeRoot != null)
             {
                 var grade = GetAchievementGrade(data.AchievementRate);

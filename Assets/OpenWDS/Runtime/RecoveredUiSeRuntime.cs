@@ -19,6 +19,7 @@ namespace OpenWDS.Runtime
             ButtonGo = 1,
             ButtonBack = 2,
             CountUp2 = 6,
+            BadgeRankGot = 7,
             BadgeNewGot = 8,
             Plus = 13,
             Minus = 14,
@@ -150,6 +151,7 @@ namespace OpenWDS.Runtime
                 case Cue.ButtonGo: return "BUTTON_GO";
                 case Cue.ButtonBack: return "BUTTON_BACK";
                 case Cue.CountUp2: return "COUNT_UP_2";
+                case Cue.BadgeRankGot: return "BADGE_RANK_GOT";
                 case Cue.BadgeNewGot: return "BADGE_NEW_GOT";
                 case Cue.Plus: return "PLUS";
                 case Cue.Minus: return "MINUS";

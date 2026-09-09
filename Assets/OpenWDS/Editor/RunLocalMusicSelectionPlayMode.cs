@@ -18,6 +18,9 @@ namespace OpenWDS.Editor
         private const string ScenePath =
             "Assets/OpenWDS/Scenes/LocalMusicSelection.unity";
         private const string ActiveKey = "OpenWDS.MusicSelectionPlayMode.Active";
+        private const string HudFadeKey = "OpenWDS.MusicSelectionPlayMode.HudFade";
+        private const string PreviewExitKey = "OpenWDS.MusicSelectionPlayMode.PreviewExit";
+        private const string ResultCountKey = "OpenWDS.MusicSelectionPlayMode.ResultCount";
         private const string PhaseKey = "OpenWDS.MusicSelectionPlayMode.Phase";
         private const string ErrorKey = "OpenWDS.MusicSelectionPlayMode.Error";
         private const string StartedKey = "OpenWDS.MusicSelectionPlayMode.Started";
@@ -40,11 +43,16 @@ namespace OpenWDS.Editor
             "OpenWDS.MusicSelectionPlayMode.SelectionStartCount";
         private const string ExitPhase = "exit";
         private static string _lastLoggedPhase;
+        private static RecoveredLocalResultStore _storeBeforeLive;
 
         [Serializable]
         private sealed class Report
         {
             public bool passed;
+            public bool presentationOnly;
+            public bool hudFadeObserved;
+            public bool previewLeftExitObserved;
+            public bool resultCountObserved;
             public string failure;
             public double elapsedSeconds;
             public int availableDifficulties;
@@ -63,6 +71,9 @@ namespace OpenWDS.Editor
             public bool gameLoaded;
             public bool retireReturned;
             public bool resultReturned;
+            public bool difficultyPreviewPreserved;
+            public bool uncachedRatingJacketLoaded;
+            public bool retainedResultsReloaded;
             public long screenshotBytes;
             public int screenshotNonBackgroundPixels;
         }
@@ -75,6 +86,15 @@ namespace OpenWDS.Editor
             Application.logMessageReceived += OnLog;
         }
 
+        private const string PresentationOnlyKey = "OpenWDS.MusicSelectionPlayMode.PresentationOnly";
+
+        public static void RunPresentation()
+        {
+            Run();
+            SessionState.SetBool(PresentationOnlyKey, true);
+            SessionState.SetString(PhaseKey, "presentation-select");
+        }
+
         public static void Run()
         {
             if (!Application.isBatchMode)
@@ -83,7 +103,13 @@ namespace OpenWDS.Editor
             if (!File.Exists(ScenePath))
                 throw new FileNotFoundException(
                     "LocalMusicSelection scene is missing.", ScenePath);
+            SessionState.SetBool(PresentationOnlyKey, false);
             SessionState.SetBool(ActiveKey, true);
+            SessionState.SetBool(HudFadeKey, false);
+            SessionState.SetBool(PreviewExitKey, false);
+            SessionState.SetBool(ResultCountKey, false);
+            SessionState.SetBool("OpenWDS.SelectionBugChecks", false);
+            _storeBeforeLive = null;
             SessionState.SetString(PhaseKey, "selection");
             SessionState.SetString(StartedKey, DateTime.UtcNow.Ticks.ToString());
             SessionState.EraseString(ErrorKey);
@@ -135,6 +161,20 @@ namespace OpenWDS.Editor
                 return;
             }
             if (!EditorApplication.isPlaying || EditorApplication.isCompiling) return;
+            var sampledHud = UnityEngine.Object.FindObjectOfType<RecoveredGameHudRuntime>();
+            if (sampledHud != null && sampledHud.IntroductionAlpha > 0f && sampledHud.IntroductionAlpha < 1f)
+                SessionState.SetBool(HudFadeKey, true);
+            var sampledPreviewView = GameObject.Find("GameSimulationView");
+            if (sampledPreviewView != null)
+            {
+                var alpha = sampledPreviewView.GetComponent<CanvasGroup>().alpha;
+                var rect = sampledPreviewView.transform.Find("RawImage") as RectTransform;
+                if (alpha > 0f && alpha < 1f && rect != null && rect.anchoredPosition.x < 0f)
+                    SessionState.SetBool(PreviewExitKey, true);
+            }
+            var sampledResult = UnityEngine.Object.FindObjectOfType<Sirius.GameResult.GameResultPanel>();
+            if (sampledResult != null && sampledResult.IsCounting)
+                SessionState.SetBool(ResultCountKey, true);
             var firstError = SessionState.GetString(ErrorKey, "");
             if (!string.IsNullOrEmpty(firstError))
             {
@@ -148,11 +188,36 @@ namespace OpenWDS.Editor
                 _lastLoggedPhase = phase;
                 Debug.Log($"OPENWDS_PLAYMODE_PHASE {phase}");
             }
+            if (phase == "presentation-select")
+            {
+                var runtime = UnityEngine.Object.FindObjectOfType<RecoveredLocalMusicSelectionRuntime>();
+                if (runtime == null || !runtime.IsInitialized || runtime.IsFocusTransitionActive) return;
+                if (!SessionState.GetBool("OpenWDS.SelectionBugChecks", false))
+                {
+                    SessionState.SetString(PhaseKey, "selection-bug-checks");
+                    runtime.StartCoroutine(ValidateSelectionBugFixes(runtime));
+                    return;
+                }
+                _storeBeforeLive = (RecoveredLocalResultStore)typeof(RecoveredLocalMusicSelectionRuntime)
+                    .GetField("_localResults", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(runtime);
+                var catalog = (RecoveredLocalMusicCatalog)typeof(RecoveredLocalMusicSelectionRuntime)
+                    .GetField("_catalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(runtime);
+                var index = Array.FindIndex(catalog.Musics, item => item.Id == 10);
+                if (index < 0) throw new InvalidOperationException("Presentation fixture Music 10 is missing.");
+                // Use the existing snap coroutine with the actual sorted catalog
+                // index; no assumption that Music 10 is initially visible.
+                var routine = (System.Collections.IEnumerator)typeof(RecoveredLocalMusicSelectionRuntime)
+                    .GetMethod("SnapPhysicalIndex", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(runtime, new object[] { catalog.Musics.Length + index, catalog.Musics[index], false });
+                SessionState.SetString(PhaseKey, "selection-music10-final");
+                runtime.StartCoroutine(routine);
+                return;
+            }
             if (phase == "selection")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
                     RecoveredLocalMusicSelectionRuntime>();
-                if (runtime == null || runtime.Selection == null) return;
+                if (runtime == null || !runtime.IsInitialized || runtime.Selection == null) return;
                 var title = GameObject.Find(
                     "MusicSelectionView/TicketMacine/MusicInformationPanel/" +
                     "ScrollMusicTitle/ScrollMusicTitleText")?.GetComponent<Text>();
@@ -198,7 +263,15 @@ namespace OpenWDS.Editor
                         ratePanel.rect.xMax + 0.1f ||
                     !achievementRate.text.Contains("<size=26>00%</size>"))
                 {
-                    Finish(false, "Recovered selection view binding is invalid.", elapsed);
+                    Finish(false, $"Recovered selection view binding is invalid: " +
+                        $"difficulty={runtime.AvailableDifficultyCount}/{runtime.Selection.Live.Difficulty} " +
+                        $"cells={runtime.BoundCellCount}/{runtime.CatalogMusicCount} " +
+                        $"physical={runtime.PhysicalCellCount} visible={runtime.VisibleBoundCellCount} " +
+                        $"focus={runtime.FocusedMusicId} title={title?.text} " +
+                        $"cell={cell != null} tenth={tenthCell != null} " +
+                        $"preview={preview?.MusicId}/{preview?.SpectrumBarCount} " +
+                        $"widths={ratePanel?.rect.width}/{achievementFrame?.rect.width}/{musicRateFrame?.rect.width} " +
+                        $"achievement={achievementRate?.text}", elapsed);
                     return;
                 }
                 if (runtime.IsFocusTransitionActive) return;
@@ -1538,7 +1611,7 @@ namespace OpenWDS.Editor
                     Finish(false, "HUD restored sort label is missing.", elapsed);
                     return;
                 }
-                if (label.text != "楽曲Lv") return;
+                if (label.text != "Lv") return;
                 SceneManager.LoadScene("LocalMusicSelection");
                 SessionState.SetString(
                     PhaseKey, "selection-hud-reloaded");
@@ -2545,11 +2618,23 @@ namespace OpenWDS.Editor
                     RecoveredLocalMusicSelectionSession.Selection.Live.Difficulty !=
                     RecoveredMusicDifficulty.Stella ||
                     RecoveredLocalMusicSelectionSession.ChartAsset == null ||
+                    RecoveredLocalMusicSelectionSession.ChartAsset.name !=
+                        "Music10Stella" ||
                     game.ChartAsset !=
                     RecoveredLocalMusicSelectionSession.ChartAsset ||
                     game.MusicDifficulty != RecoveredMusicDifficulty.Stella)
                 {
                     Finish(false, "Selected game parameters were not consumed.", elapsed);
+                    return;
+                }
+                if (Resources.FindObjectsOfTypeAll<
+                        RecoveredMusicSelectionPreviewRuntime>()
+                    .Any(preview => preview != null && preview.IsPlaying))
+                {
+                    Finish(
+                        false,
+                        "Music preview remained active after performance start.",
+                        elapsed);
                     return;
                 }
                 var persisted = new RecoveredSettingsStore().LoadOrDefault();
@@ -2885,6 +2970,19 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
+                var displayedStore = (RecoveredLocalResultStore)typeof(RecoveredLocalMusicSelectionRuntime)
+                    .GetField("_localResults", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(runtime);
+                var durableStore = new RecoveredLocalResultStore();
+                if (ReferenceEquals(displayedStore, _storeBeforeLive) ||
+                    displayedStore.GetBest(returned.Music.Id, returned.Live.Difficulty) !=
+                    durableStore.GetBest(returned.Music.Id, returned.Live.Difficulty) ||
+                    displayedStore.GetClearLamp(returned.Music.Id, returned.Live.Difficulty) !=
+                    durableStore.GetClearLamp(returned.Music.Id, returned.Live.Difficulty) ||
+                    !durableStore.HasClear(returned.Music.Id, returned.Live.Difficulty))
+                {
+                    Finish(false, "Retained selection is not displaying the saved live result.", elapsed);
+                    return;
+                }
                 if (UnityEngine.Object.FindObjectsOfType<EventSystem>().Length != 1)
                 {
                     Finish(
@@ -2893,8 +2991,89 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
+                if (!SessionState.GetBool(HudFadeKey, false) ||
+                    !SessionState.GetBool(PreviewExitKey, false) ||
+                    !SessionState.GetBool(ResultCountKey, false))
+                {
+                    Finish(false, "A presentation animation was not observed: HUD=" +
+                        SessionState.GetBool(HudFadeKey, false) + " preview=" +
+                        SessionState.GetBool(PreviewExitKey, false) + " result=" +
+                        SessionState.GetBool(ResultCountKey, false), elapsed);
+                    return;
+                }
+                Debug.Log("OPENWDS_PRESENTATION_PLAYMODE hudFade=True previewLeftExit=True resultCount=True returnFocus=True");
                 Finish(true, null, elapsed);
             }
+        }
+
+        private static System.Collections.IEnumerator ValidateSelectionBugFixes(
+            RecoveredLocalMusicSelectionRuntime runtime)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var type = typeof(RecoveredLocalMusicSelectionRuntime);
+            var preview = UnityEngine.Object.FindObjectOfType<RecoveredMusicSelectionPreviewRuntime>();
+            while (!preview.IsPlaying) yield return null;
+            var playerField = typeof(RecoveredMusicSelectionPreviewRuntime).GetField("_player", flags);
+            var originalPlayer = playerField.GetValue(preview);
+            var musicId = runtime.Selection.Music.Id;
+            var originalDifficulty = runtime.Selection.Live.Difficulty;
+            foreach (var difficulty in new[] { RecoveredMusicDifficulty.Hard, originalDifficulty })
+            {
+                type.GetMethod("SelectDifficulty", flags).Invoke(runtime, new object[] { difficulty, true });
+                while ((bool)type.GetField("_isRebuildingMusicList", flags).GetValue(runtime)) yield return null;
+                if (runtime.Selection.Music.Id != musicId || runtime.Selection.Live.Difficulty != difficulty ||
+                    !ReferenceEquals(originalPlayer, playerField.GetValue(preview)) || !preview.IsPlaying)
+                    throw new InvalidOperationException("Difficulty change restarted/stopped the same-song preview.");
+            }
+
+            var storeField = type.GetField("_localResults", flags);
+            var originalStore = storeField.GetValue(runtime);
+            var temporaryRoot = Path.Combine(Path.GetTempPath(), "OpenWDS-rating-jacket-" + Guid.NewGuid());
+            try
+            {
+                var musics = (RecoveredLocalMusicEntry[])type.GetField("_allMusics", flags).GetValue(runtime);
+                var uncached = musics.Last(m => !runtime.HasLoadedJacket(m.Id) &&
+                    m.Lives.Any(l => RecoveredPlayerRating.IsEligible(m, l)));
+                var live = uncached.Lives.First(l => RecoveredPlayerRating.IsEligible(uncached, l));
+                var fixture = new RecoveredLocalResultStore(temporaryRoot);
+                fixture.RecordResult(uncached.Id, live.Difficulty, 101d, out _);
+                storeField.SetValue(runtime, fixture);
+                type.GetMethod("OpenPlayerRateDialog", flags).Invoke(runtime, null);
+                var body = (GameObject)type.GetField("_playerRateDialogBody", flags).GetValue(runtime);
+                var row = FindNamedTransform(body.transform, "PlayerRateContent_" + live.Id);
+                var jacket = FindNamedTransform(row, "MusicJacketImage").GetComponent<Image>();
+                while (jacket.sprite == null || !jacket.enabled) yield return null;
+                if (!runtime.HasLoadedJacket(uncached.Id) || jacket.sprite.texture.width < 2 ||
+                    jacket.sprite.texture.height < 2)
+                    throw new InvalidOperationException("Uncached B30 jacket did not load a valid sprite.");
+                // Retail SimpleRateCellView has no jacket; switching back must
+                // bind the ready provider value to the new detailed row.
+                var loadedSprite = jacket.sprite;
+                type.GetField("_playerRateSimpleMode", flags).SetValue(runtime, true);
+                type.GetMethod("BindPlayerRatePanel", flags).Invoke(runtime, null);
+                yield return null;
+                var compact = body.GetComponentsInChildren<Image>()
+                    .Where(i => i.name == "MusicJacketImage").ToArray();
+                if (compact.Length != 0)
+                    throw new InvalidOperationException("Compact B30 layout unexpectedly contains a jacket.");
+                type.GetField("_playerRateSimpleMode", flags).SetValue(runtime, false);
+                type.GetMethod("BindPlayerRatePanel", flags).Invoke(runtime, null);
+                yield return null;
+                var cachedImage = body.GetComponentsInChildren<Image>().Single(i => i.name == "MusicJacketImage");
+                while (!cachedImage.enabled) yield return null;
+                if (cachedImage.sprite != loadedSprite)
+                    throw new InvalidOperationException("Reopened detailed B30 row did not bind the cached jacket.");
+                Debug.Log($"OPENWDS_SELECTION_BUG_CHECKS previewPreserved=True jacketMusic={uncached.Id} uncached=True cached=True compactLayout=True");
+            }
+            finally
+            {
+                type.GetMethod("ClosePlayerRateDialog", flags).Invoke(runtime, null);
+                type.GetField("_playerRateSimpleMode", flags).SetValue(runtime, false);
+                storeField.SetValue(runtime, originalStore);
+                if (Directory.Exists(temporaryRoot)) Directory.Delete(temporaryRoot, true);
+            }
+            SessionState.SetBool("OpenWDS.SelectionBugChecks", true);
+            SessionState.SetString(PhaseKey, "presentation-select");
         }
 
         private static void Finish(bool passed, string failure, double elapsed)
@@ -2902,25 +3081,32 @@ namespace OpenWDS.Editor
             var report = new Report
             {
                 passed = passed,
+                presentationOnly = SessionState.GetBool(PresentationOnlyKey, false),
+                hudFadeObserved = SessionState.GetBool(HudFadeKey, false),
+                previewLeftExitObserved = SessionState.GetBool(PreviewExitKey, false),
+                resultCountObserved = SessionState.GetBool(ResultCountKey, false),
                 failure = failure,
                 elapsedSeconds = elapsed,
                 availableDifficulties = 5,
                 selectedDifficulty = RecoveredMusicDifficulty.Stella.ToString(),
                 titleBound = passed,
                 listCellBound = passed,
-                scrollingValid = passed,
-                arrowNavigationValid = passed,
-                randomSelectionValid = passed,
-                bookmarkFlowValid = passed,
-                playerRateDialogValid = passed,
+                scrollingValid = passed && !SessionState.GetBool(PresentationOnlyKey, false),
+                arrowNavigationValid = passed && !SessionState.GetBool(PresentationOnlyKey, false),
+                randomSelectionValid = passed && !SessionState.GetBool(PresentationOnlyKey, false),
+                bookmarkFlowValid = passed && !SessionState.GetBool(PresentationOnlyKey, false),
+                playerRateDialogValid = passed && !SessionState.GetBool(PresentationOnlyKey, false),
                 introductionFocusResumeValid =
                     SessionState.GetBool(IntroductionFocusValidKey, false),
-                allDifficultyMarkersRefreshed = passed,
-                olivierRomanValid = passed,
-                roundedMarkerSpriteValid = passed,
+                allDifficultyMarkersRefreshed = passed && !SessionState.GetBool(PresentationOnlyKey, false),
+                olivierRomanValid = passed && !SessionState.GetBool(PresentationOnlyKey, false),
+                roundedMarkerSpriteValid = passed && !SessionState.GetBool(PresentationOnlyKey, false),
                 gameLoaded = passed,
                 retireReturned = passed,
                 resultReturned = passed,
+                difficultyPreviewPreserved = SessionState.GetBool("OpenWDS.SelectionBugChecks", false),
+                uncachedRatingJacketLoaded = SessionState.GetBool("OpenWDS.SelectionBugChecks", false),
+                retainedResultsReloaded = passed,
                 screenshotBytes = File.Exists(ScreenshotPath())
                     ? new FileInfo(ScreenshotPath()).Length
                     : 0,
@@ -2933,7 +3119,9 @@ namespace OpenWDS.Editor
                 workspace,
                 "reverse",
                 "reports",
-                "unity-music-selection-playmode-validation.json");
+                SessionState.GetBool(PresentationOnlyKey, false)
+                    ? "unity-presentation-playmode-validation.json"
+                    : "unity-music-selection-playmode-validation.json");
             File.WriteAllText(output, JsonUtility.ToJson(report, true));
             if (!passed) SessionState.SetString(ErrorKey, failure ?? "unknown failure");
             Debug.Log(

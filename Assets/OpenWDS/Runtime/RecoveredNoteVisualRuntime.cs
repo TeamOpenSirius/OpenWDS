@@ -334,15 +334,15 @@ namespace OpenWDS.Runtime
                 // ConcurrentNoteEntity by its scheduler key. Only Hold and
                 // ScratchHold bodies use EndMilliseconds. HoldStart (80-83),
                 // like ordinary tap notes, uses StartMilliseconds even though
-                // its numeric NoteType is above Flick. Sound, Scratch and Flick
-                // return before this call in retail.
+                // its numeric NoteType is above Flick. The Sound exclusion is
+                // inside the hold-manager branch. Scratch/Flick take the normal
+                // branch and must clear by Start (ARM64 0xB9A51C4..0xB9A51E0).
                 var noteType = (int)result.NoteType;
                 if (IsHoldBody(noteType))
                 {
                     CompleteConcurrentLine(result.EndMilliseconds);
                 }
-                else if (noteType != 30 && noteType != 31 &&
-                         noteType != 40 && noteType != 50)
+                else if (noteType != 30 && noteType != 31)
                 {
                     CompleteConcurrentLine(result.StartMilliseconds);
                 }

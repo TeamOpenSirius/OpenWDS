@@ -141,6 +141,9 @@ namespace OpenWDS.Runtime
         public void Play(long musicId)
         {
             if (musicId <= 0) throw new ArgumentOutOfRangeException(nameof(musicId));
+            // MusicCompositeStreamingPlayer.Play ignores the current music ID.
+            // A difficulty/filter refresh must not restart the preview playback.
+            if (_player != null && _musicId == musicId) return;
             StopPlayer();
             _musicId = musicId;
             var relative =
@@ -176,6 +179,11 @@ namespace OpenWDS.Runtime
             // CriSpectrumParticleViewer.SetColor.
             _color = SpectrumColor(difficulty);
             ApplyColor();
+        }
+
+        public void Stop()
+        {
+            StopPlayer();
         }
 
         private void Update()

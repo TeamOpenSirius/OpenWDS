@@ -96,6 +96,10 @@ namespace OpenWDS.Editor
             public int principal;
             public int maxPrincipal;
             public int gameResultPresentationCount;
+            public int resultCountStarts;
+            public int resultCountStops;
+            public int resultRankCues;
+            public int resultRateCues;
             public bool pauseSmokePassed;
             public bool senseCutInVisualObserved;
             public bool introductionVisualObserved;
@@ -259,6 +263,9 @@ namespace OpenWDS.Editor
             // ratings) as invisible even though the clip has not finished yet.
             var liveResultPanel = UnityEngine.Object.FindObjectOfType<
                 Sirius.GameResult.GameResultPanel>(true);
+            // Rating intentionally stops loop SE before its numeric tween ends.
+            // The result panel, rather than audio state, owns count completion.
+            if (liveResultPanel == null || liveResultPanel.IsCounting) return;
             var leftPanelGroup = liveResultPanel != null
                 ? liveResultPanel.transform.parent?.GetComponent<CanvasGroup>()
                 : null;
@@ -305,6 +312,10 @@ namespace OpenWDS.Editor
                             runtime.ClearSe.LastPlayback.id !=
                             CriWare.CriAtomExPlayback.invalidId &&
                             runtime.ResultSe.PresentationCount == 1 &&
+                            runtime.ResultSe.CountStartCount == 5 &&
+                            runtime.ResultSe.CountStopCount == 5 &&
+                            runtime.ResultSe.RankCueCount == 1 &&
+                            runtime.ResultSe.CompletionCueCount == 2 &&
                             runtime.ResultBgm != null &&
                             runtime.ResultBgm.PlayCount == 1 &&
                             runtime.ResultBgm.LastPlayback.id !=
@@ -454,6 +465,10 @@ namespace OpenWDS.Editor
                     : -1,
                 gameResultPresentationCount =
                     runtime.GameResultPresentationCount,
+                resultCountStarts = runtime.ResultSe.CountStartCount,
+                resultCountStops = runtime.ResultSe.CountStopCount,
+                resultRankCues = runtime.ResultSe.RankCueCount,
+                resultRateCues = runtime.ResultSe.CompletionCueCount,
                 pauseSmokePassed = SessionState.GetBool(PauseSmokeKey, false),
                 senseCutInVisualObserved =
                     SessionState.GetBool(SenseCutInVisualKey, false),
@@ -1547,6 +1562,10 @@ namespace OpenWDS.Editor
                     : null;
                 previewRuntime?.SendMessage(
                     "PlayHitEffect", SendMessageOptions.RequireReceiver);
+                // This assertion runs synchronously in EditorApplication.update;
+                // evaluate the Play requests before reading Animator state.
+                previewSenseAnimator?.Update(0f);
+                previewUi?.TimingAnimator?.Update(0f);
                 var previewBombParticle = previewBomb != null
                     ? previewBomb.GetComponentInChildren<ParticleSystem>(true)
                     : null;

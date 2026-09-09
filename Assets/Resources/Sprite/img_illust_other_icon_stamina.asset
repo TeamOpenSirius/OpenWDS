@@ -9,14 +9,14 @@ Sprite:
   m_Name: img_illust_other_icon_stamina
   m_Rect:
     serializedVersion: 2
-    x: 0.076122284
-    y: 0.07612038
-    width: 205.84775
-    height: 233.84775
-  m_Offset: {x: -0.9999996, y: 3.0000062}
+    x: 0
+    y: 0
+    width: 280
+    height: 280
+  m_Offset: {x: 0, y: 0}
   m_Border: {x: 0, y: 0, z: 0, w: 0}
   m_PixelsToUnits: 100
-  m_Pivot: {x: 0.49514204, y: 0.5128289}
+  m_Pivot: {x: 0.5, y: 0.5}
   m_Extrude: 1
   m_IsPolygon: 0
   m_AtlasName:
@@ -111,7 +111,7 @@ Sprite:
       y: 0.07612038
       width: 205.84775
       height: 233.84775
-    textureRectOffset: {x: 0, y: 0}
+    textureRectOffset: {x: 38.0761223, y: 20.0761204}
     atlasRectOffset: {x: -38, y: -20}
     settingsRaw: 67
     uvTransform: {x: 100, y: 102, z: 100, w: 120}

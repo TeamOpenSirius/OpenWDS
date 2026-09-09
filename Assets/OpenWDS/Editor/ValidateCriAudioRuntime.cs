@@ -161,8 +161,10 @@ namespace OpenWDS.Editor
                     OpenWDS.Runtime.RecoveredGameResultSeRuntime>();
                 resultSeRuntime.Configure(sharedSeRuntime);
                 var beforeResultCount = sharedSeRuntime.CueNamePlayCount;
-                resultSeRuntime.Begin(true);
-                resultSeRuntime.Tick(float.MaxValue);
+                resultSeRuntime.BeginPresentation();
+                resultSeRuntime.StartCount();
+                resultSeRuntime.StopCount();
+                resultSeRuntime.PlayCompletion();
                 if (resultSeRuntime.IsCounting ||
                     resultSeRuntime.PresentationCount != 1 ||
                     resultSeRuntime.CompletionCueCount != 1 ||

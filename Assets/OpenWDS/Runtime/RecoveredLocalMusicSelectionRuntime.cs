@@ -144,6 +144,7 @@ namespace OpenWDS.Runtime
             new Dictionary<long, CachedMusicAssets>();
         private readonly HashSet<long> _loadingJackets = new HashSet<long>();
         private bool _jacketBundleLoadActive;
+        private bool _stopJacketLoadingRequested;
         private AssetBundle _activeJacketBundle;
         private readonly Dictionary<long, Sprite> _characterBaseIcons =
             new Dictionary<long, Sprite>();
@@ -476,6 +477,8 @@ namespace OpenWDS.Runtime
             }
         }
 
+        public bool IsInitialized { get; private set; }
+
         private IEnumerator Start()
         {
             SelectionStartInvocationCount++;
@@ -536,9 +539,6 @@ namespace OpenWDS.Runtime
             }
             yield return LoadMusicAssets(initialMusic);
             BindView(initialMusic);
-            BindMusicList();
-            BindSelectionAuxiliaryControls();
-            RefreshPlayerRateHeader();
             if (!_charts.ContainsKey(initialDifficulty) ||
                 !TryGetLive(initialMusic, initialDifficulty, out _))
             {
@@ -549,17 +549,53 @@ namespace OpenWDS.Runtime
                 }
             }
             SelectDifficulty(initialDifficulty, false);
+            _catalog.Musics = SortMusicsForHud(_catalog.Musics);
+            BindMusicList();
+            BindSelectionAuxiliaryControls();
+            RefreshPlayerRateHeader();
             FocusCell(FindVisibleCell(initialMusic.Id));
             _preview.Play(initialMusic.Id);
             RecoveredLocalGameFlowRouter.EnsureExists();
+            IsInitialized = true;
         }
 
         private void OnEnable()
         {
             _gameStartPending = false;
+            _stopJacketLoadingRequested = false;
             if (_view == null) return;
+            // The retained scene still owns the snapshot read before the live.
+            // Reload the durable result before rebinding any score/lamp/rating UI.
+            _localResults = new RecoveredLocalResultStore();
             SetPreLiveUnderlyingControlsVisible(true);
             SetSpectrumVisibleForDialog(true);
+            if (_listContent != null)
+            {
+                // RebindListCell clears _focusedCell, even when the retained
+                // cell is rebound to the same song. Restore the focus from the
+                // selection entity after refreshing the recycled cells.
+                UpdateVisibleCellBindings(true);
+                if (_selection != null)
+                {
+                    FocusCell(FindVisibleCell(_selection.Music.Id));
+                    _preview?.Play(_selection.Music.Id);
+                }
+                RefreshPlayerRateHeader();
+                RefreshScorePanel();
+            }
+        }
+
+        private void OnDisable()
+        {
+            _preview?.Stop();
+            StopAllCoroutines();
+            if (_activeJacketBundle != null)
+            {
+                _activeJacketBundle.Unload(true);
+                _activeJacketBundle = null;
+            }
+            _jacketBundleLoadActive = false;
+            _loadingJackets.Clear();
         }
 
         private void BuildHud()
@@ -1303,7 +1339,7 @@ namespace OpenWDS.Runtime
             if (filtered.Length == 0 &&
                 _bookmarkFilter == RecoveredMusicBookmarkFlags.None)
                 filtered = (RecoveredLocalMusicEntry[])_allMusics.Clone();
-            Array.Sort(filtered, CompareMusicForHud);
+            filtered = SortMusicsForHud(filtered);
             _catalog.Musics = filtered;
             if (_listContent != null) Destroy(_listContent.gameObject);
             _listCells.Clear();
@@ -1437,28 +1473,71 @@ namespace OpenWDS.Runtime
             RecoveredLocalMusicEntry left,
             RecoveredLocalMusicEntry right)
         {
+            // Retail Sort: released live first, selected key ascending, then
+            // group-main ReleasedAt and group-main MusicMaster ID ascending.
+            // Offline catalogs expose every included chart as released.
+            TryGetLive(left, _selection.Live.Difficulty, out var leftLive);
+            TryGetLive(right, _selection.Live.Difficulty, out var rightLive);
+            var compared = (rightLive != null).CompareTo(leftLive != null);
+            if (compared != 0) return compared;
             switch (_musicSortMode)
             {
                 case 0:
-                    TryGetLive(left, _selection.Live.Difficulty, out var leftLive);
-                    TryGetLive(right, _selection.Live.Difficulty, out var rightLive);
-                    return (leftLive?.Level ?? 0).CompareTo(rightLive?.Level ?? 0);
+                    compared = (leftLive?.Level ?? 0).CompareTo(rightLive?.Level ?? 0);
+                    break;
                 case 1:
-                    return string.Compare(
+                    compared = string.Compare(
                         left.PronounceName, right.PronounceName,
-                        StringComparison.Ordinal);
+                        StringComparison.CurrentCulture);
+                    break;
+                case 2:
+                    break;
                 case 3:
+                    compared = GetLocalNotationRate(left, leftLive)
+                        .CompareTo(GetLocalNotationRate(right, rightLive));
+                    break;
                 case 4:
-                    return _localResults.GetBest(
+                    compared = _localResults.GetBest(
                             left.Id, _selection.Live.Difficulty)
                         .CompareTo(_localResults.GetBest(
                             right.Id, _selection.Live.Difficulty));
+                    break;
                 case 5:
-                    return left.StaminaConsumption.CompareTo(
+                    compared = left.StaminaConsumption.CompareTo(
                         right.StaminaConsumption);
+                    break;
                 default:
-                    return left.Id.CompareTo(right.Id);
+                    throw new ArgumentOutOfRangeException(nameof(_musicSortMode));
             }
+            if (compared != 0) return compared;
+            compared = left.HasSortReleasedAt.CompareTo(right.HasSortReleasedAt);
+            if (compared != 0) return compared;
+            if (left.HasSortReleasedAt)
+            {
+                compared = left.SortReleasedAtUtcTicks.CompareTo(right.SortReleasedAtUtcTicks);
+                if (compared != 0) return compared;
+            }
+            return left.SortMusicId.CompareTo(right.SortMusicId);
+        }
+
+        private RecoveredLocalMusicEntry[] SortMusicsForHud(
+            IEnumerable<RecoveredLocalMusicEntry> musics)
+        {
+            // LINQ retains input order when every authored key ties, as retail
+            // OrderBy/ThenBy do. Array.Sort does not guarantee that property.
+            return musics.OrderBy(music => music,
+                Comparer<RecoveredLocalMusicEntry>.Create(CompareMusicForHud)).ToArray();
+        }
+
+        private double GetLocalNotationRate(
+            RecoveredLocalMusicEntry music, RecoveredLocalLiveEntry live)
+        {
+            // Same explicit offline ILive.NotationRate adapter as the score HUD.
+            return RecoveredPlayerRating.IsEligible(music, live)
+                ? RecoveredPlayerRating.CalculateNotationRate(live.Level,
+                    _localResults.GetBest(music.Id, live.Difficulty),
+                    _localResults.HasClear(music.Id, live.Difficulty))
+                : 0d;
         }
 
         private void RefreshHudFilterIcon()
@@ -1483,7 +1562,7 @@ namespace OpenWDS.Runtime
             if (text == null) return;
             var labels = new[]
             {
-                "楽曲Lv", "楽曲名", "配信日", "レート", "達成率", "スタミナ",
+                "Lv", "楽曲名", "配信日", "レート", "達成率", "スタミナ消費量",
             };
             text.text = labels[Mathf.Clamp(_musicSortMode, 0, labels.Length - 1)];
         }
@@ -1928,8 +2007,7 @@ namespace OpenWDS.Runtime
             // GroupingMusicEntityEnumerable groups the already-sorted list by
             // the active SortType, advances cyclically, and returns the first
             // entity of the target group. It is not an adjacent-cell control.
-            var ordered = (RecoveredLocalMusicEntry[])_catalog.Musics.Clone();
-            Array.Sort(ordered, CompareMusicForHud);
+            var ordered = SortMusicsForHud(_catalog.Musics);
             var groups = ordered
                 .GroupBy(GetCurrentMusicGroupKey)
                 .Select(group => group.ToArray())
@@ -2538,12 +2616,8 @@ namespace OpenWDS.Runtime
                 }
                 var jacket = FindDescendant(row.transform, "MusicJacketImage")
                     ?.GetComponent<Image>();
-                if (jacket != null &&
-                    JacketResourceProvider.TryGetValue(entry.music.Id, out var sprite))
-                {
-                    jacket.sprite = sprite;
-                    jacket.overrideSprite = sprite;
-                }
+                if (jacket != null)
+                    StartCoroutine(BindPlayerRateJacket(entry.music, jacket));
                 SetDescendantText(
                     row.transform, "DifficultLabelText",
                     entry.live.Difficulty.ToString().ToUpperInvariant());
@@ -2858,6 +2932,8 @@ namespace OpenWDS.Runtime
             RefreshScorePanel();
             RefreshListRateGrades(difficulty);
             if (playSound) _se.Play(RecoveredUiSeRuntime.Cue.ButtonGo);
+            if (playSound && !_isRebuildingMusicList)
+                StartCoroutine(RebuildFilteredMusicList());
         }
 
         private void ApplyCellLocalResults(
@@ -3243,6 +3319,7 @@ namespace OpenWDS.Runtime
             };
             var target = candidates.OrderBy(index => Math.Abs(index - current)).First();
             if (_snapCoroutine != null) StopCoroutine(_snapCoroutine);
+            SetSelectionControlsInteractable(false);
             _snapCoroutine = StartCoroutine(
                 SnapPhysicalIndex(target, music, playSound));
         }
@@ -3251,6 +3328,7 @@ namespace OpenWDS.Runtime
         {
             if (binding == null) return;
             if (_snapCoroutine != null) StopCoroutine(_snapCoroutine);
+            SetSelectionControlsInteractable(false);
             _snapCoroutine = StartCoroutine(SnapCell(binding, playSound));
         }
 
@@ -3287,6 +3365,7 @@ namespace OpenWDS.Runtime
             FocusCell(binding);
             yield return SelectMusic(music, playSound);
             _snapCoroutine = null;
+            SetSelectionControlsInteractable(true);
         }
 
         private ListCellBinding RebaseSnappedBinding(ListCellBinding binding)
@@ -3775,47 +3854,62 @@ namespace OpenWDS.Runtime
 
         private IEnumerator LoadMusicAssets(RecoveredLocalMusicEntry music)
         {
-            _charts.Clear();
-            _musicConfigAsset = null;
             if (music == null || music.Lives == null)
                 throw new ArgumentNullException(nameof(music));
-            if (MusicAssetCache.TryGetValue(music.Id, out var cached) &&
+            var hasCompleteCache =
+                MusicAssetCache.TryGetValue(music.Id, out var cached) &&
                 cached.MusicConfig != null &&
-                cached.Charts.Values.All(chart => chart != null))
+                music.Lives.All(live =>
+                    cached.Charts.TryGetValue(live.Difficulty, out var chart) &&
+                    chart != null);
+            if (!hasCompleteCache)
             {
-                foreach (var pair in cached.Charts) _charts[pair.Key] = pair.Value;
-                _musicConfigAsset = cached.MusicConfig;
-                yield return LoadJacket(music);
-                SetLoadedMusicSelection(music);
-                yield break;
-            }
-            cached = new CachedMusicAssets();
-            foreach (var live in music.Lives)
-            {
-                byte[] bytes = null;
-                yield return RecoveredStreamingAssetsRuntime.ReadBytes(
-                    live.DebugNotationAssetPath, value => bytes = value);
-                var chart = new TextAsset(
-                    Encoding.UTF8.GetString(bytes))
+                var loaded = new CachedMusicAssets();
+                foreach (var live in music.Lives)
                 {
-                    name = $"Music{music.Id}{live.Difficulty}",
+                    byte[] bytes = null;
+                    yield return RecoveredStreamingAssetsRuntime.ReadBytes(
+                        live.DebugNotationAssetPath, value => bytes = value);
+                    loaded.Charts[live.Difficulty] = new TextAsset(
+                        Encoding.UTF8.GetString(bytes))
+                    {
+                        name = $"Music{music.Id}{live.Difficulty}",
+                    };
+                }
+                byte[] configBytes = null;
+                yield return RecoveredStreamingAssetsRuntime.ReadBytes(
+                    music.Lives[0].DebugMusicConfigAssetPath,
+                    value => configBytes = value);
+                loaded.MusicConfig = new TextAsset(
+                    Encoding.UTF8.GetString(configBytes))
+                {
+                    name = $"Music{music.Id}Config",
                 };
-                _charts[live.Difficulty] = chart;
-                cached.Charts[live.Difficulty] = chart;
+                cached = loaded;
+                MusicAssetCache[music.Id] = loaded;
             }
-            byte[] configBytes = null;
-            yield return RecoveredStreamingAssetsRuntime.ReadBytes(
-                music.Lives[0].DebugMusicConfigAssetPath,
-                value => configBytes = value);
-            _musicConfigAsset = new TextAsset(
-                Encoding.UTF8.GetString(configBytes))
-            {
-                name = $"Music{music.Id}Config",
-            };
-            cached.MusicConfig = _musicConfigAsset;
-            MusicAssetCache[music.Id] = cached;
-            yield return LoadJacket(music);
+
+            // Commit the complete music snapshot atomically. A superseded snap
+            // coroutine may be stopped during an Android UnityWebRequest, but it
+            // must never expose a half-filled chart dictionary to the start path.
+            _charts.Clear();
+            foreach (var pair in cached.Charts) _charts[pair.Key] = pair.Value;
+            _musicConfigAsset = cached.MusicConfig;
             SetLoadedMusicSelection(music);
+            EnsureJacketLoaded(music);
+        }
+
+        private IEnumerator BindPlayerRateJacket(RecoveredLocalMusicEntry music, Image jacket)
+        {
+            // PlayerRateDialogRateCellView.SetJacketImageAsync waits for the
+            // provider's ready notification, then enables and binds the image.
+            jacket.enabled = false;
+            yield return LoadJacket(music);
+            if (jacket == null) yield break; // Dialog/row may have been destroyed.
+            JacketResourceProvider.TryGetValue(music.Id, out var sprite);
+            jacket.sprite = sprite;
+            jacket.overrideSprite = sprite;
+            jacket.enabled = sprite != null;
         }
 
         private IEnumerator LoadJacket(RecoveredLocalMusicEntry music)
@@ -3837,7 +3931,13 @@ namespace OpenWDS.Runtime
                 throw new InvalidOperationException(
                     $"Music {music.Id} has no Jacket StreamingAssets path.");
             _loadingJackets.Add(music.Id);
-            while (_jacketBundleLoadActive) yield return null;
+            while (_jacketBundleLoadActive && !_stopJacketLoadingRequested)
+                yield return null;
+            if (_stopJacketLoadingRequested)
+            {
+                _loadingJackets.Remove(music.Id);
+                yield break;
+            }
             _jacketBundleLoadActive = true;
             AssetBundle bundle = null;
             try
@@ -3845,15 +3945,18 @@ namespace OpenWDS.Runtime
                 byte[] jacketBytes = null;
                 yield return RecoveredStreamingAssetsRuntime.ReadBytes(
                     music.JacketAssetPath, value => jacketBytes = value);
+                if (_stopJacketLoadingRequested) yield break;
                 var bundleRequest = AssetBundle.LoadFromMemoryAsync(jacketBytes);
                 yield return bundleRequest;
                 bundle = bundleRequest.assetBundle;
                 _activeJacketBundle = bundle;
+                if (_stopJacketLoadingRequested) yield break;
                 if (bundle == null)
                     throw new InvalidOperationException(
                         $"Music {music.Id} Jacket bundle failed to load.");
                 var spriteRequest = bundle.LoadAllAssetsAsync<Sprite>();
                 yield return spriteRequest;
+                if (_stopJacketLoadingRequested) yield break;
                 var sprites = spriteRequest.allAssets.OfType<Sprite>().ToArray();
                 if (sprites.Length != 1)
                 {
@@ -3881,7 +3984,9 @@ namespace OpenWDS.Runtime
 
         private void EnsureJacketLoaded(RecoveredLocalMusicEntry music)
         {
-            if (music == null || _loadingJackets.Contains(music.Id)) return;
+            if (_stopJacketLoadingRequested || music == null ||
+                _loadingJackets.Contains(music.Id))
+                return;
             if (JacketResourceProvider.TryGetValue(music.Id, out var sprite) &&
                 sprite != null)
             {
@@ -3889,6 +3994,13 @@ namespace OpenWDS.Runtime
                 return;
             }
             StartCoroutine(LoadJacket(music));
+        }
+
+        private IEnumerator StopJacketLoading()
+        {
+            _stopJacketLoadingRequested = true;
+            while (_jacketBundleLoadActive) yield return null;
+            _loadingJackets.Clear();
         }
 
         private void SetLoadedMusicSelection(RecoveredLocalMusicEntry music)
@@ -3901,9 +4013,22 @@ namespace OpenWDS.Runtime
 
         private void BindJacketToListCells(long musicId, Sprite sprite)
         {
-            if (!_listCells.TryGetValue(musicId, out var cells)) return;
-            foreach (var cell in cells)
-                ApplyJacketToCell(cell, sprite);
+            if (_listCells.TryGetValue(musicId, out var cells))
+            {
+                foreach (var cell in cells)
+                    ApplyJacketToCell(cell, sprite);
+            }
+            if (_selection?.Music != null &&
+                _selection.Music.Id == musicId)
+            {
+                _jacketSprite = sprite;
+                BindJacket(_view.transform.Find(
+                    "TicketMacine/MusicInformationPanel/MusicJackets/" +
+                    "MusicJacketBack"));
+                BindJacket(_view.transform.Find(
+                    "TicketMacine/MusicInformationPanel/MusicJackets/" +
+                    "MusicJacketFront"));
+            }
         }
 
         private static void ApplyJacketToCell(
@@ -4011,6 +4136,7 @@ namespace OpenWDS.Runtime
 
         private void ConfirmGameStart()
         {
+            if (_gameStartPending) return;
             if (_performanceSettings == null)
                 _performanceSettings =
                     new RecoveredSettingsStore().LoadOrDefault();
@@ -4040,6 +4166,11 @@ namespace OpenWDS.Runtime
                 _gameStartPending = false;
                 yield break;
             }
+            if (_noteSpeedDialog != null)
+            {
+                yield return HidePreLiveDialog();
+                yield return HideNoteSpeedPreview();
+            }
             yield return RecoveredSplitLaneAssetRuntime
                 .PrepareStreamingAssets(chart.text);
             try
@@ -4052,6 +4183,8 @@ namespace OpenWDS.Runtime
                 _gameStartPending = false;
                 throw;
             }
+            yield return StopJacketLoading();
+            _preview?.Stop();
             _se.Play(RecoveredUiSeRuntime.Cue.ButtonGo);
             RecoveredLocalMusicSelectionSession.Set(
                 _selection,
@@ -4080,6 +4213,59 @@ namespace OpenWDS.Runtime
                 throw new InvalidOperationException(
                     "Curtain transition could not start.");
             }
+        }
+
+        private IEnumerator HidePreLiveDialog()
+        {
+            // DialogMonoBehaviour.HideAsync (2.31.2 VA 0x753EF90): fade the
+            // body over 0.2s, trigger FadeOut, await Animator completion.
+            // The original Dialog_fadeOut_anim scales 1 -> 0.8 and fades the
+            // root over 10/60s. It contains no horizontal translation.
+            var dialog = _noteSpeedDialog;
+            var animator = dialog.GetComponent<Animator>();
+            var group = dialog.GetComponent<CanvasGroup>();
+            var body = FindDescendant(dialog.transform, "Body")?.GetComponent<CanvasGroup>();
+            if (animator == null || group == null || body == null ||
+                animator.runtimeAnimatorController == null)
+                throw new InvalidOperationException("Pre-live Dialog exit components are missing.");
+            group.interactable = false;
+            body.DOFade(0f, 0.2f).SetLink(dialog).Play();
+            animator.SetTrigger("FadeOut");
+            var deadline = Time.realtimeSinceStartup + 2f;
+            do
+            {
+                yield return null;
+                var state = animator.GetCurrentAnimatorStateInfo(0);
+                if (state.IsName("Dialog_fadeOut_anim") && state.normalizedTime >= 1f)
+                    yield break;
+            } while (Time.realtimeSinceStartup < deadline);
+            throw new InvalidOperationException("Pre-live Dialog FadeOut did not complete.");
+        }
+
+        private IEnumerator HideNoteSpeedPreview()
+        {
+            if (_noteSpeedPreviewView == null) yield break;
+            // PartyReadyGameSettingUseCase -> GameSimulationPresenter.HideAsync:
+            // stop ticking/rendering, then IView.HideAsync -> HideViewFromLeftAsync.
+            if (_noteSpeedPreview != null)
+            {
+                var preview = _noteSpeedPreview.GetComponent<RecoveredGameSimulationPreview>();
+                if (preview != null) preview.enabled = false;
+                foreach (var camera in _noteSpeedPreview.GetComponentsInChildren<Camera>(true))
+                    camera.enabled = false;
+            }
+            var view = _noteSpeedPreviewView;
+            // This host owns a root overlay Canvas (whose rect Unity drives).
+            // Translate its sole visible child to reproduce the retail view move.
+            var rect = (RectTransform)view.transform.Find("RawImage");
+            var group = view.GetComponent<CanvasGroup>();
+            rect.anchoredPosition = Vector2.zero;
+            group.alpha = 1f;
+            var sequence = DOTween.Sequence().SetLink(view);
+            sequence.Append(rect.DOAnchorPosX(-500f, 0.3f).SetEase(Ease.OutCubic));
+            sequence.Join(group.DOFade(0f, 0.2f).SetEase(Ease.Linear));
+            sequence.OnComplete(() => view.SetActive(false));
+            yield return sequence.WaitForCompletion();
         }
 
         private void CreateNoteSpeedPreview()
@@ -4550,9 +4736,11 @@ namespace OpenWDS.Runtime
         private void BindJacket(Transform target)
         {
             var image = target != null ? target.GetComponent<Image>() : null;
-            if (image == null || _jacketSprite == null) return;
+            if (image == null) return;
+            image.enabled = _jacketSprite != null;
             image.sprite = _jacketSprite;
             image.overrideSprite = _jacketSprite;
+            if (_jacketSprite == null) return;
             // The retail prefab stretches the square Jacket into its authored
             // 568x616 rect. preserveAspect would leave 24-unit gaps above and
             // below, placing the spectrum outside the visible artwork.

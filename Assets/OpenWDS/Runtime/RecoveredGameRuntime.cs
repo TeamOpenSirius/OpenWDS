@@ -5,6 +5,7 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using DG.Tweening;
 
 namespace OpenWDS.Runtime
 {
@@ -1314,10 +1315,20 @@ namespace OpenWDS.Runtime
             rect.localScale = Vector3.one;
         }
 
+        private bool _gameplayIntroductionPending;
+
         private void BeginGameplay()
         {
-            if (_gameplayStarted) return;
+            if (_gameplayStarted || _gameplayIntroductionPending) return;
+            _gameplayIntroductionPending = true;
+            StartCoroutine(BeginGameplayAfterHud());
+        }
+
+        private IEnumerator BeginGameplayAfterHud()
+        {
+            if (_gameHud != null) yield return _gameHud.ShowIntroduction();
             _gameplayStarted = true;
+            _gameplayIntroductionPending = false;
             _startedAt = Time.realtimeSinceStartup;
             _pendingPlayerInputs.Clear();
             _gameHud?.Show();
@@ -1521,6 +1532,9 @@ namespace OpenWDS.Runtime
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.matchWidthOrHeight = 1f;
 
+            // Prepare zero digits and inactive badges before any result effect
+            // receives OnEnable. Initialize also serves settled-state fixtures.
+            canvasObject.SetActive(false);
             _gameResultInstance = Instantiate(_gameResultPrefab, canvasObject.transform);
             var rect = _gameResultInstance.transform as RectTransform;
             if (rect != null)
@@ -1620,6 +1634,10 @@ namespace OpenWDS.Runtime
                     isNewPlayerRate);
             panel.Initialize(viewData);
             BindResultNavigation();
+            // GameResultView.ShowAsync starts from the serialized root alpha 0
+            // and calls AnimationUtility.ShowAlphaAsync (linear 0.2 seconds).
+            // Initialize also supports settled-state editor previews.
+            if (rootCanvasGroup != null) rootCanvasGroup.alpha = 0f;
 
             // GameResultView.ShowAsync sets the original root Animator's "Next"
             // trigger before awaiting its entrance state. Without the removed
@@ -1627,11 +1645,7 @@ namespace OpenWDS.Runtime
             // whose final LeftPanel X is 52; GameResult_left_in ends at the prefab
             // position X=477. Keep the original pivot and drive the missing call.
             var slideAnimator = _gameResultInstance.GetComponent<Animator>();
-            if (slideAnimator != null)
-                slideAnimator.SetTrigger(Animator.StringToHash("Next"));
-            StartCoroutine(CompleteResultPresentation(
-                slideAnimator,
-                viewData.IsNewNotationRate || viewData.IsNewPlayerRate));
+            StartCoroutine(CompleteResultPresentation(slideAnimator));
 
             // GamePresenter stops the Game presentation before opening the
             // separately-authored GameResult presentation.
@@ -1665,11 +1679,22 @@ namespace OpenWDS.Runtime
         }
 
         private IEnumerator CompleteResultPresentation(
-            Animator slideAnimator,
-            bool playCompletionCue)
+            Animator slideAnimator)
         {
+            var resultPanel = _gameResultInstance.GetComponentInChildren<
+                Sirius.GameResult.GameResultPanel>(true);
+            var counts = resultPanel.CreateCountUp(_resultSe);
+            _gameResultInstance.transform.parent.gameObject.SetActive(true);
+            var canvasGroup = _gameResultInstance.GetComponent<CanvasGroup>();
+            if (canvasGroup != null)
+                canvasGroup.DOFade(1f, 0.2f).SetEase(Ease.Linear)
+                    .SetLink(_gameResultInstance);
             if (slideAnimator != null)
             {
+                // The controller must be enabled before receiving Next. Sending
+                // it under the inactive preparation Canvas loses the trigger
+                // when the Animator initializes and leaves LeftPanel at X=52.
+                slideAnimator.SetTrigger(Animator.StringToHash("Next"));
                 // Let the trigger transition be evaluated, then reproduce
                 // GameResultView.ShowAsync's normalized-time completion wait.
                 yield return null;
@@ -1682,9 +1707,7 @@ namespace OpenWDS.Runtime
                 }
             }
 
-            _resultSe?.Begin(playCompletionCue);
-            while (_resultSe != null && _resultSe.IsCounting)
-                yield return null;
+            yield return counts.Play().WaitForCompletion();
 
             if (_gameResultInstance == null) yield break;
             var navigation = _gameResultInstance.transform.Find("RightBotton");

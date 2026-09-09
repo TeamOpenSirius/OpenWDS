@@ -1,7 +1,7 @@
 Shader "UI/Additive" {
 	Properties {
-		_MainTex ("Sprite Texture", 2D) = "white" {}
-		_Color ("Tint", Vector) = (1,1,1,1)
+		[PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
+		_Color ("Tint", Color) = (1,1,1,1)
 		_StencilComp ("Stencil Comparison", Float) = 8
 		_Stencil ("Stencil ID", Float) = 0
 		_StencilOp ("Stencil Operation", Float) = 0
@@ -10,55 +10,71 @@ Shader "UI/Additive" {
 		_ColorMask ("Color Mask", Float) = 15
 		_ClipRect ("Clip Rect", Vector) = (-32767,-32767,32767,32767)
 	}
-	//DummyShaderTextExporter
-	SubShader{
-		Tags { "RenderType"="Opaque" }
-		LOD 200
 
-		Pass
-		{
+	SubShader {
+		Tags {
+			"Queue"="Transparent"
+			"RenderType"="Transparent"
+			"IgnoreProjector"="True"
+			"PreviewType"="Plane"
+			"CanUseSpriteAtlas"="True"
+		}
+		Stencil {
+			Ref [_Stencil]
+			Comp [_StencilComp]
+			Pass [_StencilOp]
+			ReadMask [_StencilReadMask]
+			WriteMask [_StencilWriteMask]
+		}
+		Cull Off
+		Lighting Off
+		ZWrite Off
+		ZTest [unity_GUIZTestMode]
+		Blend One One
+		ColorMask [_ColorMask]
+
+		Pass {
 			HLSLPROGRAM
 			#pragma vertex vert
 			#pragma fragment frag
+			#include "UnityCG.cginc"
 
-			float4x4 unity_ObjectToWorld;
-			float4x4 unity_MatrixVP;
+			sampler2D _MainTex;
 			float4 _MainTex_ST;
+			float4 _Color;
+			float4 _ClipRect;
 
-			struct Vertex_Stage_Input
-			{
-				float4 pos : POSITION;
+			struct appdata {
+				float4 vertex : POSITION;
+				float4 color : COLOR;
 				float2 uv : TEXCOORD0;
 			};
 
-			struct Vertex_Stage_Output
-			{
+			struct v2f {
+				float4 vertex : SV_POSITION;
+				float4 color : COLOR;
 				float2 uv : TEXCOORD0;
-				float4 pos : SV_POSITION;
+				float4 localPosition : TEXCOORD1;
 			};
 
-			Vertex_Stage_Output vert(Vertex_Stage_Input input)
-			{
-				Vertex_Stage_Output output;
-				output.uv = (input.uv.xy * _MainTex_ST.xy) + _MainTex_ST.zw;
-				output.pos = mul(unity_MatrixVP, mul(unity_ObjectToWorld, input.pos));
+			v2f vert(appdata input) {
+				v2f output;
+				output.vertex = UnityObjectToClipPos(input.vertex);
+				output.color = input.color * _Color;
+				output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+				output.localPosition = input.vertex;
 				return output;
 			}
 
-			Texture2D<float4> _MainTex;
-			SamplerState sampler_MainTex;
-			float4 _Color;
-
-			struct Fragment_Stage_Input
-			{
-				float2 uv : TEXCOORD0;
-			};
-
-			float4 frag(Fragment_Stage_Input input) : SV_TARGET
-			{
-				return _MainTex.Sample(sampler_MainTex, input.uv.xy) * _Color;
+			float4 frag(v2f input) : SV_Target {
+				float inside = step(_ClipRect.x, input.localPosition.x) *
+					step(_ClipRect.y, input.localPosition.y) *
+					step(input.localPosition.x, _ClipRect.z) *
+					step(input.localPosition.y, _ClipRect.w);
+				float4 sampled = tex2D(_MainTex, input.uv) * input.color;
+				float alpha = inside * sampled.a;
+				return float4(sampled.rgb * alpha, alpha);
 			}
-
 			ENDHLSL
 		}
 	}
