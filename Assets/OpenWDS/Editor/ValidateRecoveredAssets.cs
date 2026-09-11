@@ -129,6 +129,8 @@ namespace OpenWDS.Editor
                       $"fileID={defaultSpriteMaterialFileId}");
 
             ValidateAdditiveParticleMaterials();
+            ValidatePlayerRateGradient.Run();
+            ValidateHoldPulseTiming.Run();
             CreateOfflineRhythmPreviewScene.RunPresentationVisualValidation();
 
             var report = new ValidationReport

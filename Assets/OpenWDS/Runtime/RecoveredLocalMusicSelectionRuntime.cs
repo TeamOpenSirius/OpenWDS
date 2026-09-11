@@ -2391,8 +2391,14 @@ namespace OpenWDS.Runtime
                 "RateText",
                 playerRate.ToString(
                     "0.00", System.Globalization.CultureInfo.InvariantCulture));
-            // MusicSelectionHeaderView authors this value white.  Its header
-            // presentation is not the GameResult footer color path.
+            foreach (var text in _musicSelectionHeader.GetComponentsInChildren<Text>(true))
+            {
+                if (text.name != "RateText") continue;
+                var gradient = text.GetComponent<RecoveredPlayerRateGradient>();
+                if (gradient == null)
+                    gradient = text.gameObject.AddComponent<RecoveredPlayerRateGradient>();
+                gradient.SetRate(playerRate);
+            }
         }
 
         private void OpenPlayerRateDialog()

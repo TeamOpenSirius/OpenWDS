@@ -206,7 +206,12 @@ namespace OpenWDS.Runtime
                 ? RecoveredJumpScratch.GetConnectedFirst(notations, note)
                 : note;
             var touchId = first.Id;
-            var position = hasPrevious && RecoveredJumpScratch.IsJumpScratch(note)
+            // Retail Initialize chooses the jump destination for every tail
+            // Moved, including chain heads; Began/terminal Ended use the body
+            // lane. Otherwise Stationary stays on the old lane across the next
+            // long segment and its type-900 pulses are never touched.
+            var startPosition = _getScreenPosition(note);
+            var position = RecoveredJumpScratch.IsJumpScratch(note)
                 ? GetScreenPositionForLane(
                     note, RecoveredJumpScratch.GetDestinationLane(note))
                 : _getScreenPosition(note);
@@ -220,7 +225,7 @@ namespace OpenWDS.Runtime
                 result.Add(Create(
                     touchId,
                     note.StartMilliseconds,
-                    position,
+                    startPosition,
                     RecoveredTouchPhase.Began));
             }
             // The original native construction reads EndMilliseconds for every
@@ -247,7 +252,7 @@ namespace OpenWDS.Runtime
                 result.Add(Create(
                     touchId,
                     note.EndMilliseconds + 1,
-                    position,
+                    startPosition,
                     RecoveredTouchPhase.Ended));
             }
         }

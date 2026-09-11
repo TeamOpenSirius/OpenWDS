@@ -113,8 +113,7 @@ namespace OpenWDS.Runtime
 
         /// <summary>
         /// Settled GameResult footer text uses its own low-rate presentation.
-        /// MusicSelectionHeader authors RateText white and must not consume this
-        /// result-only fallback.
+        /// MusicSelectionHeader uses ColorPreset's separate gradient palette.
         /// </summary>
         public static Color32 GetGameResultTextColor(double rate)
         {

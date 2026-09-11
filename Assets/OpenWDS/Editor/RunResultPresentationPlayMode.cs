@@ -24,14 +24,14 @@ namespace OpenWDS.Editor
         private static RecoveredGameResultSeRuntime _sound;
         private static float _started;
         private static int _capture;
-        private static bool _countObserved, _fadeObserved, _rankObserved;
+        private static bool _countObserved, _fadeObserved, _rankObserved, _stageObserved;
 
         [Serializable]
         private sealed class Sample
         {
-            public float time, leftX, alpha, entranceTime, curtainTime;
+            public float time, leftX, alpha, entranceTime, curtainTime, stageAlpha, stageTime;
             public Vector3 curtainBoundsCenter, curtainBoundsSize;
-            public int countStarts, rankCues, activeGradeParticles;
+            public int countStarts, rankCues, activeGradeParticles, stageImages;
             public bool entranceState, navigation, badge;
             public string screenshot;
         }
@@ -97,6 +97,7 @@ namespace OpenWDS.Editor
                 }
                 var sample = Observe();
                 _fadeObserved |= sample.alpha > 0f && sample.alpha < 1f;
+                _stageObserved |= sample.stageAlpha > 0.5f && sample.stageTime > 0f;
                 if (sample.countStarts > 0)
                 {
                     _countObserved = true;
@@ -121,6 +122,7 @@ namespace OpenWDS.Editor
                 Require(Samples.Last().curtainTime >= 1f &&
                     Vector3.Distance(Samples.First().curtainBoundsSize, Samples.Last().curtainBoundsSize) > 0.1f,
                     "Curtain did not animate through its real Mecanim/Spine path.");
+                Require(_stageObserved && sample.stageAlpha == 0f && sample.stageTime >= 1f, "Stage Success did not enter and fade out through its Animator.");
                 Finish(true, "");
             }
             catch (Exception error) { Finish(false, error.ToString()); }
@@ -154,12 +156,19 @@ namespace OpenWDS.Editor
         private static Sample Observe()
         {
             var state = _root.GetComponent<Animator>().GetCurrentAnimatorStateInfo(0);
+            var stage = _root.transform.Find("SucceseTextImagePosition/GameResultStageSuccess");
+            Require(stage != null, "Stage Success subtree missing.");
+            var stageImages = stage.GetComponentsInChildren<UnityEngine.UI.Image>(true);
+            Require(stageImages.Length == 12 && stageImages.All(i => i.sprite != null), "Stage Success text/sprite components did not survive saving.");
             var skeleton = _background.GetComponentInChildren<Spine.Unity.SkeletonMecanim>();
             var mesh = skeleton.GetComponent<MeshFilter>().sharedMesh;
             var badge = _root.transform.Find("LeftPanel/GameResultPanel/ResultPanel /HeaderPanel/NextRewardPanel/Badge");
             return new Sample
             {
                 time = Time.time - _started,
+                stageImages = stageImages.Length,
+                stageAlpha = stage.Find("position").GetComponent<CanvasGroup>().alpha,
+                stageTime = stage.GetComponent<Animator>().GetCurrentAnimatorStateInfo(0).normalizedTime,
                 leftX = ((RectTransform)_root.transform.Find("LeftPanel")).anchoredPosition.x,
                 alpha = _root.GetComponent<CanvasGroup>().alpha,
                 entranceState = state.IsName("GameResult_left_in_anim"),

@@ -704,7 +704,10 @@ namespace OpenWDS.Runtime
             RecoveredNotationNote currentHold = null)
         {
             _scratchResults.Clear();
-            ConsumeDueHoldingNotes(input, hitLane, inputMusicMilliseconds);
+            // TryHoldingCore calls IClock.get_PassedMilliseconds, not
+            // InputEntity.Milliseconds, for the sustained pulse decision.
+            ConsumeDueHoldingNotes(input, hitLane,
+                currentMusicMilliseconds ?? inputMusicMilliseconds);
             var consumedDirectScratch = ConsumeDirectScratchNotes(
                 input, hitLane, inputMusicMilliseconds, currentMusicMilliseconds);
             if (currentHold != null &&

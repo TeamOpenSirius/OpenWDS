@@ -26,6 +26,7 @@ namespace OpenWDS.Runtime
         {
             public RecoveredNotationNote Note;
             public long DeadlineMilliseconds;
+            public bool IncludesDeadline;
         }
 
         private readonly RecoveredGameClock _clock;
@@ -408,11 +409,18 @@ namespace OpenWDS.Runtime
                 _missSchedule.Add(new MissEntry
                 {
                     Note = note,
-                    DeadlineMilliseconds = GetMissDeadline(note, notation),
+                    DeadlineMilliseconds = GetMissDeadline(note),
+                    IncludesDeadline = UsesHoldTimingDecider(note),
                 });
             }
             _missSchedule.Sort((left, right) =>
-                left.DeadlineMilliseconds.CompareTo(right.DeadlineMilliseconds));
+            {
+                var order = left.DeadlineMilliseconds.CompareTo(right.DeadlineMilliseconds);
+                if (order != 0) return order;
+                // Inclusive deadlines must not wait behind an exclusive
+                // deadline at the same timestamp.
+                return right.IncludesDeadline.CompareTo(left.IncludesDeadline);
+            });
         }
 
         private void InitializeHoldStartAssignments(
@@ -488,8 +496,9 @@ namespace OpenWDS.Runtime
         private void PublishExpiredMisses(long musicMilliseconds)
         {
             while (_nextMissIndex < _missSchedule.Count &&
-                   _missSchedule[_nextMissIndex].DeadlineMilliseconds <
-                   musicMilliseconds)
+                   (_missSchedule[_nextMissIndex].DeadlineMilliseconds < musicMilliseconds ||
+                    (_missSchedule[_nextMissIndex].DeadlineMilliseconds == musicMilliseconds &&
+                     _missSchedule[_nextMissIndex].IncludesDeadline)))
             {
                 var note = _missSchedule[_nextMissIndex++].Note;
                 if (!_resolvedNotes.Add(note)) continue;
@@ -534,14 +543,22 @@ namespace OpenWDS.Runtime
             }
         }
 
-        private static long GetMissDeadline(
-            RecoveredNotationNote note,
-            IReadOnlyList<RecoveredNotationNote> notation)
+        private static bool UsesHoldTimingDecider(RecoveredNotationNote note)
+        {
+            var type = (RecoveredNoteType)note.NoteType;
+            return type == RecoveredNoteType.Hold || type == RecoveredNoteType.CriticalHold ||
+                   type == RecoveredNoteType.Sound || type == RecoveredNoteType.SoundPurple ||
+                   type == RecoveredNoteType.HoldEighth;
+        }
+
+        private static long GetMissDeadline(RecoveredNotationNote note)
         {
             switch ((RecoveredNoteType)note.NoteType)
             {
                 case RecoveredNoteType.Hold:
                 case RecoveredNoteType.CriticalHold:
+                    // HoldTimingDecider.IsMiss compares the current clock to End.
+                    return note.EndMilliseconds;
                 case RecoveredNoteType.ScratchHold:
                 case RecoveredNoteType.ScratchCriticalHold:
                     return note.EndMilliseconds + 125L;
@@ -550,35 +567,13 @@ namespace OpenWDS.Runtime
                     return note.StartMilliseconds + 100L;
                 case RecoveredNoteType.Sound:
                 case RecoveredNoteType.SoundPurple:
+                    // Holding queue admission is Start; IsMiss uses End for
+                    // 30/31 (the notation's -1 sentinel is not rewritten).
+                    return Math.Max(note.StartMilliseconds, note.EndMilliseconds);
                 case RecoveredNoteType.HoldEighth:
-                    // HoldingNotationNoteQueue protects pulses for the lifetime
-                    // of Hold/ScratchHold processing (including connected jump
-                    // chains). They may be collected by a later Stationary
-                    // sample; unresolved pulses become MISS at chart teardown.
-                    var deadline = note.StartMilliseconds + 125L;
-                    foreach (var body in notation)
-                    {
-                        deadline = Math.Max(
-                            deadline,
-                            Math.Max(
-                                body.StartMilliseconds,
-                                body.EndMilliseconds) + 125L);
-                        var bodyType = (RecoveredNoteType)body.NoteType;
-                        if (bodyType != RecoveredNoteType.Hold &&
-                            bodyType != RecoveredNoteType.CriticalHold &&
-                            bodyType != RecoveredNoteType.ScratchHold &&
-                            bodyType != RecoveredNoteType.ScratchCriticalHold)
-                            continue;
-                        if (body.StartMilliseconds <= note.StartMilliseconds &&
-                            note.StartMilliseconds <= body.EndMilliseconds &&
-                            body.Lane <= note.Lane &&
-                            note.Lane <= body.EndLane)
-                        {
-                            deadline = Math.Max(
-                                deadline, body.EndMilliseconds + 125L);
-                        }
-                    }
-                    return deadline;
+                    // HoldingNotationNoteQueue.CanDelete -> HoldTimingDecider
+                    // IsMiss: 900 expires at Start, after this frame's input pass.
+                    return note.StartMilliseconds;
                 default:
                     return note.StartMilliseconds + 125L;
             }
@@ -1695,6 +1690,13 @@ namespace OpenWDS.Runtime
                 // it under the inactive preparation Canvas loses the trigger
                 // when the Animator initializes and leaves LeftPanel at X=52.
                 slideAnimator.SetTrigger(Animator.StringToHash("Next"));
+                // GameResultView.ShowAsync activates _StageSuccess (offset
+                // 0xA8) immediately after Next; its authored root is inactive.
+                var stageSuccess = _gameResultInstance.transform.Find(
+                    "SucceseTextImagePosition/GameResultStageSuccess");
+                if (stageSuccess == null)
+                    throw new InvalidOperationException("Stage Success presentation is missing.");
+                stageSuccess.gameObject.SetActive(true);
                 // Let the trigger transition be evaluated, then reproduce
                 // GameResultView.ShowAsync's normalized-time completion wait.
                 yield return null;
