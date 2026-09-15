@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 namespace Sirius.GameResult
 {
-    public sealed class TimingGraphPanel : RecoveredGameResultPanelBase
+    public sealed class TimingGraphPanel : GameResultPanelBase
     {
         [SerializeField] private GameObject _content;
         [SerializeField] private Transform _plusParent;
@@ -15,7 +15,7 @@ namespace Sirius.GameResult
         [SerializeField] private Text _slow;
         private IEnumerable<KeyValuePair<int, int>> inputResults;
 
-        public override void Initialize(RecoveredGameResultViewData data)
+        public override void Initialize(GameResultViewData data)
         {
             base.Initialize(data);
             inputResults = data.InputDiffSummary;
@@ -78,7 +78,7 @@ namespace Sirius.GameResult
                     180f,
                     pair.Value * 180f / Mathf.Max(50, maxCount));
                 image.rectTransform.sizeDelta = size;
-                image.color = TimingColor(RecoveredTapTimingDecider.DecideMusicTime(
+                image.color = TimingColor(TapTimingDecider.DecideMusicTime(
                     pair.Key * 5L, 0).TimingType);
             }
             _content.SetActive(false);
@@ -94,14 +94,14 @@ namespace Sirius.GameResult
             }
         }
 
-        private static Color TimingColor(RecoveredTimingType timingType)
+        private static Color TimingColor(TimingType timingType)
         {
             switch (timingType)
             {
-                case RecoveredTimingType.PerfectStar: return new Color32(255, 103, 157, 255);
-                case RecoveredTimingType.Perfect: return new Color32(255, 157, 196, 255);
-                case RecoveredTimingType.Great: return new Color32(255, 235, 13, 255);
-                case RecoveredTimingType.Good: return new Color32(0, 195, 220, 255);
+                case TimingType.PerfectStar: return new Color32(255, 103, 157, 255);
+                case TimingType.Perfect: return new Color32(255, 157, 196, 255);
+                case TimingType.Great: return new Color32(255, 235, 13, 255);
+                case TimingType.Good: return new Color32(0, 195, 220, 255);
                 default: return new Color32(134, 103, 233, 255);
             }
         }

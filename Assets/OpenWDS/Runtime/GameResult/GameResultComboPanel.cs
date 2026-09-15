@@ -4,12 +4,12 @@ using DG.Tweening;
 
 namespace Sirius.GameResult
 {
-    public sealed class GameResultComboPanel : RecoveredGameResultPanelBase
+    public sealed class GameResultComboPanel : GameResultPanelBase
     {
         [SerializeField] private Text _maxComboText;
         [SerializeField] private GameObject[] _badgeEffectObjects;
 
-        public override void Initialize(RecoveredGameResultViewData data)
+        public override void Initialize(GameResultViewData data)
         {
             base.Initialize(data);
             if (_maxComboText != null) _maxComboText.text = data.MaxCombo.ToString();
@@ -25,7 +25,7 @@ namespace Sirius.GameResult
             _badgeEffectObjects[index].SetActive(active);
         }
 
-        internal Tween CreateCountUp(RecoveredGameResultViewData data)
+        internal Tween CreateCountUp(GameResultViewData data)
         {
             var value = 0;
             _maxComboText.text = "0";

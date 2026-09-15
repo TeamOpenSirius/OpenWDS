@@ -43,7 +43,7 @@ namespace OpenWDS.Editor
             "OpenWDS.MusicSelectionPlayMode.SelectionStartCount";
         private const string ExitPhase = "exit";
         private static string _lastLoggedPhase;
-        private static RecoveredLocalResultStore _storeBeforeLive;
+        private static LocalResultStore _storeBeforeLive;
 
         [Serializable]
         private sealed class Report
@@ -161,7 +161,7 @@ namespace OpenWDS.Editor
                 return;
             }
             if (!EditorApplication.isPlaying || EditorApplication.isCompiling) return;
-            var sampledHud = UnityEngine.Object.FindObjectOfType<RecoveredGameHudRuntime>();
+            var sampledHud = UnityEngine.Object.FindObjectOfType<GameHudRuntime>();
             if (sampledHud != null && sampledHud.IntroductionAlpha > 0f && sampledHud.IntroductionAlpha < 1f)
                 SessionState.SetBool(HudFadeKey, true);
             var sampledPreviewView = GameObject.Find("GameSimulationView");
@@ -190,7 +190,7 @@ namespace OpenWDS.Editor
             }
             if (phase == "presentation-select")
             {
-                var runtime = UnityEngine.Object.FindObjectOfType<RecoveredLocalMusicSelectionRuntime>();
+                var runtime = UnityEngine.Object.FindObjectOfType<LocalMusicSelectionRuntime>();
                 if (runtime == null || !runtime.IsInitialized || runtime.IsFocusTransitionActive) return;
                 if (!SessionState.GetBool("OpenWDS.SelectionBugChecks", false))
                 {
@@ -198,15 +198,15 @@ namespace OpenWDS.Editor
                     runtime.StartCoroutine(ValidateSelectionBugFixes(runtime));
                     return;
                 }
-                _storeBeforeLive = (RecoveredLocalResultStore)typeof(RecoveredLocalMusicSelectionRuntime)
+                _storeBeforeLive = (LocalResultStore)typeof(LocalMusicSelectionRuntime)
                     .GetField("_localResults", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(runtime);
-                var catalog = (RecoveredLocalMusicCatalog)typeof(RecoveredLocalMusicSelectionRuntime)
+                var catalog = (LocalMusicCatalog)typeof(LocalMusicSelectionRuntime)
                     .GetField("_catalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(runtime);
                 var index = Array.FindIndex(catalog.Musics, item => item.Id == 10);
                 if (index < 0) throw new InvalidOperationException("Presentation fixture Music 10 is missing.");
                 // Use the existing snap coroutine with the actual sorted catalog
                 // index; no assumption that Music 10 is initially visible.
-                var routine = (System.Collections.IEnumerator)typeof(RecoveredLocalMusicSelectionRuntime)
+                var routine = (System.Collections.IEnumerator)typeof(LocalMusicSelectionRuntime)
                     .GetMethod("SnapPhysicalIndex", BindingFlags.Instance | BindingFlags.NonPublic)
                     .Invoke(runtime, new object[] { catalog.Musics.Length + index, catalog.Musics[index], false });
                 SessionState.SetString(PhaseKey, "selection-music10-final");
@@ -216,7 +216,7 @@ namespace OpenWDS.Editor
             if (phase == "selection")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || !runtime.IsInitialized || runtime.Selection == null) return;
                 var title = GameObject.Find(
                     "MusicSelectionView/TicketMacine/MusicInformationPanel/" +
@@ -224,7 +224,7 @@ namespace OpenWDS.Editor
                 var cell = GameObject.Find("LocalMusic_1");
                 var tenthCell = GameObject.Find("LocalMusic_10");
                 var preview = UnityEngine.Object.FindObjectOfType<
-                    RecoveredMusicSelectionPreviewRuntime>();
+                    MusicSelectionPreviewRuntime>();
                 var ratePanel = GameObject.Find(
                     "MusicSelectionView/DefaultLivePanels/ScorePanel/RatePanel")
                     ?.GetComponent<RectTransform>();
@@ -245,7 +245,7 @@ namespace OpenWDS.Editor
                     runtime.VisibleBoundCellCount > runtime.PhysicalCellCount ||
                     runtime.FocusedMusicId != 1 ||
                     runtime.Selection.Live.Difficulty !=
-                    RecoveredMusicDifficulty.Stella ||
+                    MusicDifficulty.Stella ||
                     title == null || title.text != "ワナビスタ！" ||
                     cell == null || tenthCell == null ||
                     preview == null || preview.SpectrumBarCount != 76 ||
@@ -286,7 +286,7 @@ namespace OpenWDS.Editor
                     "PartsBase/PartsMask/Vocals/BodyText")?.GetComponent<Text>();
                 var focusedVocalsScroll = cell.transform.Find(
                     "PartsBase/PartsMask/Vocals")
-                    ?.GetComponent<RecoveredScrollTextRuntime>();
+                    ?.GetComponent<ScrollTextRuntime>();
                 var focusedMask = cell.transform.Find(
                     "PartsBase/PartsMask/FocusMask")?.GetComponent<Image>();
                 var focusedPartsMask = cell.transform.Find(
@@ -359,8 +359,8 @@ namespace OpenWDS.Editor
                     $"frameEnabled={focusedDifficultyFrame?.enabled} " +
                     $"frameColor={focusedDifficultyFrame?.color} " +
                     $"framePos={((RectTransform)focusedDifficultyFrame?.transform)?.anchoredPosition} " +
-                    $"labelStella={DifficultyLabelUses(RecoveredMusicDifficulty.Stella, Color.white)} " +
-                    $"labelNormal={DifficultyLabelUses(RecoveredMusicDifficulty.Normal, new Color32(83, 84, 92, 255))} " +
+                    $"labelStella={DifficultyLabelUses(MusicDifficulty.Stella, Color.white)} " +
+                    $"labelNormal={DifficultyLabelUses(MusicDifficulty.Normal, new Color32(83, 84, 92, 255))} " +
                     $"titleAlign={informationTitle?.alignment} " +
                     $"creatorAlign={informationCreator?.alignment} " +
                     $"original={informationOriginal?.enabled} cover={informationCover?.enabled}");
@@ -393,8 +393,8 @@ namespace OpenWDS.Editor
                     focusedDifficultyFrame.enabled ||
                     !ColorsMatch(
                         focusedDifficultyFrame.color,
-                        RecoveredMusicSelectionPreviewRuntime.DifficultyFrameColor(
-                            RecoveredMusicDifficulty.Stella)) ||
+                        MusicSelectionPreviewRuntime.DifficultyFrameColor(
+                            MusicDifficulty.Stella)) ||
                     Mathf.Abs(
                         ((RectTransform)focusedDifficultyFrame.transform)
                             .anchoredPosition.x - 5f) > 0.1f ||
@@ -453,22 +453,22 @@ namespace OpenWDS.Editor
                     focusedMaskSprite.name !=
                     "img_live_common_list_jacket_mask" ||
                     !DifficultyButtonUses(
-                        RecoveredMusicDifficulty.Stella,
+                        MusicDifficulty.Stella,
                         "img_live_common_level_stella") ||
                     !DifficultyButtonUses(
-                        RecoveredMusicDifficulty.Normal,
+                        MusicDifficulty.Normal,
                         "img_live_common_level_off") ||
                     !DifficultyTextUses(
-                        RecoveredMusicDifficulty.Stella,
+                        MusicDifficulty.Stella,
                         Color.white) ||
                     !DifficultyTextUses(
-                        RecoveredMusicDifficulty.Normal,
+                        MusicDifficulty.Normal,
                         new Color32(83, 84, 92, 255)) ||
                     !DifficultyLabelUses(
-                        RecoveredMusicDifficulty.Stella,
+                        MusicDifficulty.Stella,
                         Color.white) ||
                     !DifficultyLabelUses(
-                        RecoveredMusicDifficulty.Normal,
+                        MusicDifficulty.Normal,
                         new Color32(83, 84, 92, 255)) ||
                     informationTitle == null ||
                     informationTitle.alignment != TextAnchor.MiddleLeft ||
@@ -641,8 +641,8 @@ namespace OpenWDS.Editor
                     !jacketAlphaFadeValid ||
                     !runtime.FocusTweenObservedIntermediate ||
                     !ColorsMatch(
-                        RecoveredMusicSelectionPreviewRuntime.DifficultyFrameColor(
-                            RecoveredMusicDifficulty.Normal),
+                        MusicSelectionPreviewRuntime.DifficultyFrameColor(
+                            MusicDifficulty.Normal),
                         new Color32(0, 195, 220, 255)) ||
                     Vector2.Distance(
                         jacketFront.rectTransform.rect.size,
@@ -720,10 +720,10 @@ namespace OpenWDS.Editor
                             1f),
                         spectrumParticle.main.startColor.color) ||
                     Mathf.Abs(
-                        RecoveredMusicSelectionPreviewRuntime.SpectrumHeight(0f) -
+                        MusicSelectionPreviewRuntime.SpectrumHeight(0f) -
                         10f) > 0.01f ||
                     Mathf.Abs(
-                        RecoveredMusicSelectionPreviewRuntime.SpectrumHeight(10f) -
+                        MusicSelectionPreviewRuntime.SpectrumHeight(10f) -
                         60f) > 0.01f)
                 {
                     Finish(false, "Spectrum UIParticle render ownership is invalid.", elapsed);
@@ -737,7 +737,7 @@ namespace OpenWDS.Editor
                     $"size={spectrumBar.rect.size} " +
                     $"imageColor={spectrumImage.color} " +
                     $"particleColor={spectrumParticle.main.startColor.color} " +
-                    $"zeroHeight={RecoveredMusicSelectionPreviewRuntime.SpectrumHeight(0f):F2} " +
+                    $"zeroHeight={MusicSelectionPreviewRuntime.SpectrumHeight(0f):F2} " +
                     $"active={spectrumBar.gameObject.activeInHierarchy}");
                 var scroll = runtime.ListScrollRect;
                 if (scroll == null || scroll.content == null ||
@@ -778,7 +778,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-arrow-down")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsFocusTransitionActive ||
                     runtime.FocusedMusicId == 0 ||
                     runtime.FocusedMusicId == 1)
@@ -801,7 +801,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-arrow-down-next-group")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsFocusTransitionActive ||
                     runtime.FocusedMusicId == 0 ||
                     runtime.FocusedMusicId ==
@@ -822,7 +822,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-arrow-up")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsFocusTransitionActive ||
                     runtime.FocusedMusicId !=
                         SessionState.GetInt(FirstArrowGroupMusicKey, 0))
@@ -843,7 +843,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-arrow-up-return")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsFocusTransitionActive ||
                     runtime.FocusedMusicId == 0 ||
                     runtime.FocusedMusicId ==
@@ -867,7 +867,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-random")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsFocusTransitionActive ||
                     runtime.FocusedMusicId == 0 ||
                     runtime.FocusedMusicId ==
@@ -892,7 +892,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-hud-filter")
             {
                 var body = GameObject.Find(
-                    "RecoveredMusicSortFilterDialog/Body/" +
+                    "MusicSortFilterDialog/Body/" +
                     "MusicSortFilterDialogBody");
                 var filterPanel = body != null
                     ? FindNamedTransform(body.transform, "FilterPanel")
@@ -951,10 +951,10 @@ namespace OpenWDS.Editor
                 actorCountsValid = actorCountsValid &&
                     !actorGroups[4].gameObject.activeSelf;
                 var sortTabRoot = sideMenu != null
-                    ? FindNamedTransform(sideMenu, "RecoveredSortTab")
+                    ? FindNamedTransform(sideMenu, "SortTab")
                     : null;
                 var filterTabRoot = sideMenu != null
-                    ? FindNamedTransform(sideMenu, "RecoveredFilterTab")
+                    ? FindNamedTransform(sideMenu, "FilterTab")
                     : null;
                 var sortTabLabel = sortTabRoot != null
                     ? FindNamedTransform(sortTabRoot, "Label")
@@ -1070,13 +1070,13 @@ namespace OpenWDS.Editor
                         actorGroups[0], "FilterAttributeButton (2)")
                         ?.GetComponentInChildren<Text>(true)?.text != "カトリナ" ||
                     FindNamedTransform(
-                        filterPanel, "RecoveredVocalFilterGroup") != null)
+                        filterPanel, "VocalFilterGroup") != null)
                 {
                     Finish(false, "HUD filter controls are incomplete.", elapsed);
                     return;
                 }
                 var uiSe = UnityEngine.Object.FindObjectOfType<
-                    RecoveredUiSeRuntime>();
+                    UiSeRuntime>();
                 if (uiSe == null)
                 {
                     Finish(false, "HUD shared button SE runtime is unavailable.", elapsed);
@@ -1232,9 +1232,9 @@ namespace OpenWDS.Editor
                     scroll.verticalNormalizedPosition = 1f;
                 }
                 var sortTab = FindNamedTransform(
-                    sideMenu, "RecoveredSortTab")?.GetComponent<Button>();
+                    sideMenu, "SortTab")?.GetComponent<Button>();
                 var filterTab = FindNamedTransform(
-                    sideMenu, "RecoveredFilterTab")?.GetComponent<Button>();
+                    sideMenu, "FilterTab")?.GetComponent<Button>();
                 if (sortTab == null || filterTab == null)
                 {
                     Finish(false, "HUD sort/filter tab is unavailable.", elapsed);
@@ -1266,16 +1266,16 @@ namespace OpenWDS.Editor
                     return;
                 }
                 var buttonLayer = GameObject.Find(
-                    "RecoveredMusicSortFilterDialogButtons");
+                    "MusicSortFilterDialogButtons");
                 var cancel = buttonLayer != null
                     ? FindNamedTransform(buttonLayer.transform, "FirstButton")
                         ?.GetComponent<Button>()
                     : null;
                 var visibleCancel = FindNamedTransform(
-                    GameObject.Find("RecoveredMusicSortFilterDialog")?.transform,
+                    GameObject.Find("MusicSortFilterDialog")?.transform,
                     "CancelButton") as RectTransform;
                 var visibleConfirm = FindNamedTransform(
-                    GameObject.Find("RecoveredMusicSortFilterDialog")?.transform,
+                    GameObject.Find("MusicSortFilterDialog")?.transform,
                     "ConfirmButton") as RectTransform;
                 if (cancel == null || visibleCancel == null ||
                     visibleConfirm == null ||
@@ -1300,9 +1300,9 @@ namespace OpenWDS.Editor
             if (phase == "selection-hud-filter-cancelled")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null ||
-                    GameObject.Find("RecoveredMusicSortFilterDialog") != null)
+                    GameObject.Find("MusicSortFilterDialog") != null)
                     return;
                 if (runtime.BoundCellCount != runtime.CatalogMusicCount)
                 {
@@ -1325,9 +1325,9 @@ namespace OpenWDS.Editor
 
             if (phase == "selection-hud-filter-confirm-dialog")
             {
-                var dialog = GameObject.Find("RecoveredMusicSortFilterDialog");
+                var dialog = GameObject.Find("MusicSortFilterDialog");
                 var body = GameObject.Find(
-                    "RecoveredMusicSortFilterDialog/Body/" +
+                    "MusicSortFilterDialog/Body/" +
                     "MusicSortFilterDialogBody");
                 var filterPanel = body != null
                     ? FindNamedTransform(body.transform, "FilterPanel")
@@ -1385,9 +1385,9 @@ namespace OpenWDS.Editor
             if (phase == "selection-hud-filter-confirmed")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null ||
-                    GameObject.Find("RecoveredMusicSortFilterDialog") != null)
+                    GameObject.Find("MusicSortFilterDialog") != null)
                     return;
                 if (runtime.BoundCellCount !=
                     runtime.CountCatalogMusicsForActor(101))
@@ -1411,9 +1411,9 @@ namespace OpenWDS.Editor
 
             if (phase == "selection-hud-filter-restore-dialog")
             {
-                var dialog = GameObject.Find("RecoveredMusicSortFilterDialog");
+                var dialog = GameObject.Find("MusicSortFilterDialog");
                 var body = GameObject.Find(
-                    "RecoveredMusicSortFilterDialog/Body/" +
+                    "MusicSortFilterDialog/Body/" +
                     "MusicSortFilterDialogBody");
                 var filterPanel = body != null
                     ? FindNamedTransform(body.transform, "FilterPanel")
@@ -1443,9 +1443,9 @@ namespace OpenWDS.Editor
             if (phase == "selection-hud-filter-restored")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null ||
-                    GameObject.Find("RecoveredMusicSortFilterDialog") != null)
+                    GameObject.Find("MusicSortFilterDialog") != null)
                     return;
                 if (runtime.BoundCellCount != runtime.CatalogMusicCount)
                 {
@@ -1458,7 +1458,7 @@ namespace OpenWDS.Editor
 
             if (phase == "selection-hud-sort")
             {
-                if (GameObject.Find("RecoveredMusicSortFilterDialog") != null)
+                if (GameObject.Find("MusicSortFilterDialog") != null)
                     return;
                 var sortButton = GameObject.Find(
                     "MusicSelectionHeaderView/SortButtonParent/SortButton")
@@ -1479,7 +1479,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-hud-sort-dialog")
             {
                 var body = GameObject.Find(
-                    "RecoveredMusicSortFilterDialog/Body/" +
+                    "MusicSortFilterDialog/Body/" +
                     "MusicSortFilterDialogBody");
                 var sortPanel = body != null
                     ? FindNamedTransform(body.transform, "SortPanel")
@@ -1522,7 +1522,7 @@ namespace OpenWDS.Editor
                 nameSort.onClick.Invoke();
                 CaptureSelection(SortScreenshotPath());
                 var buttonLayer = GameObject.Find(
-                    "RecoveredMusicSortFilterDialogButtons");
+                    "MusicSortFilterDialogButtons");
                 var confirm = buttonLayer != null
                     ? FindNamedTransform(buttonLayer.transform, "SecondButton")
                         ?.GetComponent<Button>()
@@ -1541,7 +1541,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-hud-sort-applied")
             {
                 var remainingDialog =
-                    GameObject.Find("RecoveredMusicSortFilterDialog");
+                    GameObject.Find("MusicSortFilterDialog");
                 if (remainingDialog != null)
                     return;
                 var sortButton = GameObject.Find(
@@ -1570,7 +1570,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-hud-sort-restore-dialog")
             {
                 var body = GameObject.Find(
-                    "RecoveredMusicSortFilterDialog/Body/" +
+                    "MusicSortFilterDialog/Body/" +
                     "MusicSortFilterDialogBody");
                 var sortPanel = body != null
                     ? FindNamedTransform(body.transform, "SortPanel")
@@ -1580,7 +1580,7 @@ namespace OpenWDS.Editor
                 var reset = FindNamedTransform(
                     sortPanel, "ResetButton")?.GetComponent<Button>();
                 var buttonLayer = GameObject.Find(
-                    "RecoveredMusicSortFilterDialogButtons");
+                    "MusicSortFilterDialogButtons");
                 var confirm = buttonLayer != null
                     ? FindNamedTransform(buttonLayer.transform, "SecondButton")
                         ?.GetComponent<Button>()
@@ -1599,7 +1599,7 @@ namespace OpenWDS.Editor
 
             if (phase == "selection-hud-sort-restored")
             {
-                if (GameObject.Find("RecoveredMusicSortFilterDialog") != null)
+                if (GameObject.Find("MusicSortFilterDialog") != null)
                     return;
                 var sortButton = GameObject.Find(
                     "MusicSelectionHeaderView/SortButtonParent/SortButton");
@@ -1621,7 +1621,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-hud-reloaded")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null ||
                     runtime.FocusedMusicId != 1 ||
                     runtime.IsFocusTransitionActive)
@@ -1644,9 +1644,9 @@ namespace OpenWDS.Editor
             if (phase == "selection-bookmark-open")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 var dialog = GameObject.Find(
-                    "RecoveredMusicBookmarkSettingDialog");
+                    "MusicBookmarkSettingDialog");
                 if (runtime == null || !runtime.IsBookmarkDialogVisible ||
                     dialog == null)
                     return;
@@ -1672,11 +1672,11 @@ namespace OpenWDS.Editor
             if (phase == "selection-bookmark-saved")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsBookmarkDialogVisible)
                     return;
                 if ((runtime.GetBookmarkFlags(1) &
-                     RecoveredMusicBookmarkFlags.Bookmark1) == 0)
+                     MusicBookmarkFlags.Bookmark1) == 0)
                 {
                     Finish(false, "Music bookmark did not persist.", elapsed);
                     return;
@@ -1697,11 +1697,11 @@ namespace OpenWDS.Editor
             if (phase == "selection-bookmark-filter1")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null ||
                     runtime.IsMusicListRebuilding ||
                     runtime.BookmarkFilter !=
-                    RecoveredMusicBookmarkFlags.Bookmark1 ||
+                    MusicBookmarkFlags.Bookmark1 ||
                     runtime.BoundCellCount == 0 ||
                     GameObject.Find("LocalMusic_1") == null)
                     return;
@@ -1715,11 +1715,11 @@ namespace OpenWDS.Editor
             if (phase == "selection-bookmark-filter2")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null ||
                     runtime.IsMusicListRebuilding ||
                     runtime.BookmarkFilter !=
-                    RecoveredMusicBookmarkFlags.Bookmark2)
+                    MusicBookmarkFlags.Bookmark2)
                     return;
                 var view = GameObject.Find("MusicSelectionView");
                 var noMusic = view != null
@@ -1749,11 +1749,11 @@ namespace OpenWDS.Editor
             if (phase == "selection-bookmark-filter3")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null ||
                     runtime.IsMusicListRebuilding ||
                     runtime.BookmarkFilter !=
-                    RecoveredMusicBookmarkFlags.Bookmark3)
+                    MusicBookmarkFlags.Bookmark3)
                     return;
                 GameObject.Find(
                     "MusicSelectionView/Bookmark/BookmarkChangeButton")
@@ -1765,10 +1765,10 @@ namespace OpenWDS.Editor
             if (phase == "selection-bookmark-restored")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null ||
                     runtime.IsMusicListRebuilding ||
-                    runtime.BookmarkFilter != RecoveredMusicBookmarkFlags.None ||
+                    runtime.BookmarkFilter != MusicBookmarkFlags.None ||
                     runtime.BoundCellCount != runtime.CatalogMusicCount)
                     return;
                 var initiallyOn =
@@ -1792,7 +1792,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-bookmark-cleanup-open")
             {
                 var dialog = GameObject.Find(
-                    "RecoveredMusicBookmarkSettingDialog");
+                    "MusicBookmarkSettingDialog");
                 if (dialog == null) return;
                 var toggle = FindNamedTransform(
                     dialog.transform, "FavoriteToggle")?.GetComponent<Button>();
@@ -1809,11 +1809,11 @@ namespace OpenWDS.Editor
             if (phase == "selection-bookmark-cleanup-done")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsBookmarkDialogVisible)
                     return;
                 if ((runtime.GetBookmarkFlags(1) &
-                     RecoveredMusicBookmarkFlags.Bookmark1) != 0)
+                     MusicBookmarkFlags.Bookmark1) != 0)
                 {
                     Finish(false, "Music bookmark cleanup failed.", elapsed);
                     return;
@@ -1825,8 +1825,8 @@ namespace OpenWDS.Editor
             if (phase == "selection-rate-open")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
-                var dialog = GameObject.Find("RecoveredPlayerRateDialog");
+                    LocalMusicSelectionRuntime>();
+                var dialog = GameObject.Find("PlayerRateDialog");
                 var body = dialog != null
                     ? FindNamedTransform(dialog.transform, "PlayerRateDialogBody")
                     : null;
@@ -1835,11 +1835,11 @@ namespace OpenWDS.Editor
                         ?.GetComponent<Text>()
                     : null;
                 var playerTab = body != null
-                    ? FindNamedTransform(body, "RecoveredPlayerRateTab")
+                    ? FindNamedTransform(body, "PlayerRateTab")
                         ?.GetComponent<Button>()
                     : null;
                 var spTab = body != null
-                    ? FindNamedTransform(body, "RecoveredSpRateTab")
+                    ? FindNamedTransform(body, "SpRateTab")
                         ?.GetComponent<Button>()
                     : null;
                 if (runtime == null || !runtime.IsPlayerRateDialogVisible ||
@@ -1848,7 +1848,7 @@ namespace OpenWDS.Editor
                     return;
                 CaptureSelection(PlayerRateScreenshotPath());
                 if (!NamedTextIs(
-                        "RecoveredPlayerRateDialog",
+                        "PlayerRateDialog",
                         "TitleText",
                         "レート対象楽曲"))
                 {
@@ -1914,7 +1914,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-rate-closed")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.IsPlayerRateDialogVisible)
                     return;
                 SceneManager.LoadScene("LocalMusicSelection");
@@ -1926,7 +1926,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-auxiliary-reloaded")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null ||
                     runtime.FocusedMusicId != 1 ||
                     runtime.IsFocusTransitionActive)
@@ -1939,7 +1939,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-scroll-text-restart")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 var focusedVocalsScroll = runtime != null
                     ? runtime.FocusedVocalsScroll
                     : null;
@@ -1957,7 +1957,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-scroll-text-reset")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 var vocalsScroll = runtime != null
                     ? runtime.FocusedVocalsScroll
                     : null;
@@ -1977,7 +1977,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-scroll-text")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 var vocalsScroll = runtime != null
                     ? runtime.FocusedVocalsScroll
                     : null;
@@ -2046,7 +2046,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-large-loop-verify")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 var scroll = runtime != null ? runtime.ListScrollRect : null;
                 if (runtime == null || scroll == null || scroll.velocity.y <= 0f)
                 {
@@ -2068,7 +2068,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-auto-snap")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null ||
                     runtime.Selection.Music.Id != 2 ||
                     runtime.FocusedMusicId != 2 ||
@@ -2115,10 +2115,10 @@ namespace OpenWDS.Editor
             if (phase == "selection-olivier")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null ||
                     runtime.Selection.Live.Difficulty !=
-                    RecoveredMusicDifficulty.Olivier)
+                    MusicDifficulty.Olivier)
                     return;
                 if (runtime.ListScrollRect == null ||
                     runtime.FocusedMusicId != 2)
@@ -2127,10 +2127,10 @@ namespace OpenWDS.Editor
                     return;
                 }
                 if (!DifficultyButtonUses(
-                        RecoveredMusicDifficulty.Olivier,
+                        MusicDifficulty.Olivier,
                         "img_live_common_level_olivier") ||
                     !DifficultyButtonUses(
-                        RecoveredMusicDifficulty.Stella,
+                        MusicDifficulty.Stella,
                         "img_live_common_level_off"))
                 {
                     Finish(false, "Difficulty button selected/off graphics are invalid.", elapsed);
@@ -2159,10 +2159,10 @@ namespace OpenWDS.Editor
                         return;
                     }
                 }
-                if (RecoveredLocalMusicSelectionRuntime.FormatMusicLevel(100) != "100" ||
-                    RecoveredLocalMusicSelectionRuntime.FormatMusicLevel(101) != "I" ||
-                    RecoveredLocalMusicSelectionRuntime.FormatMusicLevel(110) != "X" ||
-                    RecoveredLocalMusicSelectionRuntime.FormatMusicLevel(111) != "111")
+                if (LocalMusicSelectionRuntime.FormatMusicLevel(100) != "100" ||
+                    LocalMusicSelectionRuntime.FormatMusicLevel(101) != "I" ||
+                    LocalMusicSelectionRuntime.FormatMusicLevel(110) != "X" ||
+                    LocalMusicSelectionRuntime.FormatMusicLevel(111) != "111")
                 {
                     Finish(false, "Olivier level conversion boundary is invalid.", elapsed);
                     return;
@@ -2183,10 +2183,10 @@ namespace OpenWDS.Editor
             if (phase == "selection-stella")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null ||
                     runtime.Selection.Live.Difficulty !=
-                    RecoveredMusicDifficulty.Stella)
+                    MusicDifficulty.Stella)
                     return;
                 if (!MarkerIs(1, "25", "img_live_common_list_level_stella") ||
                     !MarkerIs(2, "26", "img_live_common_list_level_stella"))
@@ -2214,9 +2214,9 @@ namespace OpenWDS.Editor
             if (phase == "selection-music10")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 var preview = UnityEngine.Object.FindObjectOfType<
-                    RecoveredMusicSelectionPreviewRuntime>();
+                    MusicSelectionPreviewRuntime>();
                 var title = GameObject.Find(
                     "MusicSelectionView/TicketMacine/MusicInformationPanel/" +
                     "ScrollMusicTitle/ScrollMusicTitleText")?.GetComponent<Text>();
@@ -2228,7 +2228,7 @@ namespace OpenWDS.Editor
                     : 0;
                 if (runtime == null || runtime.Selection == null ||
                     runtime.Selection.Music.Id != lastMusicId ||
-                    runtime.Selection.Live.Difficulty != RecoveredMusicDifficulty.Stella ||
+                    runtime.Selection.Live.Difficulty != MusicDifficulty.Stella ||
                     runtime.IsFocusTransitionActive ||
                     preview == null || preview.MusicId != lastMusicId ||
                     title == null ||
@@ -2245,7 +2245,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-loop-wrap")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null ||
                     runtime.Selection.Music.Id != 1 ||
                     runtime.FocusedMusicId != 1 ||
@@ -2263,7 +2263,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-loop-wrap-scroll")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 var vocalsScroll = runtime != null
                     ? runtime.FocusedVocalsScroll
                     : null;
@@ -2314,7 +2314,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-music10-final")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null ||
                     runtime.Selection.Music.Id != 10 ||
                     runtime.FocusedMusicId != 10 ||
@@ -2345,13 +2345,13 @@ namespace OpenWDS.Editor
                 SessionState.SetInt(
                     SelectionStartCountKey,
                     runtime.StartInvocationCount);
-                var persisted = new RecoveredSettingsStore().LoadOrDefault();
+                var persisted = new SettingsStore().LoadOrDefault();
                 persisted.GameSettings.NoteSpeed = 9d;
                 persisted.GameSettings.NoteOffsetValue = 0d;
                 persisted.GameDetailSettings.IsActiveMirror = false;
                 persisted.GameDetailSettings.IsActiveSplitRandom = false;
                 persisted.SystemSettings.IsPreLiveOptionConfirmation = true;
-                new RecoveredSettingsStore().Save(persisted);
+                new SettingsStore().Save(persisted);
                 SessionState.SetString(PhaseKey, "selection-speed");
                 SessionState.SetFloat(
                     ScrollStartedKey,
@@ -2363,7 +2363,7 @@ namespace OpenWDS.Editor
             if (phase == "selection-speed")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || !runtime.IsNoteSpeedDialogVisible)
                     return;
                 if (EditorApplication.timeSinceStartup -
@@ -2374,13 +2374,13 @@ namespace OpenWDS.Editor
                     Finish(false, "Note-speed confirmation body is invalid.", elapsed);
                     return;
                 }
-                var dialog = GameObject.Find("RecoveredNoteSpeedDialog");
+                var dialog = GameObject.Find("NoteSpeedDialog");
                 var dialogRect = dialog != null
                     ? dialog.GetComponent<RectTransform>()
                     : null;
                 var dialogOverlay = dialog != null
                     ? FindNamedTransform(
-                        dialog.transform, "RecoveredDialogOverlay")
+                        dialog.transform, "DialogOverlay")
                         ?.GetComponent<Image>()
                     : null;
                 var speedPreview = GameObject.Find("GameSimulation");
@@ -2420,7 +2420,7 @@ namespace OpenWDS.Editor
                     return;
                 }
                 var dialogBody = GameObject.Find(
-                    "RecoveredNoteSpeedDialog/Body/" +
+                    "NoteSpeedDialog/Body/" +
                     "NoteSpeedSettingsDialogBody");
                 var timing = dialogBody != null
                     ? FindNamedTransform(dialogBody.transform, "TimingSettings")
@@ -2461,7 +2461,7 @@ namespace OpenWDS.Editor
                     return;
                 }
                 var uiSe = UnityEngine.Object.FindObjectOfType<
-                    RecoveredUiSeRuntime>();
+                    UiSeRuntime>();
                 if (uiSe == null)
                 {
                     Finish(false, "Performance option SE runtime is unavailable.", elapsed);
@@ -2568,7 +2568,7 @@ namespace OpenWDS.Editor
                     }
                 }
                 var buttonLayer = GameObject.Find(
-                    "RecoveredNoteSpeedDialogButtons");
+                    "NoteSpeedDialogButtons");
                 var confirm = buttonLayer != null
                     ? FindNamedTransform(buttonLayer.transform, "SecondButton")
                         ?.GetComponent<Button>()
@@ -2596,16 +2596,16 @@ namespace OpenWDS.Editor
             {
                 if (SceneManager.GetActiveScene().name != "OfflineRhythmPreview")
                     return;
-                var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
+                var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
                 if (game == null || !game.IsInitialized) return;
-                if (RecoveredCurtainTransitionRuntime.IsTransitioning ||
-                    !RecoveredCurtainTransitionRuntime.ClosePlayed ||
-                    !RecoveredCurtainTransitionRuntime.OpenPlayed ||
-                    !RecoveredCurtainTransitionRuntime.CloseCompleted ||
-                    !RecoveredCurtainTransitionRuntime.OpenCompleted ||
-                    !RecoveredCurtainTransitionRuntime
+                if (CurtainTransitionRuntime.IsTransitioning ||
+                    !CurtainTransitionRuntime.ClosePlayed ||
+                    !CurtainTransitionRuntime.OpenPlayed ||
+                    !CurtainTransitionRuntime.CloseCompleted ||
+                    !CurtainTransitionRuntime.OpenCompleted ||
+                    !CurtainTransitionRuntime
                         .DestinationInitializedBeforeOpen ||
-                    !RecoveredCurtainTransitionRuntime
+                    !CurtainTransitionRuntime
                         .OpenRenderedInDestination)
                     return;
                 if (UnityEngine.Object.FindObjectsOfType<EventSystem>().Length != 1)
@@ -2613,22 +2613,22 @@ namespace OpenWDS.Editor
                     Finish(false, "Gameplay must contain exactly one EventSystem.", elapsed);
                     return;
                 }
-                if (!RecoveredLocalMusicSelectionSession.HasSelection ||
-                    RecoveredLocalMusicSelectionSession.Selection.Music.Id != 10 ||
-                    RecoveredLocalMusicSelectionSession.Selection.Live.Difficulty !=
-                    RecoveredMusicDifficulty.Stella ||
-                    RecoveredLocalMusicSelectionSession.ChartAsset == null ||
-                    RecoveredLocalMusicSelectionSession.ChartAsset.name !=
+                if (!LocalMusicSelectionSession.HasSelection ||
+                    LocalMusicSelectionSession.Selection.Music.Id != 10 ||
+                    LocalMusicSelectionSession.Selection.Live.Difficulty !=
+                    MusicDifficulty.Stella ||
+                    LocalMusicSelectionSession.ChartAsset == null ||
+                    LocalMusicSelectionSession.ChartAsset.name !=
                         "Music10Stella" ||
                     game.ChartAsset !=
-                    RecoveredLocalMusicSelectionSession.ChartAsset ||
-                    game.MusicDifficulty != RecoveredMusicDifficulty.Stella)
+                    LocalMusicSelectionSession.ChartAsset ||
+                    game.MusicDifficulty != MusicDifficulty.Stella)
                 {
                     Finish(false, "Selected game parameters were not consumed.", elapsed);
                     return;
                 }
                 if (Resources.FindObjectsOfTypeAll<
-                        RecoveredMusicSelectionPreviewRuntime>()
+                        MusicSelectionPreviewRuntime>()
                     .Any(preview => preview != null && preview.IsPlaying))
                 {
                     Finish(
@@ -2637,7 +2637,7 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
-                var persisted = new RecoveredSettingsStore().LoadOrDefault();
+                var persisted = new SettingsStore().LoadOrDefault();
                 if (Math.Abs(persisted.GameSettings.NoteSpeed - 9d) > 0.001d ||
                     Math.Abs(persisted.GameSettings.NoteOffsetValue - 0.2d) >
                     0.001d ||
@@ -2650,7 +2650,7 @@ namespace OpenWDS.Editor
                 var introduction = UnityEngine.Object.FindObjectOfType<
                     Sirius.Game.GameIntroductionAnimationController>();
                 var pause = UnityEngine.Object.FindObjectOfType<
-                    RecoveredGamePauseRuntime>();
+                    GamePauseRuntime>();
                 if (introduction == null || !introduction.IsPlaying)
                 {
                     Finish(
@@ -2694,11 +2694,11 @@ namespace OpenWDS.Editor
 
             if (phase == "game-focus-paused")
             {
-                var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
+                var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
                 var introduction = UnityEngine.Object.FindObjectOfType<
                     Sirius.Game.GameIntroductionAnimationController>();
                 var pause = UnityEngine.Object.FindObjectOfType<
-                    RecoveredGamePauseRuntime>();
+                    GamePauseRuntime>();
                 if (game == null || introduction == null || pause == null) return;
                 var pausedTime = SessionState.GetFloat(
                     IntroductionFocusTimeKey, -1f);
@@ -2740,7 +2740,7 @@ namespace OpenWDS.Editor
 
             if (phase == "game-focus-resumed")
             {
-                var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
+                var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
                 if (game == null) return;
                 var introduction = UnityEngine.Object.FindObjectOfType<
                     Sirius.Game.GameIntroductionAnimationController>();
@@ -2763,7 +2763,7 @@ namespace OpenWDS.Editor
                 if (SceneManager.GetActiveScene().name != "LocalMusicSelection")
                     return;
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null) return;
                 if (runtime.StartInvocationCount != SessionState.GetInt(
                         SelectionStartCountKey, -1))
@@ -2797,11 +2797,11 @@ namespace OpenWDS.Editor
             if (phase == "retire-speed")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || !runtime.IsNoteSpeedDialogVisible)
                     return;
                 var buttonLayer = GameObject.Find(
-                    "RecoveredNoteSpeedDialogButtons");
+                    "NoteSpeedDialogButtons");
                 var confirm = buttonLayer != null
                     ? FindNamedTransform(buttonLayer.transform, "SecondButton")
                         ?.GetComponent<Button>()
@@ -2816,9 +2816,9 @@ namespace OpenWDS.Editor
             {
                 if (SceneManager.GetActiveScene().name != "OfflineRhythmPreview")
                     return;
-                var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
+                var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
                 if (game == null || !game.IsInitialized) return;
-                var showResult = typeof(RecoveredGameRuntime).GetMethod(
+                var showResult = typeof(GameRuntime).GetMethod(
                     "ShowGameResult",
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 if (showResult == null)
@@ -2880,8 +2880,8 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
-                var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
-                var uiSe = RecoveredUiSeRuntime.Instance;
+                var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
+                var uiSe = UiSeRuntime.Instance;
                 if (game == null || uiSe == null)
                 {
                     Finish(false, "Result replay SE runtime is unavailable.", elapsed);
@@ -2901,13 +2901,13 @@ namespace OpenWDS.Editor
             {
                 if (SceneManager.GetActiveScene().name != "OfflineRhythmPreview")
                     return;
-                var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
+                var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
                 if (game == null || !game.IsInitialized ||
                     game.GetInstanceID() == SessionState.GetInt(
                         ResultGameInstanceKey, game.GetInstanceID()) ||
-                    !RecoveredLocalMusicSelectionSession.HasSelection)
+                    !LocalMusicSelectionSession.HasSelection)
                     return;
-                var showResult = typeof(RecoveredGameRuntime).GetMethod(
+                var showResult = typeof(GameRuntime).GetMethod(
                     "ShowGameResult",
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 if (showResult == null)
@@ -2926,7 +2926,7 @@ namespace OpenWDS.Editor
                     "NextButton")
                     ?.GetComponent<Button>();
                 if (button == null) return;
-                var uiSe = RecoveredUiSeRuntime.Instance;
+                var uiSe = UiSeRuntime.Instance;
                 if (uiSe == null)
                 {
                     Finish(false, "Result next SE runtime is unavailable.", elapsed);
@@ -2946,7 +2946,7 @@ namespace OpenWDS.Editor
                 if (SceneManager.GetActiveScene().name != "LocalMusicSelection")
                     return;
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredLocalMusicSelectionRuntime>();
+                    LocalMusicSelectionRuntime>();
                 if (runtime == null || runtime.Selection == null) return;
                 if (runtime.StartInvocationCount != SessionState.GetInt(
                         SelectionStartCountKey, -1))
@@ -2957,7 +2957,7 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
-                var returned = RecoveredLocalMusicSelectionSession.Selection;
+                var returned = LocalMusicSelectionSession.Selection;
                 if (returned == null ||
                     runtime.Selection.Music.Id != returned.Music.Id ||
                     runtime.Selection.Live.Difficulty !=
@@ -2970,9 +2970,9 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
-                var displayedStore = (RecoveredLocalResultStore)typeof(RecoveredLocalMusicSelectionRuntime)
+                var displayedStore = (LocalResultStore)typeof(LocalMusicSelectionRuntime)
                     .GetField("_localResults", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(runtime);
-                var durableStore = new RecoveredLocalResultStore();
+                var durableStore = new LocalResultStore();
                 if (ReferenceEquals(displayedStore, _storeBeforeLive) ||
                     displayedStore.GetBest(returned.Music.Id, returned.Live.Difficulty) !=
                     durableStore.GetBest(returned.Music.Id, returned.Live.Difficulty) ||
@@ -3007,17 +3007,17 @@ namespace OpenWDS.Editor
         }
 
         private static System.Collections.IEnumerator ValidateSelectionBugFixes(
-            RecoveredLocalMusicSelectionRuntime runtime)
+            LocalMusicSelectionRuntime runtime)
         {
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var type = typeof(RecoveredLocalMusicSelectionRuntime);
-            var preview = UnityEngine.Object.FindObjectOfType<RecoveredMusicSelectionPreviewRuntime>();
+            var type = typeof(LocalMusicSelectionRuntime);
+            var preview = UnityEngine.Object.FindObjectOfType<MusicSelectionPreviewRuntime>();
             while (!preview.IsPlaying) yield return null;
-            var playerField = typeof(RecoveredMusicSelectionPreviewRuntime).GetField("_player", flags);
+            var playerField = typeof(MusicSelectionPreviewRuntime).GetField("_player", flags);
             var originalPlayer = playerField.GetValue(preview);
             var musicId = runtime.Selection.Music.Id;
             var originalDifficulty = runtime.Selection.Live.Difficulty;
-            foreach (var difficulty in new[] { RecoveredMusicDifficulty.Hard, originalDifficulty })
+            foreach (var difficulty in new[] { MusicDifficulty.Hard, originalDifficulty })
             {
                 type.GetMethod("SelectDifficulty", flags).Invoke(runtime, new object[] { difficulty, true });
                 while ((bool)type.GetField("_isRebuildingMusicList", flags).GetValue(runtime)) yield return null;
@@ -3031,11 +3031,11 @@ namespace OpenWDS.Editor
             var temporaryRoot = Path.Combine(Path.GetTempPath(), "OpenWDS-rating-jacket-" + Guid.NewGuid());
             try
             {
-                var musics = (RecoveredLocalMusicEntry[])type.GetField("_allMusics", flags).GetValue(runtime);
+                var musics = (LocalMusicEntry[])type.GetField("_allMusics", flags).GetValue(runtime);
                 var uncached = musics.Last(m => !runtime.HasLoadedJacket(m.Id) &&
-                    m.Lives.Any(l => RecoveredPlayerRating.IsEligible(m, l)));
-                var live = uncached.Lives.First(l => RecoveredPlayerRating.IsEligible(uncached, l));
-                var fixture = new RecoveredLocalResultStore(temporaryRoot);
+                    m.Lives.Any(l => PlayerRating.IsEligible(m, l)));
+                var live = uncached.Lives.First(l => PlayerRating.IsEligible(uncached, l));
+                var fixture = new LocalResultStore(temporaryRoot);
                 fixture.RecordResult(uncached.Id, live.Difficulty, 101d, out _);
                 storeField.SetValue(runtime, fixture);
                 type.GetMethod("OpenPlayerRateDialog", flags).Invoke(runtime, null);
@@ -3088,7 +3088,7 @@ namespace OpenWDS.Editor
                 failure = failure,
                 elapsedSeconds = elapsed,
                 availableDifficulties = 5,
-                selectedDifficulty = RecoveredMusicDifficulty.Stella.ToString(),
+                selectedDifficulty = MusicDifficulty.Stella.ToString(),
                 titleBound = passed,
                 listCellBound = passed,
                 scrollingValid = passed && !SessionState.GetBool(PresentationOnlyKey, false),
@@ -3207,7 +3207,7 @@ namespace OpenWDS.Editor
         }
 
         private static bool DifficultyButtonUses(
-            RecoveredMusicDifficulty difficulty,
+            MusicDifficulty difficulty,
             string expectedSprite)
         {
             var image = GameObject.Find(
@@ -3220,7 +3220,7 @@ namespace OpenWDS.Editor
         }
 
         private static bool DifficultyTextUses(
-            RecoveredMusicDifficulty difficulty,
+            MusicDifficulty difficulty,
             Color expected)
         {
             var text = GameObject.Find(
@@ -3231,7 +3231,7 @@ namespace OpenWDS.Editor
         }
 
         private static bool DifficultyLabelUses(
-            RecoveredMusicDifficulty difficulty,
+            MusicDifficulty difficulty,
             Color expected)
         {
             var graphic = GameObject.Find(

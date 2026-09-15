@@ -13,7 +13,7 @@ namespace OpenWDS.Editor
     // Run tools/recover_stage_success_curves.py first. No AssetRipper export is used.
     public static class RecoverStageSuccess
     {
-        private const string Destination = "Assets/OpenWDS/RecoveredStageSuccess";
+        private const string ResourceRoot = "Assets/Resources";
         private const string PrefabPath = "Assets/Resources/Prefabs/OrdinarySoloGameResult.prefab";
         [Serializable] private sealed class Manifest { public string name; public float duration; public Curve[] curves; }
         [Serializable] private sealed class Curve { public string path, kind, property; public Key[] keys; }
@@ -24,7 +24,8 @@ namespace OpenWDS.Editor
 
         public static void Run()
         {
-            Directory.CreateDirectory(Destination);
+            foreach (var kind in new[] { "Sprite", "AnimationClip", "AnimatorController" })
+                Directory.CreateDirectory(ResourceRoot + "/" + kind);
             var manifest = JsonUtility.FromJson<Manifest>(File.ReadAllText(ProjectFile("reverse/reports/stage-success-curves.json")));
             var bundles = Directory.GetFiles(ProjectFile("reverse/extracted/game-result-bundles"), "*.bundle")
                 .Select(AssetBundle.LoadFromFile).ToArray();
@@ -53,10 +54,10 @@ namespace OpenWDS.Editor
                 settings.loopTime = false;
                 AnimationUtility.SetAnimationClipSettings(clip, settings);
                 ValidateCurves(source.GetComponentInChildren<Animator>(true), clip, manifest);
-                var clipPath = Destination + "/StageSuccess.anim";
+                var clipPath = ResourceRoot + "/AnimationClip/StageSuccess.anim";
                 SaveAsset(clip, clipPath);
                 clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
-                var controllerPath = Destination + "/StageSuccess.controller";
+                var controllerPath = ResourceRoot + "/AnimatorController/StageSuccess.controller";
                 var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(controllerPath);
                 if (controller == null) controller = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
                 var machine = controller.layers[0].stateMachine;
@@ -192,7 +193,20 @@ namespace OpenWDS.Editor
             if (source == null) return null;
             if (Sprites.TryGetValue(source.GetInstanceID(), out var result)) return result;
             var png = _pngs.Single(p => Path.GetFileNameWithoutExtension(p) == source.name);
-            var path = Destination + "/" + source.name + ".png";
+            // These two sprites already have canonical assets shared by other
+            // performances. Keep their importer settings and GUIDs intact.
+            var canonical = source.name == "UIGeneral_13" ? "UIGeneral_13__663ca99e28f8" :
+                source.name == "UIGeneral_7" ? "UIGeneral_7__ebfbf90c7577" : null;
+            if (canonical != null)
+            {
+                result = AssetDatabase.LoadAssetAtPath<Sprite>(ResourceRoot + "/Sprite/" + canonical + ".png");
+                if (result == null || result.rect.size != source.rect.size || result.pivot != source.pivot ||
+                    result.border != source.border || result.pixelsPerUnit != source.pixelsPerUnit)
+                    throw new InvalidOperationException("Canonical sprite differs from retail: " + source.name);
+                Sprites.Add(source.GetInstanceID(), result);
+                return result;
+            }
+            var path = ResourceRoot + "/Sprite/" + source.name + ".png";
             File.Copy(png, path, true);
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
             var importer = (TextureImporter)AssetImporter.GetAtPath(path);
@@ -226,10 +240,14 @@ namespace OpenWDS.Editor
             if (template == null || source.mainTexture != null) throw new InvalidOperationException("Missing shader recovery or unresolved texture");
             var material = new Material(template);
             material.CopyPropertiesFromMaterial(source);
-            material.name = source.name;
-            var output = Destination + "/" + source.name + ".mat";
-            SaveAsset(material, output);
-            return AssetDatabase.LoadAssetAtPath<Material>(output);
+            material.name = template.name;
+            try
+            {
+                if (EditorJsonUtility.ToJson(material) != EditorJsonUtility.ToJson(template))
+                    throw new InvalidOperationException("Canonical material differs from retail: " + source.name);
+            }
+            finally { Object.DestroyImmediate(material); }
+            return template;
         }
     }
 }

@@ -1,4 +1,4 @@
-Shader "OpenWDS/Recovered/MobileParticlesAdditive"
+Shader "OpenWDS/MobileParticlesAdditive"
 {
     Properties
     {

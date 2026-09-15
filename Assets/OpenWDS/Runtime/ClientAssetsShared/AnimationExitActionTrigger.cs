@@ -3,13 +3,13 @@ using UnityEngine;
 
 namespace Sirius.Animations
 {
-    // Serialization-compatible class required by the online SplitEffect prefabs.
+    // Current ARM64: SetExitAction 0x5984a8c, OnExit 0x5984acc.
     public sealed class AnimationExitActionTrigger : MonoBehaviour
     {
-        public event Action Exited;
-
-        // Animation events in different client revisions used both spellings.
-        public void OnAnimationExit() => Exited?.Invoke();
-        public void AnimationExit() => Exited?.Invoke();
+        private Action _exitAction;
+        public void SetExitAction(Action exitAction) => _exitAction = exitAction;
+        public void OnExit() => _exitAction?.Invoke();
+        // The original unused OnExitAsObservable throws NotImplementedException.
+        // Its UniRx signature is not introduced into this explicit callback path.
     }
 }

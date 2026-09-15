@@ -7,19 +7,19 @@ using UnityEngine;
 
 namespace Sirius.GameResult
 {
-    public sealed class InputResultPanel : RecoveredGameResultPanelBase
+    public sealed class InputResultPanel : GameResultPanelBase
     {
         [Serializable]
         private struct TimingResultReference
         {
-            [SerializeField] internal RecoveredTimingType _key;
+            [SerializeField] internal TimingType _key;
             [SerializeField] internal TextMeshProUGUI _value;
         }
 
         [SerializeField] private GameObject _perfectStar;
         [SerializeField] private TimingResultReference[] _timingResults;
 
-        internal Sequence CreateCountUp(RecoveredGameResultViewData data)
+        internal Sequence CreateCountUp(GameResultViewData data)
         {
             // FireAnimationAsync: descending TimingTypes; skip zero counts;
             // await each 0.3s linear integer tween before the next row.
@@ -29,7 +29,7 @@ namespace Sirius.GameResult
                 if (result._value == null) continue;
                 var label = result._value;
                 label.text = ZeroPaddingWithGray(0, 4);
-                if (!data.ShouldShowPerfectStar && result._key == RecoveredTimingType.PerfectStar)
+                if (!data.ShouldShowPerfectStar && result._key == TimingType.PerfectStar)
                     continue;
                 var target = data.GetDisplayedTimingCount(result._key);
                 if (target == 0) continue;
@@ -43,7 +43,7 @@ namespace Sirius.GameResult
             return sequence;
         }
 
-        public override void Initialize(RecoveredGameResultViewData data)
+        public override void Initialize(GameResultViewData data)
         {
             base.Initialize(data);
             if (_perfectStar != null)

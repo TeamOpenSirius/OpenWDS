@@ -75,13 +75,13 @@ namespace OpenWDS.Runtime
 
                 ActiveNoteCount++;
                 var laneSpan = Mathf.Max(1, note.laneSpan);
-                var noteWidth = RecoveredNotePositionCalculator.GetNoteWidth(
+                var noteWidth = NotePositionCalculator.GetNoteWidth(
                     laneSpan,
                     NoteWidthPerLane,
                     LaneBorderWidth
                 );
                 var positionY = timeUntilHit <= _travelDuration
-                    ? RecoveredNotePositionCalculator.CalculatePositionY(
+                    ? NotePositionCalculator.CalculatePositionY(
                         Mathf.RoundToInt(timeUntilHit * 1000f),
                         0,
                         _previewSpeedRate,
@@ -91,7 +91,7 @@ namespace OpenWDS.Runtime
                     )
                     : 0f;
                 note.transform.localPosition = new Vector3(
-                    RecoveredNotePositionCalculator.GetNotePositionX(
+                    NotePositionCalculator.GetNotePositionX(
                         note.lane,
                         noteWidth,
                         NoteWidthPerLane,

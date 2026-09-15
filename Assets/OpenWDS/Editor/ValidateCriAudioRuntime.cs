@@ -34,11 +34,11 @@ namespace OpenWDS.Editor
             CriAtomExAcb common = null;
             CriAtomExAcb custom = null;
             CriAtomExPlayer criticalPlayer = null;
-            OpenWDS.Runtime.RecoveredGameSeRuntime gameSe = null;
-            OpenWDS.Runtime.RecoveredUiSeRuntime sharedSeRuntime = null;
-            OpenWDS.Runtime.RecoveredGameClearSeRuntime clearSeRuntime = null;
-            OpenWDS.Runtime.RecoveredGameResultSeRuntime resultSeRuntime = null;
-            OpenWDS.Runtime.RecoveredGameResultBgmRuntime resultBgmRuntime = null;
+            OpenWDS.Runtime.GameSeRuntime gameSe = null;
+            OpenWDS.Runtime.UiSeRuntime sharedSeRuntime = null;
+            OpenWDS.Runtime.GameClearSeRuntime clearSeRuntime = null;
+            OpenWDS.Runtime.GameResultSeRuntime resultSeRuntime = null;
+            OpenWDS.Runtime.GameResultBgmRuntime resultBgmRuntime = null;
             GameObject effectSeOwner = null;
             try
             {
@@ -103,9 +103,9 @@ namespace OpenWDS.Editor
                     " statuses=" + string.Join(",", Array.ConvertAll(
                         criticalPlaybacks, item => item.GetStatus().ToString())));
                 playback.Stop();
-                gameSe = owner.AddComponent<OpenWDS.Runtime.RecoveredGameSeRuntime>();
+                gameSe = owner.AddComponent<OpenWDS.Runtime.GameSeRuntime>();
                 gameSe.Initialize();
-                if (!OpenWDS.Runtime.RecoveredGameSeRuntime.ValidateRecoveredRules())
+                if (!OpenWDS.Runtime.GameSeRuntime.ValidateRules())
                     throw new InvalidOperationException(
                         "Recovered Game SE ARM64 rules failed validation.");
                 Debug.Log("OPENWDS_CRI_GAME_SE runtimeCues=10 rules=valid");
@@ -114,7 +114,7 @@ namespace OpenWDS.Editor
                     throw new FileNotFoundException(
                         "Shared SE fixture is missing.", sharedSe);
                 sharedSeRuntime =
-                    owner.AddComponent<OpenWDS.Runtime.RecoveredUiSeRuntime>();
+                    owner.AddComponent<OpenWDS.Runtime.UiSeRuntime>();
                 effectSeOwner = new GameObject("EffectSePlayer_Validation");
                 var effectSe = effectSeOwner.AddComponent<Sirius.EffectSePlayer>();
                 effectSe.OnSEPlay("Olivier_glass");
@@ -138,9 +138,9 @@ namespace OpenWDS.Editor
                     throw new FileNotFoundException(
                         "Clear SE fixture is missing.", clearSe);
                 clearSeRuntime = owner.AddComponent<
-                    OpenWDS.Runtime.RecoveredGameClearSeRuntime>();
+                    OpenWDS.Runtime.GameClearSeRuntime>();
                 clearSeRuntime.Play(
-                    Sirius.Game.RecoveredBoundaryClearType.AllPerfect);
+                    Sirius.Game.BoundaryClearType.AllPerfect);
                 if (!clearSeRuntime.IsInitialized ||
                     clearSeRuntime.LastCueName != "AllPerfect" ||
                     clearSeRuntime.PlayCount != 1 ||
@@ -158,7 +158,7 @@ namespace OpenWDS.Editor
                     $"status={clearSeRuntime.LastPlayback.GetStatus()}");
 
                 resultSeRuntime = owner.AddComponent<
-                    OpenWDS.Runtime.RecoveredGameResultSeRuntime>();
+                    OpenWDS.Runtime.GameResultSeRuntime>();
                 resultSeRuntime.Configure(sharedSeRuntime);
                 var beforeResultCount = sharedSeRuntime.CueNamePlayCount;
                 resultSeRuntime.BeginPresentation();
@@ -182,7 +182,7 @@ namespace OpenWDS.Editor
                     throw new FileNotFoundException(
                         "Result BGM fixture is missing.", resultBgm);
                 resultBgmRuntime = owner.AddComponent<
-                    OpenWDS.Runtime.RecoveredGameResultBgmRuntime>();
+                    OpenWDS.Runtime.GameResultBgmRuntime>();
                 resultBgmRuntime.Play();
                 if (!resultBgmRuntime.IsInitialized ||
                     resultBgmRuntime.PlayCount != 1 ||
@@ -253,7 +253,7 @@ namespace OpenWDS.Editor
                     $"CRI resume did not advance time: {pausedEnd}->{resumed}");
 
             var sourceReads = 0;
-            var cache = new OpenWDS.Runtime.RecoveredFrameCachedAudioClock();
+            var cache = new OpenWDS.Runtime.FrameCachedAudioClock();
             var first = cache.Read(100, () => { sourceReads++; return 1234; });
             var sameFrame = cache.Read(100, () => { sourceReads++; return 9999; });
             var nextFrame = cache.Read(101, () => { sourceReads++; return 1275; });

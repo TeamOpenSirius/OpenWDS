@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace Sirius.GameResult
 {
-    public sealed class GameResultAveragePanel : RecoveredGameResultPanelBase
+    public sealed class GameResultAveragePanel : GameResultPanelBase
     {
         [UnityEngine.SerializeField] private TextMeshProUGUI _thisTimeRateText;
         [UnityEngine.SerializeField] private Slider _thisTimeRateGage;
@@ -11,7 +11,7 @@ namespace Sirius.GameResult
         [UnityEngine.SerializeField] private Slider _allThisTimeRateGage;
         [UnityEngine.SerializeField] private Text _descriptionText;
 
-        public override void Initialize(RecoveredGameResultViewData data)
+        public override void Initialize(GameResultViewData data)
         {
             base.Initialize(data);
             if (_thisTimeRateGage != null)

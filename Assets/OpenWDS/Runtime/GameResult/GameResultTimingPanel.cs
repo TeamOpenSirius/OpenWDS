@@ -3,12 +3,12 @@ using UnityEngine.UI;
 
 namespace Sirius.GameResult
 {
-    public sealed class GameResultTimingPanel : RecoveredGameResultPanelBase
+    public sealed class GameResultTimingPanel : GameResultPanelBase
     {
         [SerializeField] private Text _recommendationTimingText;
         [SerializeField] private Text _currentRecommendationTimingText;
 
-        public override void Initialize(RecoveredGameResultViewData data)
+        public override void Initialize(GameResultViewData data)
         {
             base.Initialize(data);
             if (_recommendationTimingText != null)

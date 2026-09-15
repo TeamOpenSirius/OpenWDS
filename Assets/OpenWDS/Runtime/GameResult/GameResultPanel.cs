@@ -7,7 +7,7 @@ using OpenWDS.Runtime;
 
 namespace Sirius.GameResult
 {
-    public sealed class GameResultPanel : RecoveredGameResultPanelBase
+    public sealed class GameResultPanel : GameResultPanelBase
     {
         public enum PanelType
         {
@@ -28,7 +28,7 @@ namespace Sirius.GameResult
         [SerializeField] private CanvasGroup _autoHiddenPanelCanvasGroup;
         private CanvasGroup _nextRewardCanvasGroup;
         private Button _recoveredModeChangeButton;
-        private RecoveredGameResultViewData _data;
+        private GameResultViewData _data;
         private PanelType _panelType;
 
         public GameResultAveragePanel AveragePanel => _averagePanel;
@@ -40,7 +40,7 @@ namespace Sirius.GameResult
         public PanelType CurrentPanelType => _panelType;
         public bool IsCounting { get; private set; }
 
-        public Sequence CreateCountUp(RecoveredGameResultSeRuntime sound)
+        public Sequence CreateCountUp(GameResultSeRuntime sound)
         {
             var sequence = DOTween.Sequence().SetLink(gameObject).Pause();
             if (_data.IsAuto) return sequence;
@@ -91,7 +91,7 @@ namespace Sirius.GameResult
             return sequence;
         }
 
-        public override void Initialize(RecoveredGameResultViewData data)
+        public override void Initialize(GameResultViewData data)
         {
             base.Initialize(data);
             _data = data;
@@ -169,7 +169,7 @@ namespace Sirius.GameResult
 
         private static void BindNextReward(
             Transform root,
-            RecoveredGameResultViewData data)
+            GameResultViewData data)
         {
             var thisTimeRate = root.Find("ThisTimeRate");
             var rateText = thisTimeRate != null

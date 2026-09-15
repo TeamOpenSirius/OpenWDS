@@ -132,11 +132,11 @@ namespace OpenWDS.Editor
             var scene = EditorSceneManager.OpenScene(
                 gameplayScene, OpenSceneMode.Single);
             var runtime = UnityEngine.Object.FindObjectOfType<
-                RecoveredGameRuntime>();
+                GameRuntime>();
             if (runtime == null)
             {
                 throw new InvalidOperationException(
-                    "RecoveredGameRuntime is missing from the Android gameplay scene.");
+                    "GameRuntime is missing from the Android gameplay scene.");
             }
 
             var serializedRuntime = new SerializedObject(runtime);
@@ -144,7 +144,7 @@ namespace OpenWDS.Editor
             if (autoJudge == null)
             {
                 throw new InvalidOperationException(
-                    "RecoveredGameRuntime._enableAutoJudge is missing.");
+                    "GameRuntime._enableAutoJudge is missing.");
             }
             autoJudge.boolValue = false;
             serializedRuntime.ApplyModifiedPropertiesWithoutUndo();

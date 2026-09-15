@@ -21,7 +21,7 @@ namespace OpenWDS.Editor
         private static readonly float[] CaptureTimes = { 0.05f, 0.6f, 1.5f, 2.1f, 2.5f, 3.2f, 4.5f };
         private static readonly List<Sample> Samples = new List<Sample>();
         private static GameObject _root, _background;
-        private static RecoveredGameResultSeRuntime _sound;
+        private static GameResultSeRuntime _sound;
         private static float _started;
         private static int _capture;
         private static bool _countObserved, _fadeObserved, _rankObserved, _stageObserved;
@@ -90,8 +90,9 @@ namespace OpenWDS.Editor
                 if (!EditorApplication.isPlaying || EditorApplication.isCompiling) return;
                 if (_root == null)
                 {
-                    var game = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
+                    var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
                     if (game == null || !game.IsInitialized) return;
+                    if (game.CharacterPresentation != null && !game.CharacterPresentation.IsReady) return;
                     Begin(game);
                     return;
                 }
@@ -128,28 +129,32 @@ namespace OpenWDS.Editor
             catch (Exception error) { Finish(false, error.ToString()); }
         }
 
-        private static void Begin(RecoveredGameRuntime game)
+        private static void Begin(GameRuntime game)
         {
-            var notes = Enumerable.Range(1, 120).Select(id => new RecoveredNotationNote
-                { Id = id, NoteType = (int)RecoveredNoteType.Normal }).ToArray();
-            var result = new RecoveredGameResultRuntime(notes);
-            var perfect = new RecoveredTimingDecision(RecoveredTimingType.PerfectStar, RecoveredTimingAssistType.None, 0);
-            foreach (var note in notes) result.Collect(RecoveredInputResultEntity.Create(note, perfect));
-            typeof(RecoveredGameRuntime).GetField("_gameResultRuntime", Private).SetValue(game, result);
+            // This visual sampler must observe the 0.2 s fade even when the
+            // first character instantiation stalls a batch Editor frame. Bound
+            // scaled animation steps; native CRI playback keeps its real clock.
+            Time.maximumDeltaTime = 1f / 30f;
+            var notes = Enumerable.Range(1, 120).Select(id => new NotationNote
+                { Id = id, NoteType = (int)NoteType.Normal }).ToArray();
+            var result = new GameResultRuntime(notes);
+            var perfect = new TimingDecision(TimingType.PerfectStar, TimingAssistType.None, 0);
+            foreach (var note in notes) result.Collect(InputResultEntity.Create(note, perfect));
+            typeof(GameRuntime).GetField("_gameResultRuntime", Private).SetValue(game, result);
             // ShowGameResult records results synchronously. Preserve the user's
             // existing file around this explicitly synthetic visual fixture.
-            var path = (string)typeof(RecoveredLocalResultStore).GetField("_path", Private)
-                .GetValue(new RecoveredLocalResultStore());
+            var path = (string)typeof(LocalResultStore).GetField("_path", Private)
+                .GetValue(new LocalResultStore());
             var saved = File.Exists(path) ? File.ReadAllBytes(path) : null;
-            try { typeof(RecoveredGameRuntime).GetMethod("ShowGameResult", Private).Invoke(game, null); }
+            try { typeof(GameRuntime).GetMethod("ShowGameResult", Private).Invoke(game, null); }
             finally
             {
                 if (saved != null) File.WriteAllBytes(path, saved);
                 else if (File.Exists(path)) File.Delete(path);
             }
-            _root = (GameObject)typeof(RecoveredGameRuntime).GetField("_gameResultInstance", Private).GetValue(game);
-            _background = (GameObject)typeof(RecoveredGameRuntime).GetField("_gameResultBackgroundInstance", Private).GetValue(game);
-            _sound = (RecoveredGameResultSeRuntime)typeof(RecoveredGameRuntime).GetField("_resultSe", Private).GetValue(game);
+            _root = (GameObject)typeof(GameRuntime).GetField("_gameResultInstance", Private).GetValue(game);
+            _background = (GameObject)typeof(GameRuntime).GetField("_gameResultBackgroundInstance", Private).GetValue(game);
+            _sound = (GameResultSeRuntime)typeof(GameRuntime).GetField("_resultSe", Private).GetValue(game);
             _started = Time.time;
         }
 

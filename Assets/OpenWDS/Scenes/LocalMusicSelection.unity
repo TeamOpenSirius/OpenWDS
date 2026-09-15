@@ -235,7 +235,7 @@ GameObject:
   - component: {fileID: 674064207}
   - component: {fileID: 674064206}
   m_Layer: 0
-  m_Name: RecoveredLocalMusicSelectionRuntime
+  m_Name: LocalMusicSelectionRuntime
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

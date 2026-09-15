@@ -12,7 +12,7 @@ namespace OpenWDS.Editor
         public static void Run()
         {
             var canvas = new GameObject("Rating gradient validation", typeof(Canvas));
-            var label = new GameObject("RateText", typeof(RectTransform), typeof(Text), typeof(RecoveredPlayerRateGradient));
+            var label = new GameObject("RateText", typeof(RectTransform), typeof(Text), typeof(PlayerRateGradient));
             try
             {
                 canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -22,7 +22,7 @@ namespace OpenWDS.Editor
                 text.fontSize = 32;
                 text.text = "275.00";
                 text.rectTransform.sizeDelta = new Vector2(500, 100);
-                var effect = label.GetComponent<RecoveredPlayerRateGradient>();
+                var effect = label.GetComponent<PlayerRateGradient>();
                 foreach (var rate in new[] { 199.99, 200, 249.99, 250, 300, 799.99, 800, 1000 })
                 {
                     effect.SetRate(rate);

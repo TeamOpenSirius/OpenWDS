@@ -160,7 +160,7 @@ namespace OpenWDS.Editor
             var curtainGraphicMaterial =
                 RequireAsset<Material>(CurtainGraphicMaterialPath);
             var catalog = RequireAsset<TextAsset>(CatalogPath);
-            var parsedCatalog = RecoveredLocalMusicCatalog.FromJson(catalog.text);
+            var parsedCatalog = LocalMusicCatalog.FromJson(catalog.text);
             var difficultyMarkers = new[]
             {
                 RequireAsset<Sprite>(
@@ -257,9 +257,9 @@ namespace OpenWDS.Editor
             criInitializer.initializesMana = false;
             criInitializer.atomConfig.acfFileName = "OpenWDS/CRI/Sirius.acf";
 
-            var runtimeObject = new GameObject("RecoveredLocalMusicSelectionRuntime");
+            var runtimeObject = new GameObject("LocalMusicSelectionRuntime");
             var runtime =
-                runtimeObject.AddComponent<RecoveredLocalMusicSelectionRuntime>();
+                runtimeObject.AddComponent<LocalMusicSelectionRuntime>();
             runtime.Configure(
                 view,
                 cellPrefab,
@@ -411,28 +411,28 @@ namespace OpenWDS.Editor
         {
             const double tolerance = 0.0000001d;
             bool Rate(int level, double achievementRate, double expected) =>
-                Math.Abs(RecoveredPlayerRating.CalculateNotationRate(
+                Math.Abs(PlayerRating.CalculateNotationRate(
                     level, achievementRate) - expected) < tolerance;
 
-            var normalMusic = new RecoveredLocalMusicEntry
+            var normalMusic = new LocalMusicEntry
             {
                 IsLongVersion = false,
             };
-            var longMusic = new RecoveredLocalMusicEntry
+            var longMusic = new LocalMusicEntry
             {
                 IsLongVersion = true,
             };
-            var stella = new RecoveredLocalLiveEntry
+            var stella = new LocalLiveEntry
             {
-                Difficulty = RecoveredMusicDifficulty.Stella,
+                Difficulty = MusicDifficulty.Stella,
                 Level = 20,
             };
-            var olivier = new RecoveredLocalLiveEntry
+            var olivier = new LocalLiveEntry
             {
-                Difficulty = RecoveredMusicDifficulty.Olivier,
+                Difficulty = MusicDifficulty.Olivier,
                 Level = 101,
             };
-            var topThirty = RecoveredPlayerRating.CalculatePlayerRate(
+            var topThirty = PlayerRating.CalculatePlayerRate(
                 Enumerable.Range(1, 31).Select(value => (double)value));
             var header = AssetDatabase.LoadAssetAtPath<GameObject>(
                 MusicSelectionHeaderPath);
@@ -454,19 +454,19 @@ namespace OpenWDS.Editor
                 Rate(20, 101d, 26.05d) &&
                 Rate(29, 100.8d, 33.87d) &&
                 Math.Abs(topThirty - 495d) < tolerance &&
-                RecoveredPlayerRating.IsEligible(normalMusic, stella) &&
-                !RecoveredPlayerRating.IsEligible(longMusic, stella) &&
-                !RecoveredPlayerRating.IsEligible(normalMusic, olivier) &&
+                PlayerRating.IsEligible(normalMusic, stella) &&
+                !PlayerRating.IsEligible(longMusic, stella) &&
+                !PlayerRating.IsEligible(normalMusic, olivier) &&
                 headerRateText != null &&
                 ((Color32)headerRateText.color).Equals(
                     new Color32(255, 255, 255, 255)) &&
-                RecoveredPlayerRating.GetHudTopColor(199.99d).Equals(
+                PlayerRating.GetHudTopColor(199.99d).Equals(
                     new Color32(255, 255, 255, 255)) &&
-                RecoveredPlayerRating.GetHudTopColor(200d).Equals(
+                PlayerRating.GetHudTopColor(200d).Equals(
                     new Color32(170, 226, 27, 255)) &&
-                RecoveredPlayerRating.GetHudTopColor(850d).Equals(
+                PlayerRating.GetHudTopColor(850d).Equals(
                     new Color32(174, 176, 192, 255)) &&
-                RecoveredPlayerRating.GetHudTopColor(1000d).Equals(
+                PlayerRating.GetHudTopColor(1000d).Equals(
                     new Color32(255, 131, 236, 255));
         }
 

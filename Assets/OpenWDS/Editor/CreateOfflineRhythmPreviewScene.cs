@@ -1,3 +1,4 @@
+using TouchPhase = OpenWDS.Runtime.TouchPhase;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -318,7 +319,7 @@ namespace OpenWDS.Editor
                 throw new InvalidOperationException("LaneGroup/NotePlate/Movable was not found.");
             }
 
-            var runtimeRoot = new GameObject("RecoveredGameRuntime");
+            var runtimeRoot = new GameObject("GameRuntime");
             var criRoot = new GameObject("CRIWARE");
             var criInitializer = criRoot.AddComponent<CriWare.CriWareInitializer>();
             criInitializer.initializesMana = false;
@@ -335,16 +336,16 @@ namespace OpenWDS.Editor
             if (laneEffectController == null || laneEffectController.SplitEffectParent == null)
                 throw new InvalidOperationException(
                     "LaneEffect/SplitEffectParent was not restored from the original prefab.");
-            var criMusic = runtimeRoot.AddComponent<RecoveredCriMusicRuntime>();
+            var criMusic = runtimeRoot.AddComponent<CriMusicRuntime>();
             criMusic.Configure(null, false);
-            var gameSe = runtimeRoot.AddComponent<RecoveredGameSeRuntime>();
-            var customSettings = RecoveredGameSettings.Custom.Default();
-            var detailSettings = RecoveredGameSettings.Detail.Default();
+            var gameSe = runtimeRoot.AddComponent<GameSeRuntime>();
+            var customSettings = GameSettings.Custom.Default();
+            var detailSettings = GameSettings.Detail.Default();
             // Scene construction validation exercises the broadest original
-            // assist branch. RecoveredGameRuntime replaces this with persisted
+            // assist branch. GameRuntime replaces this with persisted
             // settings before HUD initialization in actual Play Mode.
             detailSettings.TimingAssistSettingType = 2;
-            var gameHud = runtimeRoot.AddComponent<RecoveredGameHudRuntime>();
+            var gameHud = runtimeRoot.AddComponent<GameHudRuntime>();
             gameHud.Configure(
                 camera,
                 timingEffectParent,
@@ -374,7 +375,7 @@ namespace OpenWDS.Editor
                 detailSettings.IsPerfectContinuous,
                 detailSettings.TimingEffectOffset,
                 detailSettings.TimingEffectScaleType);
-            var gameRuntime = runtimeRoot.AddComponent<RecoveredGameRuntime>();
+            var gameRuntime = runtimeRoot.AddComponent<GameRuntime>();
             gameRuntime.Configure(
                 camera,
                 laneGroupController,
@@ -388,7 +389,7 @@ namespace OpenWDS.Editor
                 LoadPrefabs(DefaultBombEffectPaths),
                 LoadPrefabs(NotesBombEffectPaths),
                 LoadPrefabs(SakuraBombEffectPaths),
-                (RecoveredBombType)customSettings.BombType,
+                (BombType)customSettings.BombType,
                 criMusic,
                 gameSe,
                 AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -401,13 +402,13 @@ namespace OpenWDS.Editor
                 AssetDatabase.LoadAssetAtPath<GameObject>(ClearAnimationPath),
                 "ワナビスタ！",
                 "作詞：松井洋平　作曲：光増ハジメ（FirstCall）　編曲：EFFY（FirstCall）",
-                RecoveredMusicDifficulty.Stella,
+                MusicDifficulty.Stella,
                 musicJacket,
                 testPlayerUnitAsset,
                 isUnlockOlivier: false,
                 localMusicCatalogAsset: AssetDatabase.LoadAssetAtPath<TextAsset>(
                     "Assets/OpenWDS/OfflineData/LocalMusicCatalog.json"));
-            var pauseRuntime = runtimeRoot.AddComponent<RecoveredGamePauseRuntime>();
+            var pauseRuntime = runtimeRoot.AddComponent<GamePauseRuntime>();
             pauseRuntime.Configure(
                 gameRuntime,
                 AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -594,7 +595,7 @@ namespace OpenWDS.Editor
                 recoveredRuntimeActiveTouchHoldCount = runtimeRemainingCounts[5],
                 recoveredAutoTouchScheduledEvents = autoTouchScheduledEvents,
                 recoveredSettingsCryptoCipherText =
-                    RecoveredSettingsCrypto.EncryptUtf8("{\"x\":1}"),
+                    SettingsCrypto.EncryptUtf8("{\"x\":1}"),
                 renderWidth = PreviewWidth,
                 renderHeight = PreviewHeight,
                 landscapeRender = PreviewWidth > PreviewHeight,
@@ -737,23 +738,23 @@ namespace OpenWDS.Editor
             initializer.atomConfig.acfFileName = Path.Combine(Application.streamingAssetsPath, "OpenWDS/CRI/Sirius.acf");
             initializer.Initialize();
             var soundOwner = new GameObject("ResultCountUpAudioValidation");
-            var sharedSound = RecoveredUiSeRuntime.Instance ??
-                soundOwner.AddComponent<RecoveredUiSeRuntime>();
-            var resultSound = soundOwner.AddComponent<RecoveredGameResultSeRuntime>();
+            var sharedSound = UiSeRuntime.Instance ??
+                soundOwner.AddComponent<UiSeRuntime>();
+            var resultSound = soundOwner.AddComponent<GameResultSeRuntime>();
             resultSound.Configure(sharedSound);
             try
             {
                 var panel = instance.GetComponentInChildren<Sirius.GameResult.GameResultPanel>(true);
-                var counts = new Dictionary<RecoveredTimingType, int>
+                var counts = new Dictionary<TimingType, int>
                 {
-                    { RecoveredTimingType.PerfectStar, 100 },
-                    { RecoveredTimingType.Perfect, 20 },
-                    { RecoveredTimingType.Great, 0 },
-                    { RecoveredTimingType.Good, 0 },
-                    { RecoveredTimingType.Bad, 0 },
-                    { RecoveredTimingType.Miss, 0 },
+                    { TimingType.PerfectStar, 100 },
+                    { TimingType.Perfect, 20 },
+                    { TimingType.Great, 0 },
+                    { TimingType.Good, 0 },
+                    { TimingType.Bad, 0 },
+                    { TimingType.Miss, 0 },
                 };
-                panel.Initialize(new Sirius.GameResult.RecoveredGameResultViewData(
+                panel.Initialize(new Sirius.GameResult.GameResultViewData(
                     120, 100.5, 100.5, 0, 0, 5, false, true, true, false,
                     counts, new Dictionary<int, int>(),
                     bestEverNotationRate: 30, thisTimeNotationRate: 33.87,
@@ -856,9 +857,9 @@ namespace OpenWDS.Editor
                     throw new InvalidOperationException(
                         "SplitEffect 10170 controller was not resolved.");
                 var minimumOpacity =
-                    RecoveredGameSettings.MinimumSplitEffectLineOpacity;
+                    GameSettings.MinimumSplitEffectLineOpacity;
                 var maximumOpacity =
-                    RecoveredGameSettings.MaximumSplitEffectLineOpacity;
+                    GameSettings.MaximumSplitEffectLineOpacity;
                 controller.Initialize(
                     false, 100, in minimumOpacity, in maximumOpacity);
 
@@ -921,47 +922,47 @@ namespace OpenWDS.Editor
 
         private static bool ValidateTapAction()
         {
-            var tap = new RecoveredNotationNote
+            var tap = new NotationNote
             {
                 Id = 1,
                 StartTickCount = 1f,
                 EndTickCount = -1f,
-                NoteType = (int)RecoveredNoteType.Normal,
+                NoteType = (int)NoteType.Normal,
                 Lane = 3,
                 Width = 2,
             };
-            var clock = new RecoveredGameClock(0f, 0d);
+            var clock = new GameClock(0f, 0d);
             clock.Sync(1f, 1000, 2f, 2000);
-            var manager = new RecoveredTapNoteManager(new[] { tap });
-            var action = new RecoveredTapAction(clock, manager);
-            var moved = new RecoveredInputEntity(
+            var manager = new TapNoteManager(new[] { tap });
+            var action = new TapAction(clock, manager);
+            var moved = new InputEntity(
                 1, 2000, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Moved);
-            var began = new RecoveredInputEntity(
+                TouchPhase.Moved);
+            var began = new InputEntity(
                 1, 2000, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Began);
+                TouchPhase.Began);
             if (action.TryTap(
                     moved,
-                    new RecoveredHitLaneEntity(3, 0, 0, 0, 0),
+                    new HitLaneEntity(3, 0, 0, 0, 0),
                     tap).Consumed ||
                 action.TryTap(
                     began,
-                    new RecoveredHitLaneEntity(2, 0, 0, 0, 0),
+                    new HitLaneEntity(2, 0, 0, 0, 0),
                     tap).Consumed)
             {
                 return false;
             }
             var result = action.TryTap(
                 began,
-                new RecoveredHitLaneEntity(4, 0, 0, 0, 0),
+                new HitLaneEntity(4, 0, 0, 0, 0),
                 tap);
             return result.Consumed && result.DeletedNote && result.LaneId == 4 &&
-                   result.Timing.TimingType == RecoveredTimingType.PerfectStar &&
+                   result.Timing.TimingType == TimingType.PerfectStar &&
                    manager.Count == 0;
         }
 
         private static bool ValidateGameHud(
-            RecoveredGameHudRuntime gameHud,
+            GameHudRuntime gameHud,
             string serializedScene)
         {
             var timingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(TimingEffectPath);
@@ -1034,45 +1035,45 @@ namespace OpenWDS.Editor
                    LoadComboDigits("txt_game_txt_combo_fc_").Length == 10 &&
                    LoadComboDigits("txt_game_txt_combo_ap_").Length == 10 &&
                    LoadComboDigits("txt_game_txt_combo_nc_").Length == 10 &&
-                   Mathf.Abs(RecoveredGameHudRuntime.CalculatePositionY(60) - 0.4f) <
+                   Mathf.Abs(GameHudRuntime.CalculatePositionY(60) - 0.4f) <
                    0.00001f &&
-                   Mathf.Abs(RecoveredGameHudRuntime.GetTimingEffectScale(0) - 0.8f) <
+                   Mathf.Abs(GameHudRuntime.GetTimingEffectScale(0) - 0.8f) <
                    0.00001f &&
-                   Mathf.Abs(RecoveredGameHudRuntime.GetTimingEffectScale(2) - 1.3f) <
+                   Mathf.Abs(GameHudRuntime.GetTimingEffectScale(2) - 1.3f) <
                    0.00001f &&
-                   RecoveredGameHudRuntime.ResolveDisplayedTiming(
-                       RecoveredTimingType.PerfectStar, false) ==
-                       RecoveredTimingType.Perfect &&
-                   RecoveredGameHudRuntime.ResolveDisplayedTiming(
-                       RecoveredTimingType.PerfectStar, true) ==
-                       RecoveredTimingType.PerfectStar &&
-                   !RecoveredGameHudRuntime.ShouldShowTimingAssist(
-                       0, RecoveredTimingType.Great,
-                       RecoveredTimingAssistType.Fast) &&
-                   RecoveredGameHudRuntime.ShouldShowTimingAssist(
-                       1, RecoveredTimingType.Great,
-                       RecoveredTimingAssistType.Fast) &&
-                   !RecoveredGameHudRuntime.ShouldShowTimingAssist(
-                       1, RecoveredTimingType.Perfect,
-                       RecoveredTimingAssistType.Slow) &&
-                   RecoveredGameHudRuntime.ShouldShowTimingAssist(
-                       2, RecoveredTimingType.Perfect,
-                       RecoveredTimingAssistType.Slow) &&
-                   !RecoveredGameHudRuntime.ShouldShowTimingAssist(
-                       2, RecoveredTimingType.PerfectStar,
-                       RecoveredTimingAssistType.Fast) &&
-                   !RecoveredGameHudRuntime.ShouldShowTimingAssist(
-                       2, RecoveredTimingType.Great,
-                       RecoveredTimingAssistType.None) &&
-                   RecoveredGameHudRuntime.ResolveComboEffectType(
-                       true, Sirius.Game.UI.RecoveredComboType.AllPerfect) ==
-                       Sirius.Game.UI.RecoveredComboType.AllPerfect &&
-                   RecoveredGameHudRuntime.ResolveComboEffectType(
-                       false, Sirius.Game.UI.RecoveredComboType.AllPerfect) ==
-                       Sirius.Game.UI.RecoveredComboType.None &&
-                   RecoveredGameHudRuntime.ResolveComboEffectType(
-                       false, Sirius.Game.UI.RecoveredComboType.FullCombo) ==
-                       Sirius.Game.UI.RecoveredComboType.None &&
+                   GameHudRuntime.ResolveDisplayedTiming(
+                       TimingType.PerfectStar, false) ==
+                       TimingType.Perfect &&
+                   GameHudRuntime.ResolveDisplayedTiming(
+                       TimingType.PerfectStar, true) ==
+                       TimingType.PerfectStar &&
+                   !GameHudRuntime.ShouldShowTimingAssist(
+                       0, TimingType.Great,
+                       TimingAssistType.Fast) &&
+                   GameHudRuntime.ShouldShowTimingAssist(
+                       1, TimingType.Great,
+                       TimingAssistType.Fast) &&
+                   !GameHudRuntime.ShouldShowTimingAssist(
+                       1, TimingType.Perfect,
+                       TimingAssistType.Slow) &&
+                   GameHudRuntime.ShouldShowTimingAssist(
+                       2, TimingType.Perfect,
+                       TimingAssistType.Slow) &&
+                   !GameHudRuntime.ShouldShowTimingAssist(
+                       2, TimingType.PerfectStar,
+                       TimingAssistType.Fast) &&
+                   !GameHudRuntime.ShouldShowTimingAssist(
+                       2, TimingType.Great,
+                       TimingAssistType.None) &&
+                   GameHudRuntime.ResolveComboEffectType(
+                       true, Sirius.Game.UI.ComboType.AllPerfect) ==
+                       Sirius.Game.UI.ComboType.AllPerfect &&
+                   GameHudRuntime.ResolveComboEffectType(
+                       false, Sirius.Game.UI.ComboType.AllPerfect) ==
+                       Sirius.Game.UI.ComboType.None &&
+                   GameHudRuntime.ResolveComboEffectType(
+                       false, Sirius.Game.UI.ComboType.FullCombo) ==
+                       Sirius.Game.UI.ComboType.None &&
                    Sirius.Game.UI.AchievementRatePanel.FormatRate(0d) ==
                        "0.0000" &&
                    Sirius.Game.UI.AchievementRatePanel.FormatRate(9.5d) ==
@@ -1081,16 +1082,16 @@ namespace OpenWDS.Editor
                        "100.5000";
             if (!staticDataValid) return false;
 
-            var note = new RecoveredNotationNote
+            var note = new NotationNote
             {
                 Id = 1, StartTickCount = 1f,
-                NoteType = (int)RecoveredNoteType.Normal, Lane = 6, Width = 1,
+                NoteType = (int)NoteType.Normal, Lane = 6, Width = 1,
             };
-            var decision = new RecoveredTimingDecision(
-                RecoveredTimingType.PerfectStar,
-                RecoveredTimingAssistType.None, 0);
-            var inputResult = RecoveredInputResultEntity.Create(note, decision);
-            var combo = new RecoveredGameResultRuntime(new[] { note });
+            var decision = new TimingDecision(
+                TimingType.PerfectStar,
+                TimingAssistType.None, 0);
+            var inputResult = InputResultEntity.Create(note, decision);
+            var combo = new GameResultRuntime(new[] { note });
             combo.Collect(inputResult);
             gameHud.Initialize();
             var scoreInitiallyHidden = gameHud.ScorePanel != null &&
@@ -1103,7 +1104,7 @@ namespace OpenWDS.Editor
                                            !gameHud.PrincipalGauge.gameObject.activeSelf;
             gameHud.InitializePrincipal(new[]
             {
-                new RecoveredPrincipalUnit(0, 1200),
+                new PrincipalUnit(0, 1200),
             });
             var addedPrincipal = gameHud.ActivateSensePrincipal(
                 7001,
@@ -1115,7 +1116,7 @@ namespace OpenWDS.Editor
                                  gameHud.PrincipalGauge.MaxPrincipalCount.text == "1200" &&
                                  gameHud.PrincipalGauge.Gauge.value == 300f &&
                                  gameHud.PrincipalGauge.Gauge.maxValue == 1200f;
-            gameHud.InitializeScore(new RecoveredSoloScoreContext(
+            gameHud.InitializeScore(new SoloScoreContext(
                 0, 1d, 8000, 20, new[] { note.Id }));
             var incrementCounts = gameHud.ScorePanel.GetComponentsInChildren<
                 Sirius.Game.UI.IncrementScoreCount>(true);
@@ -1137,7 +1138,7 @@ namespace OpenWDS.Editor
                 },
                 LoadSprites(RatePointPaths),
                 LoadSprites(RatePercentPaths),
-                Sirius.Game.UI.RecoveredAchievementRateSettingType.Add,
+                Sirius.Game.UI.AchievementRateSettingType.Add,
                 false,
                 false,
                 false);
@@ -1155,7 +1156,7 @@ namespace OpenWDS.Editor
                    effect.transform.localPosition == Vector3.zero &&
                    Mathf.Approximately(
                        gameHud.TimingParent.localPosition.y,
-                       RecoveredGameHudRuntime.CalculatePositionY(60)) &&
+                       GameHudRuntime.CalculatePositionY(60)) &&
                    gameHud.AdditionalScoreCutInPanel != null &&
                    Vector3.Distance(
                        gameHud.AdditionalScoreCutInPanel.ParentScreenPosition,
@@ -1178,30 +1179,30 @@ namespace OpenWDS.Editor
                        gameHud.AchievementRatePanel.RateImages) &&
                    gameHud.LifeGauge != null && gameHud.Life != null &&
                    principalInitiallyHidden && principalBound &&
-                   gameHud.Life.Value == RecoveredLifeRuntime.DefaultValue &&
-                   RecoveredLifeRuntime.CalculateDecrement(
-                       RecoveredNoteType.Normal, RecoveredTimingType.Miss) == 80 &&
-                   RecoveredLifeRuntime.CalculateDecrement(
-                       RecoveredNoteType.Hold, RecoveredTimingType.Miss) == 50 &&
-                   RecoveredLifeRuntime.CalculateDecrement(
-                       RecoveredNoteType.HoldEighth, RecoveredTimingType.Miss) == 30 &&
-                   RecoveredLifeRuntime.CalculateDecrement(
-                       RecoveredNoteType.Sound, RecoveredTimingType.Bad) == 0 &&
+                   gameHud.Life.Value == LifeRuntime.DefaultValue &&
+                   LifeRuntime.CalculateDecrement(
+                       NoteType.Normal, TimingType.Miss) == 80 &&
+                   LifeRuntime.CalculateDecrement(
+                       NoteType.Hold, TimingType.Miss) == 50 &&
+                   LifeRuntime.CalculateDecrement(
+                       NoteType.HoldEighth, TimingType.Miss) == 30 &&
+                   LifeRuntime.CalculateDecrement(
+                       NoteType.Sound, TimingType.Bad) == 0 &&
                    renderer != null && renderer.sprite != null &&
                    renderer.sprite.name == "txt_game_common_judgment_perfect_star";
             if (!baseValid) return false;
 
-            var assistNote = new RecoveredNotationNote
+            var assistNote = new NotationNote
             {
                 Id = 2, StartTickCount = 2f,
-                NoteType = (int)RecoveredNoteType.Normal, Lane = 6, Width = 1,
+                NoteType = (int)NoteType.Normal, Lane = 6, Width = 1,
             };
-            var assistDecision = new RecoveredTimingDecision(
-                RecoveredTimingType.Great,
-                RecoveredTimingAssistType.Fast, -60);
-            var assistResult = RecoveredInputResultEntity.Create(
+            var assistDecision = new TimingDecision(
+                TimingType.Great,
+                TimingAssistType.Fast, -60);
+            var assistResult = InputResultEntity.Create(
                 assistNote, assistDecision);
-            var assistCombo = new RecoveredGameResultRuntime(
+            var assistCombo = new GameResultRuntime(
                 new[] { assistNote });
             assistCombo.Collect(assistResult);
             gameHud.ProcessFrame(new[] { assistResult }, assistCombo);
@@ -1215,23 +1216,23 @@ namespace OpenWDS.Editor
                        0f) &&
                    Mathf.Approximately(
                        gameHud.TimingParent.localPosition.y,
-                       RecoveredGameHudRuntime.CalculatePositionY(60)) &&
+                       GameHudRuntime.CalculatePositionY(60)) &&
                    Mathf.Approximately(
                        assistEffect.transform.localScale.x, 1f);
         }
 
         private static bool ValidatePrincipalRuntime()
         {
-            var principal = new RecoveredPrincipalRuntime();
+            var principal = new PrincipalRuntime();
             principal.Initialize(new[]
             {
-                new RecoveredPrincipalUnit(2, 1000),
-                new RecoveredPrincipalUnit(5, 750),
+                new PrincipalUnit(2, 1000),
+                new PrincipalUnit(5, 750),
             });
             if (principal.DefaultOrder != 2 || principal.UnitCount != 2 ||
                 principal.GetCurrentPrincipal(2) != 0 ||
                 principal.GetMaxPrincipal(2) != 1000 ||
-                RecoveredPrincipalRuntime.CalculateAddingPrincipal(400, 25d) != 500)
+                PrincipalRuntime.CalculateAddingPrincipal(400, 25d) != 500)
                 return false;
             principal.AddNonTargetBuff(25d, 2);
             principal.AddPrincipalGaugeUpBuff(1000, 50d, 2);
@@ -1254,14 +1255,14 @@ namespace OpenWDS.Editor
             principal.Reset();
             principal.Add(400, 2);
             if (principal.ApplyEffect(
-                    RecoveredPrincipalEffectType.Gain, 100d, 2, false) ||
+                    PrincipalEffectType.Gain, 100d, 2, false) ||
                 principal.GetCurrentPrincipal(2) != 400)
                 return false;
-            principal.ApplyEffect(RecoveredPrincipalEffectType.Bonus, 25d, 2, true);
-            principal.ApplyEffect(RecoveredPrincipalEffectType.LimitUp, 250d, 2, true);
+            principal.ApplyEffect(PrincipalEffectType.Bonus, 25d, 2, true);
+            principal.ApplyEffect(PrincipalEffectType.LimitUp, 250d, 2, true);
             principal.ApplyEffect(
-                RecoveredPrincipalEffectType.GainPercentageOfLimit, 10d, 2, true);
-            principal.ApplyEffect(RecoveredPrincipalEffectType.Gain, 700d, 2, true);
+                PrincipalEffectType.GainPercentageOfLimit, 10d, 2, true);
+            principal.ApplyEffect(PrincipalEffectType.Gain, 700d, 2, true);
             if (principal.GetCurrentPrincipal(2) != 1250 ||
                 principal.GetMaxPrincipal(2) != 1250)
                 return false;
@@ -1285,18 +1286,18 @@ namespace OpenWDS.Editor
             var chartPath = Path.Combine(
                 Application.dataPath, "StreamingAssets", "OpenWDS",
                 "StandardCharts", "1", "1", "2.csv");
-            var notation = RecoveredStandardNotation.Parse(File.ReadAllText(chartPath));
-            var runtime = new RecoveredInputHandlerRuntime(
+            var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
+            var runtime = new InputHandlerRuntime(
                 notation,
                 3.019f,
                 note => new Vector2(note.Lane, 0f),
-                position => new RecoveredHitLaneEntity(
+                position => new HitLaneEntity(
                     Mathf.RoundToInt(position.x), 0, 0, 0, 0));
 
             var frames = new SortedSet<long>();
             var activeHoldEffects = new Dictionary<int, int>();
-            var autoTimingCounts = new Dictionary<RecoveredTimingType, int>();
-            var resultRuntime = new RecoveredGameResultRuntime(notation);
+            var autoTimingCounts = new Dictionary<TimingType, int>();
+            var resultRuntime = new GameResultRuntime(notation);
             var nonPerfectAutoResults = new List<string>();
             var holdStarts = 0;
             var holdEnds = 0;
@@ -1325,7 +1326,7 @@ namespace OpenWDS.Editor
                     if (!autoTimingCounts.ContainsKey(result.TimingType))
                         autoTimingCounts[result.TimingType] = 0;
                     autoTimingCounts[result.TimingType]++;
-                    if (result.TimingType != RecoveredTimingType.PerfectStar)
+                    if (result.TimingType != TimingType.PerfectStar)
                         nonPerfectAutoResults.Add(result.NoteId + ":" +
                             result.NoteType + "@" + milliseconds + "=" +
                             result.TimingType);
@@ -1335,7 +1336,7 @@ namespace OpenWDS.Editor
                 foreach (var holdEvent in runtime.HoldEvents)
                 {
                     if (holdEvent.EffectType !=
-                        RecoveredInputEffectType.HoldStart)
+                        InputEffectType.HoldStart)
                         continue;
                     var body = notation.FirstOrDefault(
                         note => note.Id == holdEvent.NoteId &&
@@ -1354,7 +1355,7 @@ namespace OpenWDS.Editor
                 if (!autoTimingCounts.ContainsKey(result.TimingType))
                     autoTimingCounts[result.TimingType] = 0;
                 autoTimingCounts[result.TimingType]++;
-                if (result.TimingType != RecoveredTimingType.PerfectStar)
+                if (result.TimingType != TimingType.PerfectStar)
                     nonPerfectAutoResults.Add(result.NoteId + ":" +
                         result.NoteType + "@90000=" + result.TimingType);
             }
@@ -1403,8 +1404,8 @@ namespace OpenWDS.Editor
                    runtime.ActiveTouchHoldCount == 0 &&
                    naturallyBalanced &&
                    holdStartedBeforeTail &&
-                   resultRuntime.TimingCounts[RecoveredTimingType.Bad] == 0 &&
-                   resultRuntime.TimingCounts[RecoveredTimingType.Miss] == 0 &&
+                   resultRuntime.TimingCounts[TimingType.Bad] == 0 &&
+                   resultRuntime.TimingCounts[TimingType.Miss] == 0 &&
                    resultRuntime.IsPerfectStar &&
                    tapCount == 133 && flickCount == 3 && holdCount > 0;
         }
@@ -1413,40 +1414,40 @@ namespace OpenWDS.Editor
         {
             var notation = new[]
             {
-                new RecoveredNotationNote
+                new NotationNote
                 {
                     Id = 0,
                     StartTickCount = 0.9f,
                     EndTickCount = -1f,
-                    NoteType = (int)RecoveredNoteType.Flick,
+                    NoteType = (int)NoteType.Flick,
                     Lane = 1,
                     Width = 2,
                 },
-                new RecoveredNotationNote
+                new NotationNote
                 {
                     Id = 1,
                     StartTickCount = 1f,
                     EndTickCount = -1f,
-                    NoteType = (int)RecoveredNoteType.Normal,
+                    NoteType = (int)NoteType.Normal,
                     Lane = 6,
                     Width = 2,
                 },
             };
-            var runtime = new RecoveredInputHandlerRuntime(
+            var runtime = new InputHandlerRuntime(
                 notation,
                 0f,
                 note => new Vector2(note.Lane, 0f),
-                position => new RecoveredHitLaneEntity(
+                position => new HitLaneEntity(
                     1, 6, 0, 0, 0));
             var flickBegan = new[]
             {
-                new RecoveredInputEntity(
+                new InputEntity(
                     91,
                     5000,
                     new Vector2(1f, 0f),
                     new Vector2(1f, 0f),
                     Vector2.zero,
-                    RecoveredTouchPhase.Began),
+                    TouchPhase.Began),
             };
 
             // One hit entity overlaps the earlier Flick on its main lane and
@@ -1466,19 +1467,19 @@ namespace OpenWDS.Editor
                 5001,
                 new[]
                 {
-                    new RecoveredInputEntity(
+                    new InputEntity(
                         91,
                         5001,
                         new Vector2(1f, 0f),
                         new Vector2(1f, 0f),
                         new Vector2(50f, 50f),
-                        RecoveredTouchPhase.Moved),
+                        TouchPhase.Moved),
                 });
             var flickCompleted =
                 runtime.InputResults.Count == 1 &&
                 runtime.InputResults[0].NoteId == 0 &&
                 runtime.InputResults[0].TimingType ==
-                RecoveredTimingType.PerfectStar &&
+                TimingType.PerfectStar &&
                 runtime.RemainingFlickCount == 0;
 
             runtime.TickPlayer(
@@ -1486,13 +1487,13 @@ namespace OpenWDS.Editor
                 5100,
                 new[]
                 {
-                    new RecoveredInputEntity(
+                    new InputEntity(
                         92,
                         5100,
                         new Vector2(6f, 0f),
                         new Vector2(6f, 0f),
                         Vector2.zero,
-                        RecoveredTouchPhase.Began),
+                        TouchPhase.Began),
                 });
             Debug.Log(
                 "OPENWDS_PLAYER_INPUT_ENTRY " +
@@ -1506,7 +1507,7 @@ namespace OpenWDS.Editor
                    runtime.InputResults.Count == 1 &&
                    runtime.InputResults[0].NoteId == 1 &&
                    runtime.InputResults[0].TimingType ==
-                   RecoveredTimingType.PerfectStar &&
+                   TimingType.PerfectStar &&
                    runtime.RemainingTapCount == 0 &&
                    runtime.RemainingFlickCount == 0 &&
                    runtime.PublishedMissCount == 0;
@@ -1556,20 +1557,20 @@ namespace OpenWDS.Editor
                 "7",
                 "1",
                 "music_config.csv");
-            var notation = RecoveredStandardNotation.Parse(
+            var notation = StandardNotation.Parse(
                 File.ReadAllText(chartPath));
-            var config = RecoveredStandardNotation.ParseMusicConfig(
+            var config = StandardNotation.ParseMusicConfig(
                 File.ReadAllText(configPath));
             var managers = laneGroup.ColliderManagers;
             managers.InitializeMappings();
-            var raycaster = new RecoveredLaneRaycaster(
+            var raycaster = new LaneRaycaster(
                 camera,
                 managers.MainColliders,
                 managers.SubLeftInnerColliders,
                 managers.SubRightInnerColliders,
                 managers.SubLeftOuterColliders,
                 managers.SubRightOuterColliders);
-            var runtime = new RecoveredInputHandlerRuntime(
+            var runtime = new InputHandlerRuntime(
                 notation,
                 config.DelayStartSeconds,
                 note =>
@@ -1580,16 +1581,16 @@ namespace OpenWDS.Editor
                 },
                 position =>
                 {
-                    var input = new RecoveredInputEntity(
+                    var input = new InputEntity(
                         0,
                         0,
                         position,
                         position,
                         Vector2.zero,
-                        RecoveredTouchPhase.Stationary);
+                        TouchPhase.Stationary);
                     var inputs = new[] { input };
-                    var hits = new List<RecoveredHitLaneEntity>(1);
-                    var beganHits = new List<RecoveredHitLaneEntity>(1);
+                    var hits = new List<HitLaneEntity>(1);
+                    var beganHits = new List<HitLaneEntity>(1);
                     raycaster.Raycast(inputs, hits, beganHits);
                     return hits[0];
                 });
@@ -1643,9 +1644,9 @@ namespace OpenWDS.Editor
                 foreach (var result in runtime.InputResults)
                 {
                     total++;
-                    if (result.TimingType == RecoveredTimingType.PerfectStar)
+                    if (result.TimingType == TimingType.PerfectStar)
                         perfectStar++;
-                    else if (result.TimingType == RecoveredTimingType.Good)
+                    else if (result.TimingType == TimingType.Good)
                         good++;
                     else
                         nonAutoPerfect.Add(
@@ -1710,13 +1711,13 @@ namespace OpenWDS.Editor
                     projectRoot,
                     "ProjectSettings",
                     "ProjectSettings.asset"));
-            return typeof(RecoveredDefaultTouchRuntime) != null &&
+            return typeof(DefaultTouchRuntime) != null &&
                    manifest.Contains("\"com.unity.inputsystem\": \"1.14.2\"") &&
                    projectSettings.Contains("activeInputHandler: 2") &&
                    (int)UnityEngine.InputSystem.TouchPhase.Began ==
-                   (int)RecoveredTouchPhase.Began &&
+                   (int)TouchPhase.Began &&
                    (int)UnityEngine.InputSystem.TouchPhase.Stationary ==
-                   (int)RecoveredTouchPhase.Stationary;
+                   (int)TouchPhase.Stationary;
         }
 
         private static bool ValidateAllChartNoInputMissCoverage()
@@ -1731,23 +1732,23 @@ namespace OpenWDS.Editor
                 .Where(path => Path.GetFileName(path) != "music_config.csv")
                 .OrderBy(path => path, StringComparer.Ordinal)
                 .ToArray();
-            var emptyTouches = Array.Empty<RecoveredInputEntity>();
+            var emptyTouches = Array.Empty<InputEntity>();
             var totalExpected = 0;
             var totalMiss = 0;
             var failures = new List<string>();
             foreach (var chartPath in chartPaths)
             {
-                var notation = RecoveredStandardNotation.Parse(
+                var notation = StandardNotation.Parse(
                     File.ReadAllText(chartPath));
                 var expected = notation.Count(note =>
-                    note.NoteType != (int)RecoveredNoteType.None);
+                    note.NoteType != (int)NoteType.None);
                 var chartEnd = notation.Length == 0
                     ? 0L
                     : notation.Max(note =>
                         Math.Max(
                             note.StartMilliseconds,
                             note.EndMilliseconds));
-                var runtime = new RecoveredInputHandlerRuntime(
+                var runtime = new InputHandlerRuntime(
                     notation,
                     0f,
                     _ => Vector2.zero,
@@ -1822,8 +1823,8 @@ namespace OpenWDS.Editor
                     camera, laneGroup, 8);
                 var movedLane4Position =
                     lane4Position + new Vector2(60f, 0f);
-                var provider = new RecoveredDefaultTouchProvider();
-                var touches = new List<RecoveredInputEntity>(16);
+                var provider = new DefaultTouchProvider();
+                var touches = new List<InputEntity>(16);
                 var baseTime = InputState.currentTime;
 
                 QueueInjectedTouch(
@@ -1838,12 +1839,12 @@ namespace OpenWDS.Editor
                 var beganValid = ContainsInjectedTouch(
                     touches,
                     101,
-                    RecoveredTouchPhase.Began,
+                    TouchPhase.Began,
                     lane4Position,
                     Vector2.zero);
                 var beganInput = beganValid
                     ? touches[FindInjectedTouch(
-                        touches, 101, RecoveredTouchPhase.Began)]
+                        touches, 101, TouchPhase.Began)]
                     : default;
 
                 touches.Clear();
@@ -1852,13 +1853,13 @@ namespace OpenWDS.Editor
                 var stationaryValid = ContainsInjectedTouch(
                     touches,
                     101,
-                    RecoveredTouchPhase.Stationary,
+                    TouchPhase.Stationary,
                     lane4Position,
                     Vector2.zero,
                     1016L);
                 var stationaryInput = stationaryValid
                     ? touches[FindInjectedTouch(
-                        touches, 101, RecoveredTouchPhase.Stationary)]
+                        touches, 101, TouchPhase.Stationary)]
                     : default;
 
                 touches.Clear();
@@ -1874,12 +1875,12 @@ namespace OpenWDS.Editor
                 var movedValid = ContainsInjectedTouch(
                     touches,
                     101,
-                    RecoveredTouchPhase.Moved,
+                    TouchPhase.Moved,
                     movedLane4Position,
                     new Vector2(60f, 0f));
                 var movedInput = movedValid
                     ? touches[FindInjectedTouch(
-                        touches, 101, RecoveredTouchPhase.Moved)]
+                        touches, 101, TouchPhase.Moved)]
                     : default;
 
                 touches.Clear();
@@ -1903,20 +1904,20 @@ namespace OpenWDS.Editor
                     ContainsInjectedTouch(
                         touches,
                         202,
-                        RecoveredTouchPhase.Began,
+                        TouchPhase.Began,
                         lane2Position,
                         Vector2.zero) &&
                     ContainsInjectedTouch(
                         touches,
                         203,
-                        RecoveredTouchPhase.Began,
+                        TouchPhase.Began,
                         lane8Position,
                         Vector2.zero);
-                var multiInputs = new List<RecoveredInputEntity>(2);
+                var multiInputs = new List<InputEntity>(2);
                 foreach (var touch in touches)
                 {
                     if ((touch.TouchId == 202 || touch.TouchId == 203) &&
-                        touch.Phase == RecoveredTouchPhase.Began)
+                        touch.Phase == TouchPhase.Began)
                     {
                         multiInputs.Add(touch);
                     }
@@ -1947,7 +1948,7 @@ namespace OpenWDS.Editor
                 touches.Clear();
                 provider.GetTouches(touches, 1050L, _ => 1050L);
                 var endedIndex = FindInjectedTouch(
-                    touches, 101, RecoveredTouchPhase.Ended);
+                    touches, 101, TouchPhase.Ended);
                 var endedValid = endedIndex >= 0;
                 var endedInput = endedValid
                     ? touches[endedIndex]
@@ -1965,7 +1966,7 @@ namespace OpenWDS.Editor
                 InputSystem.Update();
                 provider.GetTouches(touches, 1100L, _ => 1100L);
                 var historyBeganValid = FindInjectedTouch(
-                    touches, 301, RecoveredTouchPhase.Began) >= 0;
+                    touches, 301, TouchPhase.Began) >= 0;
 
                 touches.Clear();
                 QueueInjectedTouch(
@@ -1989,7 +1990,7 @@ namespace OpenWDS.Editor
                 foreach (var touch in touches)
                 {
                     if (touch.TouchId == 301 &&
-                        touch.Phase == RecoveredTouchPhase.Moved)
+                        touch.Phase == TouchPhase.Moved)
                     {
                         movedPositions.Add(touch.ScreenPosition.x);
                     }
@@ -2026,7 +2027,7 @@ namespace OpenWDS.Editor
                 var countdownTouchReplayed = ContainsInjectedTouch(
                     touches,
                     302,
-                    RecoveredTouchPhase.Began,
+                    TouchPhase.Began,
                     lane4Position,
                     Vector2.zero);
 
@@ -2043,7 +2044,7 @@ namespace OpenWDS.Editor
                 var countdownTouchMoved = ContainsInjectedTouch(
                     touches,
                     302,
-                    RecoveredTouchPhase.Moved,
+                    TouchPhase.Moved,
                     movedLane4Position,
                     new Vector2(30f, 0f));
 
@@ -2060,7 +2061,7 @@ namespace OpenWDS.Editor
                 var countdownTouchEnded = ContainsInjectedTouch(
                     touches,
                     302,
-                    RecoveredTouchPhase.Ended,
+                    TouchPhase.Ended,
                     movedLane4Position,
                     Vector2.zero);
                 pauseTouchLifecycleValid =
@@ -2081,7 +2082,7 @@ namespace OpenWDS.Editor
                 touchIdReuseValid = ContainsInjectedTouch(
                     touches,
                     301,
-                    RecoveredTouchPhase.Began,
+                    TouchPhase.Began,
                     lane4Position,
                     Vector2.zero);
                 playerActionsValid =
@@ -2132,49 +2133,49 @@ namespace OpenWDS.Editor
         private static bool ValidateInjectedPlayerActions(
             Camera camera,
             Sirius.Game.LaneGroup laneGroup,
-            RecoveredInputEntity began,
-            RecoveredInputEntity stationary,
-            RecoveredInputEntity moved,
-            RecoveredInputEntity ended,
-            List<RecoveredInputEntity> multiInputs)
+            InputEntity began,
+            InputEntity stationary,
+            InputEntity moved,
+            InputEntity ended,
+            List<InputEntity> multiInputs)
         {
             var managers = laneGroup.ColliderManagers;
             managers.InitializeMappings();
-            var raycaster = new RecoveredLaneRaycaster(
+            var raycaster = new LaneRaycaster(
                 camera,
                 managers.MainColliders,
                 managers.SubLeftInnerColliders,
                 managers.SubRightInnerColliders,
                 managers.SubLeftOuterColliders,
                 managers.SubRightOuterColliders);
-            Func<Vector2, RecoveredHitLaneEntity> resolveLane =
+            Func<Vector2, HitLaneEntity> resolveLane =
                 position =>
                 {
-                    var input = new RecoveredInputEntity(
+                    var input = new InputEntity(
                         0,
                         0,
                         position,
                         position,
                         Vector2.zero,
-                        RecoveredTouchPhase.Stationary);
+                        TouchPhase.Stationary);
                     var inputs = new[] { input };
-                    var hits = new List<RecoveredHitLaneEntity>(1);
-                    var beganHits = new List<RecoveredHitLaneEntity>(1);
+                    var hits = new List<HitLaneEntity>(1);
+                    var beganHits = new List<HitLaneEntity>(1);
                     raycaster.Raycast(inputs, hits, beganHits);
                     return hits[0];
                 };
-            Func<RecoveredNotationNote, Vector2> screenPosition =
+            Func<NotationNote, Vector2> screenPosition =
                 note => GetInjectedLaneScreenPosition(
                     camera, laneGroup, note.Lane);
 
             var tapNotation = new[]
             {
                 CreateInjectedNotation(
-                    1, 1.04f, -1f, RecoveredNoteType.Normal, 2),
+                    1, 1.04f, -1f, NoteType.Normal, 2),
                 CreateInjectedNotation(
-                    2, 1.04f, -1f, RecoveredNoteType.Critical, 8),
+                    2, 1.04f, -1f, NoteType.Critical, 8),
             };
-            var tapRuntime = new RecoveredInputHandlerRuntime(
+            var tapRuntime = new InputHandlerRuntime(
                 tapNotation, 0f, screenPosition, resolveLane);
             tapRuntime.TickPlayer(1040L, 1040L, multiInputs);
             var tapValid = tapRuntime.ConsumedTapCount == 2 &&
@@ -2184,9 +2185,9 @@ namespace OpenWDS.Editor
             var flickNotation = new[]
             {
                 CreateInjectedNotation(
-                    3, 1.02f, -1f, RecoveredNoteType.Flick, 4),
+                    3, 1.02f, -1f, NoteType.Flick, 4),
             };
-            var flickRuntime = new RecoveredInputHandlerRuntime(
+            var flickRuntime = new InputHandlerRuntime(
                 flickNotation,
                 0f,
                 screenPosition,
@@ -2197,30 +2198,30 @@ namespace OpenWDS.Editor
             var flickValid = flickRuntime.ConsumedFlickCount == 1 &&
                              flickRuntime.InputResults.Count == 1 &&
                              flickRuntime.InputResults[0].TimingType ==
-                             RecoveredTimingType.PerfectStar &&
+                             TimingType.PerfectStar &&
                              flickRuntime.RemainingFlickCount == 0;
 
             var holdNotation = new[]
             {
                 CreateInjectedNotation(
-                    4, 0.9f, 1.016f, RecoveredNoteType.Hold, 4),
+                    4, 0.9f, 1.016f, NoteType.Hold, 4),
             };
-            var holdRuntime = new RecoveredInputHandlerRuntime(
+            var holdRuntime = new InputHandlerRuntime(
                 holdNotation, 0f, screenPosition, resolveLane);
-            var holdStartInput = new RecoveredInputEntity(
+            var holdStartInput = new InputEntity(
                 stationary.TouchId,
                 1000L,
                 stationary.StartScreenPosition,
                 stationary.ScreenPosition,
                 stationary.DeltaPosition,
-                RecoveredTouchPhase.Stationary);
-            var holdEndInput = new RecoveredInputEntity(
+                TouchPhase.Stationary);
+            var holdEndInput = new InputEntity(
                 stationary.TouchId,
                 1016L,
                 stationary.StartScreenPosition,
                 stationary.ScreenPosition,
                 stationary.DeltaPosition,
-                RecoveredTouchPhase.Stationary);
+                TouchPhase.Stationary);
             holdRuntime.TickPlayer(1000L, 1000L, new[] { holdStartInput });
             var holdStarted = holdRuntime.ConsumedHoldCount == 0 &&
                               holdRuntime.ActiveTouchHoldCount == 1;
@@ -2240,15 +2241,15 @@ namespace OpenWDS.Editor
             var scratchNotation = new[]
             {
                 CreateInjectedNotation(
-                    5, 0.9f, 1.02f, RecoveredNoteType.ScratchHold, 4, 3),
+                    5, 0.9f, 1.02f, NoteType.ScratchHold, 4, 3),
             };
-            var scratchRuntime = new RecoveredInputHandlerRuntime(
+            var scratchRuntime = new InputHandlerRuntime(
                 scratchNotation, 0f, screenPosition, resolveLane);
             scratchRuntime.TickPlayer(1020L, 1020L, new[] { moved });
             var scratchValid = scratchRuntime.RemainingScratchCount == 0 &&
                                scratchRuntime.InputResults.Count == 1 &&
                                scratchRuntime.InputResults[0].TimingType ==
-                               RecoveredTimingType.PerfectStar;
+                               TimingType.PerfectStar;
 
             Debug.Log(
                 "OPENWDS_INJECTED_PLAYER_ACTIONS " +
@@ -2268,15 +2269,15 @@ namespace OpenWDS.Editor
             return tapValid && flickValid && holdValid && scratchValid;
         }
 
-        private static RecoveredNotationNote CreateInjectedNotation(
+        private static NotationNote CreateInjectedNotation(
             int id,
             float startSeconds,
             float endSeconds,
-            RecoveredNoteType noteType,
+            NoteType noteType,
             int lane,
             int width = 1)
         {
-            return new RecoveredNotationNote
+            return new NotationNote
             {
                 Id = id,
                 StartTickCount = startSeconds,
@@ -2319,9 +2320,9 @@ namespace OpenWDS.Editor
         }
 
         private static bool ContainsInjectedTouch(
-            List<RecoveredInputEntity> touches,
+            List<InputEntity> touches,
             int touchId,
-            RecoveredTouchPhase phase,
+            TouchPhase phase,
             Vector2 position,
             Vector2 delta,
             long? milliseconds = null)
@@ -2336,9 +2337,9 @@ namespace OpenWDS.Editor
         }
 
         private static int FindInjectedTouch(
-            List<RecoveredInputEntity> touches,
+            List<InputEntity> touches,
             int touchId,
-            RecoveredTouchPhase phase)
+            TouchPhase phase)
         {
             for (var index = 0; index < touches.Count; index++)
             {
@@ -2352,7 +2353,7 @@ namespace OpenWDS.Editor
         }
 
         private static string FormatInjectedTouches(
-            List<RecoveredInputEntity> touches)
+            List<InputEntity> touches)
         {
             var values = new List<string>(touches.Count);
             foreach (var touch in touches)
@@ -2524,28 +2525,28 @@ namespace OpenWDS.Editor
                            .GetAuthoredDuration(true),
                        15.083333f) &&
                    Sirius.Game.GameResultPanel.GetTrigger(
-                       Sirius.Game.RecoveredBoundaryClearType.Clear) ==
+                       Sirius.Game.BoundaryClearType.Clear) ==
                        "ToClear" &&
                    Sirius.Game.GameResultPanel.GetTrigger(
-                       Sirius.Game.RecoveredBoundaryClearType.FullCombo) ==
+                       Sirius.Game.BoundaryClearType.FullCombo) ==
                        "ToFullCombo" &&
                    Sirius.Game.GameResultPanel.GetTrigger(
-                       Sirius.Game.RecoveredBoundaryClearType.AllPerfect) ==
+                       Sirius.Game.BoundaryClearType.AllPerfect) ==
                        "ToAllPerfect" &&
                    Sirius.Game.GameResultPanel.GetTrigger(
-                       Sirius.Game.RecoveredBoundaryClearType.Failed) ==
+                       Sirius.Game.BoundaryClearType.Failed) ==
                        "ToFailed" &&
                    Mathf.Approximately(
                        Sirius.Game.GameResultPanel.GetAuthoredDuration(
-                           Sirius.Game.RecoveredBoundaryClearType.Failed),
+                           Sirius.Game.BoundaryClearType.Failed),
                        4.733333f) &&
                    Mathf.Approximately(
                        Sirius.Game.GameResultPanel.GetAuthoredDuration(
-                           Sirius.Game.RecoveredBoundaryClearType.Clear),
+                           Sirius.Game.BoundaryClearType.Clear),
                        6.45f) &&
                    Mathf.Approximately(
                        Sirius.Game.GameResultPanel.GetAuthoredDuration(
-                           Sirius.Game.RecoveredBoundaryClearType.AllPerfect),
+                           Sirius.Game.BoundaryClearType.AllPerfect),
                        9.5f);
         }
 
@@ -2773,34 +2774,34 @@ namespace OpenWDS.Editor
         {
             var rateNotation = new[]
             {
-                new RecoveredNotationNote
+                new NotationNote
                 {
                     Id = 1, StartTickCount = 1f, NoteType =
-                        (int)RecoveredNoteType.Normal, Lane = 4, Width = 1,
+                        (int)NoteType.Normal, Lane = 4, Width = 1,
                 },
-                new RecoveredNotationNote
+                new NotationNote
                 {
                     Id = 2, StartTickCount = 2f, NoteType =
-                        (int)RecoveredNoteType.Normal, Lane = 5, Width = 1,
+                        (int)NoteType.Normal, Lane = 5, Width = 1,
                 },
             };
-            var rateResult = new RecoveredGameResultRuntime(rateNotation);
+            var rateResult = new GameResultRuntime(rateNotation);
             var addInitial =
                 rateResult.GetDisplayedAchievementRate(2);
             var subtractInitial =
                 rateResult.GetDisplayedAchievementRate(1);
-            rateResult.Collect(RecoveredInputResultEntity.Create(
-                rateNotation[0], new RecoveredTimingDecision(
-                    RecoveredTimingType.Perfect,
-                    RecoveredTimingAssistType.None, 0)));
+            rateResult.Collect(InputResultEntity.Create(
+                rateNotation[0], new TimingDecision(
+                    TimingType.Perfect,
+                    TimingAssistType.None, 0)));
             var addAfterPerfect =
                 rateResult.GetDisplayedAchievementRate(2);
             var subtractAfterPerfect =
                 rateResult.GetDisplayedAchievementRate(1);
-            rateResult.Collect(RecoveredInputResultEntity.Create(
-                rateNotation[1], new RecoveredTimingDecision(
-                    RecoveredTimingType.PerfectStar,
-                    RecoveredTimingAssistType.None, 0)));
+            rateResult.Collect(InputResultEntity.Create(
+                rateNotation[1], new TimingDecision(
+                    TimingType.PerfectStar,
+                    TimingAssistType.None, 0)));
             var addCompleted =
                 rateResult.GetDisplayedAchievementRate(2);
             var subtractCompleted =
@@ -2808,44 +2809,44 @@ namespace OpenWDS.Editor
 
             var notation = new[]
             {
-                new RecoveredNotationNote
+                new NotationNote
                 {
                     Id = 10, StartTickCount = 1f, NoteType =
-                        (int)RecoveredNoteType.Sound, Lane = 4, Width = 1,
+                        (int)NoteType.Sound, Lane = 4, Width = 1,
                 },
-                new RecoveredNotationNote
+                new NotationNote
                 {
                     Id = 11, StartTickCount = 1f, NoteType =
-                        (int)RecoveredNoteType.HoldEighth, Lane = 4, Width = 1,
+                        (int)NoteType.HoldEighth, Lane = 4, Width = 1,
                 },
-                new RecoveredNotationNote
+                new NotationNote
                 {
                     Id = 12, StartTickCount = 2f, NoteType =
-                        (int)RecoveredNoteType.Normal, Lane = 5, Width = 1,
+                        (int)NoteType.Normal, Lane = 5, Width = 1,
                 },
-                new RecoveredNotationNote
+                new NotationNote
                 {
                     Id = 13, StartTickCount = 3f, NoteType =
-                        (int)RecoveredNoteType.Critical, Lane = 6, Width = 1,
+                        (int)NoteType.Critical, Lane = 6, Width = 1,
                 },
             };
-            var result = new RecoveredGameResultRuntime(notation);
-            result.Collect(RecoveredInputResultEntity.Create(
-                notation[0], new RecoveredTimingDecision(
-                    RecoveredTimingType.PerfectStar,
-                    RecoveredTimingAssistType.None, 0)));
-            result.Collect(RecoveredInputResultEntity.Create(
-                notation[1], new RecoveredTimingDecision(
-                    RecoveredTimingType.PerfectStar,
-                    RecoveredTimingAssistType.None, 0)));
-            result.Collect(RecoveredInputResultEntity.Create(
-                notation[2], new RecoveredTimingDecision(
-                    RecoveredTimingType.PerfectStar,
-                    RecoveredTimingAssistType.Slow, 1)));
-            result.Collect(RecoveredInputResultEntity.Create(
-                notation[3], new RecoveredTimingDecision(
-                    RecoveredTimingType.Great,
-                    RecoveredTimingAssistType.Fast, -1)));
+            var result = new GameResultRuntime(notation);
+            result.Collect(InputResultEntity.Create(
+                notation[0], new TimingDecision(
+                    TimingType.PerfectStar,
+                    TimingAssistType.None, 0)));
+            result.Collect(InputResultEntity.Create(
+                notation[1], new TimingDecision(
+                    TimingType.PerfectStar,
+                    TimingAssistType.None, 0)));
+            result.Collect(InputResultEntity.Create(
+                notation[2], new TimingDecision(
+                    TimingType.PerfectStar,
+                    TimingAssistType.Slow, 1)));
+            result.Collect(InputResultEntity.Create(
+                notation[3], new TimingDecision(
+                    TimingType.Great,
+                    TimingAssistType.Fast, -1)));
 
             var fullComboBeforeGood = result.IsFullCombo &&
                                       !result.IsAllPerfect &&
@@ -2854,28 +2855,28 @@ namespace OpenWDS.Editor
                                       !result.IsPerfectStar &&
                                       Math.Abs(result.AchievementRate -
                                                (101d + 101d + 80d) / 3d) < 0.000001d;
-            result.Collect(RecoveredInputResultEntity.Create(
-                notation[2], new RecoveredTimingDecision(
-                    RecoveredTimingType.Good,
-                    RecoveredTimingAssistType.None, 0)));
-            var score = new RecoveredSoloScoreRuntime(1.25d, 8000, 20, 4);
-            var firstScore = score.Collect(RecoveredTimingType.PerfectStar);
-            score.Collect(RecoveredTimingType.Perfect);
-            score.Collect(RecoveredTimingType.Great);
-            var finalScore = score.Collect(RecoveredTimingType.Good);
+            result.Collect(InputResultEntity.Create(
+                notation[2], new TimingDecision(
+                    TimingType.Good,
+                    TimingAssistType.None, 0)));
+            var score = new SoloScoreRuntime(1.25d, 8000, 20, 4);
+            var firstScore = score.Collect(TimingType.PerfectStar);
+            score.Collect(TimingType.Perfect);
+            score.Collect(TimingType.Great);
+            var finalScore = score.Collect(TimingType.Good);
             var expectedMaxScore = (long)(1.25d * (8000 * 10) * 1.2d);
-            var idleRuntime = new RecoveredInputHandlerRuntime(
+            var idleRuntime = new InputHandlerRuntime(
                 rateNotation,
                 0f,
                 note => new Vector2(note.Lane, 0f),
                 position => default);
             idleRuntime.TickPlayer(2200L, 2200L,
-                Array.Empty<RecoveredInputEntity>());
-            var idleResult = new RecoveredGameResultRuntime(rateNotation);
+                Array.Empty<InputEntity>());
+            var idleResult = new GameResultRuntime(rateNotation);
             foreach (var inputResult in idleRuntime.InputResults)
                 idleResult.Collect(inputResult);
             var hiddenPerfectStarView =
-                Sirius.GameResult.RecoveredGameResultViewData.FromRuntime(
+                Sirius.GameResult.GameResultViewData.FromRuntime(
                     rateResult, 1.5d, 5d, false,
                     shouldShowPerfectStar: false);
             var graphFixture = new Dictionary<int, int>
@@ -2898,9 +2899,9 @@ namespace OpenWDS.Editor
                    Math.Abs(subtractCompleted - 100.5d) < 0.000001d &&
                    result.DuplicatedSoundNoteCount == 1 &&
                    result.IsIgnoredDuplicateNote(10) &&
-                   result.TimingCounts[RecoveredTimingType.PerfectStar] == 2 &&
-                   result.TimingCounts[RecoveredTimingType.Great] == 1 &&
-                   result.TimingCounts[RecoveredTimingType.Good] == 1 &&
+                   result.TimingCounts[TimingType.PerfectStar] == 2 &&
+                   result.TimingCounts[TimingType.Great] == 1 &&
+                   result.TimingCounts[TimingType.Good] == 1 &&
                    result.InputDiffSummary.Count == 50 &&
                    !result.InputDiffSummary.ContainsKey(0) &&
                    result.InputDiffSummary[-25] == 0 &&
@@ -2910,10 +2911,10 @@ namespace OpenWDS.Editor
                    Math.Abs(result.AchievementRate - 83d) < 0.000001d &&
                    Math.Abs(result.CalculateRecommendationTiming(0.25d, 5d) -
                             0.25d) < 0.000001d &&
-                   Math.Abs(RecoveredGameResultRuntime.CalculateRecommendationTiming(
+                   Math.Abs(GameResultRuntime.CalculateRecommendationTiming(
                                 new Dictionary<int, int> { { 0, 1 } }, 0d, 5d) +
                             0.15d) < 0.000001d &&
-                   Math.Abs(RecoveredGameResultRuntime.CalculateRecommendationTiming(
+                   Math.Abs(GameResultRuntime.CalculateRecommendationTiming(
                                 new Dictionary<int, int> { { 100, 1 } }, 1d, 5d) -
                             (-2d)) < 0.000001d &&
                    score.MaxScore == expectedMaxScore &&
@@ -2932,13 +2933,13 @@ namespace OpenWDS.Editor
                    !result.IsFullCombo && !result.IsAllPerfect &&
                    idleRuntime.InputResults.Count == 2 &&
                    idleRuntime.PublishedMissCount == 2 &&
-                   idleResult.TimingCounts[RecoveredTimingType.Miss] == 2 &&
+                   idleResult.TimingCounts[TimingType.Miss] == 2 &&
                    idleResult.CollectedCount == 2 &&
                    !idleResult.IsAllPerfect &&
                    !idleResult.IsFullCombo &&
                    !idleRuntime.InputResults[0].IsInput &&
                    hiddenPerfectStarView.GetDisplayedTimingCount(
-                       RecoveredTimingType.Perfect) == 2 &&
+                       TimingType.Perfect) == 2 &&
                    Math.Abs(hiddenPerfectStarView.CurrentRecommendationTiming -
                             1.5d) < 0.000001d &&
                    !hiddenPerfectStarView.ShouldShowPerfectStar &&
@@ -2956,33 +2957,33 @@ namespace OpenWDS.Editor
                 Path.GetTempPath(), "openwds-result-" + Guid.NewGuid().ToString("N"));
             try
             {
-                var store = new RecoveredLocalResultStore(root);
+                var store = new LocalResultStore(root);
                 var firstNew = store.RecordResult(
                     7,
-                    RecoveredMusicDifficulty.Stella,
+                    MusicDifficulty.Stella,
                     84.956d,
-                    RecoveredClearLamp.Clear,
+                    ClearLamp.Clear,
                     out var firstPrevious);
                 var secondNew = store.RecordResult(
                     7,
-                    RecoveredMusicDifficulty.Stella,
+                    MusicDifficulty.Stella,
                     83d,
-                    RecoveredClearLamp.AllPerfect,
+                    ClearLamp.AllPerfect,
                     out var secondPrevious);
-                var reloaded = new RecoveredLocalResultStore(root);
+                var reloaded = new LocalResultStore(root);
                 return firstNew &&
                        Math.Abs(firstPrevious) < 0.000001d &&
                        !secondNew &&
                        Math.Abs(secondPrevious - 84.956d) < 0.000001d &&
                        Math.Abs(reloaded.GetBest(
-                           7, RecoveredMusicDifficulty.Stella) - 84.956d) <
+                           7, MusicDifficulty.Stella) - 84.956d) <
                        0.000001d &&
                        reloaded.GetClearLamp(
-                           7, RecoveredMusicDifficulty.Stella) ==
-                       RecoveredClearLamp.AllPerfect &&
+                           7, MusicDifficulty.Stella) ==
+                       ClearLamp.AllPerfect &&
                        reloaded.GetClearLamp(
-                           7, RecoveredMusicDifficulty.Hard) ==
-                       RecoveredClearLamp.None;
+                           7, MusicDifficulty.Hard) ==
+                       ClearLamp.None;
             }
             finally
             {
@@ -3003,14 +3004,14 @@ namespace OpenWDS.Editor
             maxScore = 0;
             if (asset == null) return false;
 
-            var fixture = RecoveredPlayerUnitFixture.Parse(asset);
+            var fixture = PlayerUnitFixture.Parse(asset);
             if (!File.Exists(StellaChartSourcePath)) return false;
-            var notation = RecoveredStandardNotation.Parse(
+            var notation = StandardNotation.Parse(
                 File.ReadAllText(StellaChartSourcePath));
-            var resultRuntime = new RecoveredGameResultRuntime(notation);
+            var resultRuntime = new GameResultRuntime(notation);
             var noteIds = resultRuntime.GetScoreNoteIds(notation);
             var context = fixture.CreateScoreContext(noteIds);
-            var score = new RecoveredSoloScoreRuntime(
+            var score = new SoloScoreRuntime(
                 context.DifficultyAutoCoefficient,
                 context.TotalStatus,
                 context.BaseScorePercentage,
@@ -3020,14 +3021,14 @@ namespace OpenWDS.Editor
             totalStatus = fixture.totalStatus;
             scoreNoteCount = context.TotalNotesCount;
             maxScore = score.MaxScore;
-            var life = new RecoveredLifeRuntime();
+            var life = new LifeRuntime();
             var lifeChanged = life.Add(fixture.GetInitialLifeAddition());
-            var senseScore = new RecoveredSenseScoreRuntime(fixture);
-            var starActScore = new RecoveredStarActScoreRuntime(fixture);
-            var principal = new RecoveredPrincipalRuntime();
+            var senseScore = new SenseScoreRuntime(fixture);
+            var starActScore = new StarActScoreRuntime(fixture);
+            var principal = new PrincipalRuntime();
             principal.Initialize(new[]
             {
-                new RecoveredPrincipalUnit(
+                new PrincipalUnit(
                     fixture.order, fixture.initialMaxPrincipal),
             });
             var principalAddingMap = new Dictionary<long, int>();
@@ -3058,9 +3059,9 @@ namespace OpenWDS.Editor
                               principal.GetMaxPrincipal(fixture.order) == 1000 &&
                               fixture.starActEvents.Length == 1 &&
                               starActScore.ActivationCount == 1 &&
-                              RecoveredPartyStatusRuntime.CalculateCharacterStatus(
+                              PartyStatusRuntime.CalculateCharacterStatus(
                                   53, 0, 0, 25, 0, 0, 0f) == 13 &&
-                              RecoveredPartyStatusRuntime.CalculatePartySlotStatus(
+                              PartyStatusRuntime.CalculatePartySlotStatus(
                                   100, 10f, 3f, 20f, 4f) == 137;
             if (!commonValid) return false;
 
@@ -3170,20 +3171,20 @@ namespace OpenWDS.Editor
             {
                 var panel = instance.GetComponentInChildren<
                     Sirius.GameResult.GameResultPanel>(true);
-                var counts = new Dictionary<RecoveredTimingType, int>
+                var counts = new Dictionary<TimingType, int>
                 {
-                    { RecoveredTimingType.Miss, 1 },
-                    { RecoveredTimingType.Bad, 2 },
-                    { RecoveredTimingType.Good, 3 },
-                    { RecoveredTimingType.Great, 4 },
-                    { RecoveredTimingType.Perfect, 5 },
-                    { RecoveredTimingType.PerfectStar, 6 },
+                    { TimingType.Miss, 1 },
+                    { TimingType.Bad, 2 },
+                    { TimingType.Good, 3 },
+                    { TimingType.Great, 4 },
+                    { TimingType.Perfect, 5 },
+                    { TimingType.PerfectStar, 6 },
                 };
                 var summary = new Dictionary<int, int>
                 {
                     { -6, 2 }, { 0, 4 }, { 7, 3 },
                 };
-                panel?.Initialize(new Sirius.GameResult.RecoveredGameResultViewData(
+                panel?.Initialize(new Sirius.GameResult.GameResultViewData(
                     19, 87.25d, 91.5d, 0.1d, -0.2d, 5d,
                     false, true, false, false, counts, summary));
                 var combo = panel != null
@@ -3236,7 +3237,7 @@ namespace OpenWDS.Editor
                     playerRate != null && playerRate.gameObject.activeSelf &&
                     playerRate.text == "0.00";
                 panel?.RatePanel.Initialize(
-                    new Sirius.GameResult.RecoveredGameResultViewData(
+                    new Sirius.GameResult.GameResultViewData(
                         19, 100.8d, 100.8d, 0.1d, -0.2d, 5d,
                         false, true, false, false, counts, summary,
                         bestEverNotationRate: 33.87d,
@@ -3331,7 +3332,7 @@ namespace OpenWDS.Editor
                     panel.ComboPanel.GetComponent<CanvasGroup>().alpha == 0f &&
                     panel.AveragePanel.GetComponent<CanvasGroup>().alpha == 1f &&
                     panel.TimingGraphPanel.GetComponent<CanvasGroup>().alpha == 1f;
-                panel?.Initialize(new Sirius.GameResult.RecoveredGameResultViewData(
+                panel?.Initialize(new Sirius.GameResult.GameResultViewData(
                     19, 87.25d, 91.5d, 0.1d, -0.2d, 5d,
                     true, true, false, false, counts, summary));
                 var panelSerialized = panel != null ? new SerializedObject(panel) : null;
@@ -3727,7 +3728,7 @@ namespace OpenWDS.Editor
                 instanceRect.offsetMax = Vector2.zero;
                 instanceRect.localScale = Vector3.one;
             }
-            var fonts = new Sirius.GameResult.RecoveredGameResultFontRuntime();
+            var fonts = new Sirius.GameResult.GameResultFontRuntime();
             var applied = fonts.Apply(instance);
             var fontBundlesValid = fonts.BundleCount == 5 &&
                                    fonts.FontCount == 2 && applied >= 14;
@@ -3736,20 +3737,20 @@ namespace OpenWDS.Editor
                 fonts.BundleCount, fonts.FontCount, applied, fonts.AssetSummary));
             var panel = instance.GetComponentInChildren<
                 Sirius.GameResult.GameResultPanel>(true);
-            var counts = new Dictionary<RecoveredTimingType, int>
+            var counts = new Dictionary<TimingType, int>
             {
-                { RecoveredTimingType.PerfectStar, 1592 },
-                { RecoveredTimingType.Perfect, 63 },
-                { RecoveredTimingType.Great, 9 },
-                { RecoveredTimingType.Good, 0 },
-                { RecoveredTimingType.Bad, 0 },
-                { RecoveredTimingType.Miss, 1 },
+                { TimingType.PerfectStar, 1592 },
+                { TimingType.Perfect, 63 },
+                { TimingType.Great, 9 },
+                { TimingType.Good, 0 },
+                { TimingType.Bad, 0 },
+                { TimingType.Miss, 1 },
             };
-            panel?.Initialize(new Sirius.GameResult.RecoveredGameResultViewData(
+            panel?.Initialize(new Sirius.GameResult.GameResultViewData(
                 1370, 100.7879d, 100.1393d, 0d, 0d, 5d,
                 true, false, false, false, counts,
                 new Dictionary<int, int>(), "ワナビスタ！",
-                RecoveredMusicDifficulty.Stella));
+                MusicDifficulty.Stella));
             var slideAnimator = instance.GetComponent<Animator>();
             if (slideAnimator != null)
             {
@@ -3941,9 +3942,9 @@ namespace OpenWDS.Editor
                     if (controller != null)
                     {
                         var minimumOpacity =
-                            RecoveredGameSettings.MinimumSplitEffectLineOpacity;
+                            GameSettings.MinimumSplitEffectLineOpacity;
                         var maximumOpacity =
-                            RecoveredGameSettings.MaximumSplitEffectLineOpacity;
+                            GameSettings.MaximumSplitEffectLineOpacity;
                         controller.Initialize(
                             false, 100, in minimumOpacity, in maximumOpacity);
                         controller.OnFadeIn(3, 3);
@@ -3959,7 +3960,7 @@ namespace OpenWDS.Editor
                             Mathf.Approximately(scaleAnimator.transform.localScale.y, 27f);
                     }
                     var compatibleShaderReplacements =
-                        RecoveredSplitLaneAssetRuntime.ApplyCompatibleShaders(instance);
+                        SplitLaneAssetRuntime.ApplyCompatibleShaders(instance);
                     var spawnedChildren = instance.GetComponentsInChildren<
                         Transform>(true).Length - childCountBefore;
                     var missing = 0;
@@ -4009,7 +4010,7 @@ namespace OpenWDS.Editor
                         var material = renderer.sharedMaterial;
                         if (material == null || material.shader == null ||
                             material.shader.name !=
-                            "OpenWDS/Recovered/SplitEffect/SplitEffectSyuriken")
+                            "OpenWDS/SplitEffect/SplitEffectSyuriken")
                             lineShadersValid = false;
                     }
                     if (!splitPreviewCaptured && prefab.name == "10170" &&
@@ -4078,12 +4079,12 @@ namespace OpenWDS.Editor
             GameObject prefab, Transform parent)
         {
             if (prefab == null || parent == null) return false;
-            if (RecoveredSplitLaneAssetRuntime.IsLightSetting(
-                    (int)RecoveredSpritEffectSettingType.Rich) ||
-                RecoveredSplitLaneAssetRuntime.IsLightSetting(
-                    (int)RecoveredSpritEffectSettingType.Normal) ||
-                !RecoveredSplitLaneAssetRuntime.IsLightSetting(
-                    (int)RecoveredSpritEffectSettingType.Light))
+            if (SplitLaneAssetRuntime.IsLightSetting(
+                    (int)SpritEffectSettingType.Rich) ||
+                SplitLaneAssetRuntime.IsLightSetting(
+                    (int)SpritEffectSettingType.Normal) ||
+                !SplitLaneAssetRuntime.IsLightSetting(
+                    (int)SpritEffectSettingType.Light))
                 return false;
 
             var normal = UnityEngine.Object.Instantiate(prefab, parent, false);
@@ -4092,9 +4093,9 @@ namespace OpenWDS.Editor
             try
             {
                 var minimumOpacity =
-                    RecoveredGameSettings.MinimumSplitEffectLineOpacity;
+                    GameSettings.MinimumSplitEffectLineOpacity;
                 var maximumOpacity =
-                    RecoveredGameSettings.MaximumSplitEffectLineOpacity;
+                    GameSettings.MaximumSplitEffectLineOpacity;
                 var normalController = normal.GetComponent<
                     Sirius.Game.SplitEffectController>();
                 var lightController = globalLight.GetComponent<
@@ -4107,7 +4108,7 @@ namespace OpenWDS.Editor
 
                 normalController.Initialize(
                     false, 100, in minimumOpacity, in maximumOpacity);
-                normalController.OnFadeIn(3, (int)RecoveredSplitLaneType.Full);
+                normalController.OnFadeIn(3, (int)SplitLaneType.Full);
                 var lineRenderers = normal.GetComponentsInChildren<SpriteRenderer>(true)
                     .Where(renderer => renderer.gameObject.name.StartsWith(
                         "Line", StringComparison.Ordinal))
@@ -4133,18 +4134,18 @@ namespace OpenWDS.Editor
                 }
                 var fullParticles = CountPlayingParticles(normal);
                 normalController.Clear();
-                normalController.OnFadeIn(3, (int)RecoveredSplitLaneType.BothEnds);
+                normalController.OnFadeIn(3, (int)SplitLaneType.BothEnds);
                 var bothEndParticles = CountPlayingParticles(normal);
                 normalController.Clear();
-                normalController.OnFadeIn(3, (int)RecoveredSplitLaneType.Light);
+                normalController.OnFadeIn(3, (int)SplitLaneType.Light);
                 var chartLightParticles = CountPlayingParticles(normal);
                 normalController.Clear();
-                normalController.OnFadeIn(3, (int)RecoveredSplitLaneType.Ignore);
+                normalController.OnFadeIn(3, (int)SplitLaneType.Ignore);
                 var ignoreParticles = CountPlayingParticles(normal);
 
                 lightController.Initialize(
                     true, 100, in minimumOpacity, in maximumOpacity);
-                lightController.OnFadeIn(3, (int)RecoveredSplitLaneType.Full);
+                lightController.OnFadeIn(3, (int)SplitLaneType.Full);
                 var globalLightParticles = CountPlayingParticles(globalLight);
 
                 dimController.Initialize(
@@ -4264,19 +4265,19 @@ namespace OpenWDS.Editor
         }
 
         private static void AuditHoldEvents(
-            IReadOnlyList<RecoveredInputEffectEntity> events,
+            IReadOnlyList<InputEffectEntity> events,
             Dictionary<int, int> active,
             ref int starts,
             ref int ends)
         {
             foreach (var effect in events)
             {
-                if (effect.EffectType == RecoveredInputEffectType.HoldStart)
+                if (effect.EffectType == InputEffectType.HoldStart)
                 {
                     starts++;
                     active[effect.NoteId] = effect.LaneId;
                 }
-                else if (effect.EffectType == RecoveredInputEffectType.HoldEnd)
+                else if (effect.EffectType == InputEffectType.HoldEnd)
                 {
                     ends++;
                     active.Remove(effect.NoteId);
@@ -4288,19 +4289,19 @@ namespace OpenWDS.Editor
             Camera camera,
             Sirius.Game.LaneGroup laneGroup)
         {
-            var notation = RecoveredStandardNotation.Parse(
+            var notation = StandardNotation.Parse(
                 File.ReadAllText(StellaChartSourcePath));
             var managers = laneGroup.ColliderManagers;
             managers.InitializeMappings();
             Physics.SyncTransforms();
-            var raycaster = new RecoveredLaneRaycaster(
+            var raycaster = new LaneRaycaster(
                 camera,
                 managers.MainColliders,
                 managers.SubLeftInnerColliders,
                 managers.SubRightInnerColliders,
                 managers.SubLeftOuterColliders,
                 managers.SubRightOuterColliders);
-            var runtime = new RecoveredInputHandlerRuntime(
+            var runtime = new InputHandlerRuntime(
                 notation,
                 3.019f,
                 note =>
@@ -4325,14 +4326,14 @@ namespace OpenWDS.Editor
             var denseCriticalRaycast = new List<string>();
             foreach (var note in notation)
             {
-                if (note.NoteType == (int)RecoveredNoteType.Hold ||
-                    note.NoteType == (int)RecoveredNoteType.CriticalHold ||
-                    note.NoteType == (int)RecoveredNoteType.ScratchHold ||
-                    note.NoteType == (int)RecoveredNoteType.ScratchCriticalHold)
+                if (note.NoteType == (int)NoteType.Hold ||
+                    note.NoteType == (int)NoteType.CriticalHold ||
+                    note.NoteType == (int)NoteType.ScratchHold ||
+                    note.NoteType == (int)NoteType.ScratchCriticalHold)
                 {
                     holdBodiesExpected.Add(note.Id);
                 }
-                if (note.NoteType == (int)RecoveredNoteType.Critical &&
+                if (note.NoteType == (int)NoteType.Critical &&
                     note.StartMilliseconds >= 23898 &&
                     note.StartMilliseconds <= 24407)
                 {
@@ -4349,7 +4350,7 @@ namespace OpenWDS.Editor
                         hit.HitSubLeftOuterLaneId + "/" +
                         hit.HitSubRightOuterLaneId);
                 }
-                if (note.NoteType == (int)RecoveredNoteType.Scratch)
+                if (note.NoteType == (int)NoteType.Scratch)
                     directScratchExpected.Add(note.Id);
             }
             var denseCriticalPublished = new HashSet<int>();
@@ -4369,9 +4370,9 @@ namespace OpenWDS.Editor
                 runtime.Tick(milliseconds, milliseconds + 100000);
                 foreach (var effect in runtime.HoldEvents)
                 {
-                    if (effect.EffectType == RecoveredInputEffectType.HoldStart)
+                    if (effect.EffectType == InputEffectType.HoldStart)
                         holdBodiesStarted.Add(effect.NoteId);
-                    else if (effect.EffectType == RecoveredInputEffectType.HoldEnd)
+                    else if (effect.EffectType == InputEffectType.HoldEnd)
                         holdBodiesEnded.Add(effect.NoteId);
                 }
                 AuditHoldEvents(runtime.HoldEvents, active, ref starts, ref ends);
@@ -4379,13 +4380,13 @@ namespace OpenWDS.Editor
                     active, runtime.ActiveTouchHolds);
                 foreach (var result in runtime.InputResults)
                 {
-                    if ((result.NoteType == RecoveredNoteType.Normal ||
-                         result.NoteType == RecoveredNoteType.Critical ||
-                         result.NoteType == RecoveredNoteType.HoldStart ||
-                         result.NoteType == RecoveredNoteType.CriticalHoldStart ||
-                         result.NoteType == RecoveredNoteType.ScratchHoldStart ||
-                         result.NoteType == RecoveredNoteType.ScratchCriticalHoldStart ||
-                         result.NoteType == RecoveredNoteType.BlueTap) &&
+                    if ((result.NoteType == NoteType.Normal ||
+                         result.NoteType == NoteType.Critical ||
+                         result.NoteType == NoteType.HoldStart ||
+                         result.NoteType == NoteType.CriticalHoldStart ||
+                         result.NoteType == NoteType.ScratchHoldStart ||
+                         result.NoteType == NoteType.ScratchCriticalHoldStart ||
+                         result.NoteType == NoteType.BlueTap) &&
                         milliseconds - result.StartMilliseconds >= 16)
                     {
                         lateTapResults.Add(
@@ -4398,12 +4399,12 @@ namespace OpenWDS.Editor
                             result.NoteId + ":" + (int)result.NoteType + ":" +
                             result.StartMilliseconds + "@" + milliseconds);
                     }
-                    if (result.NoteType == RecoveredNoteType.Sound ||
-                        result.NoteType == RecoveredNoteType.SoundPurple)
+                    if (result.NoteType == NoteType.Sound ||
+                        result.NoteType == NoteType.SoundPurple)
                     {
                         soundResults++;
                     }
-                    if (result.NoteType == RecoveredNoteType.Critical)
+                    if (result.NoteType == NoteType.Critical)
                     {
                         criticalResults++;
                         if (denseCriticalExpected.Contains(result.NoteId))
@@ -4416,7 +4417,7 @@ namespace OpenWDS.Editor
                                            milliseconds - result.StartMilliseconds < 16;
                         }
                     }
-                    if (result.NoteType == RecoveredNoteType.Scratch)
+                    if (result.NoteType == NoteType.Scratch)
                     {
                         scratchResults++;
                         directScratchPublished.Add(result.NoteId);
@@ -4431,9 +4432,9 @@ namespace OpenWDS.Editor
             runtime.Tick(90000, 190000);
             foreach (var effect in runtime.HoldEvents)
             {
-                if (effect.EffectType == RecoveredInputEffectType.HoldStart)
+                if (effect.EffectType == InputEffectType.HoldStart)
                     holdBodiesStarted.Add(effect.NoteId);
-                else if (effect.EffectType == RecoveredInputEffectType.HoldEnd)
+                else if (effect.EffectType == InputEffectType.HoldEnd)
                     holdBodiesEnded.Add(effect.NoteId);
             }
             AuditHoldEvents(runtime.HoldEvents, active, ref starts, ref ends);
@@ -4441,14 +4442,14 @@ namespace OpenWDS.Editor
                 active, runtime.ActiveTouchHolds);
             foreach (var result in runtime.InputResults)
             {
-                if (result.NoteType == RecoveredNoteType.Sound ||
-                    result.NoteType == RecoveredNoteType.SoundPurple)
+                if (result.NoteType == NoteType.Sound ||
+                    result.NoteType == NoteType.SoundPurple)
                 {
                     soundResults++;
                 }
-                if (result.NoteType == RecoveredNoteType.Critical)
+                if (result.NoteType == NoteType.Critical)
                     criticalResults++;
-                if (result.NoteType == RecoveredNoteType.Scratch)
+                if (result.NoteType == NoteType.Scratch)
                     scratchResults++;
             }
             var assignments = new List<string>();
@@ -4525,7 +4526,7 @@ namespace OpenWDS.Editor
 
         private static bool HoldOwnershipMatches(
             IReadOnlyDictionary<int, int> eventOwnership,
-            IReadOnlyDictionary<int, RecoveredNotationNote> activeTouchHolds)
+            IReadOnlyDictionary<int, NotationNote> activeTouchHolds)
         {
             var activeNoteIds = new HashSet<int>();
             foreach (var pair in activeTouchHolds)
@@ -4536,15 +4537,15 @@ namespace OpenWDS.Editor
             return true;
         }
 
-        private static RecoveredHitLaneEntity ResolveLaneAtScreenPosition(
-            RecoveredLaneRaycaster raycaster,
+        private static HitLaneEntity ResolveLaneAtScreenPosition(
+            LaneRaycaster raycaster,
             Vector2 position)
         {
-            var input = new RecoveredInputEntity(
+            var input = new InputEntity(
                 0, 0, position, position, Vector2.zero,
-                RecoveredTouchPhase.Stationary);
-            var hits = new List<RecoveredHitLaneEntity>(1);
-            var beganHits = new List<RecoveredHitLaneEntity>(1);
+                TouchPhase.Stationary);
+            var hits = new List<HitLaneEntity>(1);
+            var beganHits = new List<HitLaneEntity>(1);
             raycaster.Raycast(new[] { input }, hits, beganHits);
             return hits[0];
         }
@@ -4565,8 +4566,8 @@ namespace OpenWDS.Editor
                     frames[3].main.startSizeXMultiplier };
                 foreach (var lanes in new[] { 1, 12, 2, 4 })
                 {
-                    controller.Initialize(lanes, true, RecoveredLaneEffectRuntime.SingleLaneWidth);
-                    var width = lanes * RecoveredLaneEffectRuntime.SingleLaneWidth;
+                    controller.Initialize(lanes, true, LaneEffectRuntime.SingleLaneWidth);
+                    var width = lanes * LaneEffectRuntime.SingleLaneWidth;
                     for (var i = 0; i < frames.Length; i++)
                     {
                         var expectedSize = i == 0 ? edgeSizes[0] : i == 3 ? edgeSizes[1] : width;
@@ -4580,7 +4581,7 @@ namespace OpenWDS.Editor
                     }
                 }
                 controller.Initialize(
-                    4, false, RecoveredLaneEffectRuntime.SingleLaneWidth);
+                    4, false, LaneEffectRuntime.SingleLaneWidth);
                 var square = FindChild(instance.transform, "BeamSquare")
                     ?.GetComponent<ParticleSystem>();
                 var left = FindChild(instance.transform, "BeamFrameLB")
@@ -4591,9 +4592,9 @@ namespace OpenWDS.Editor
                        Mathf.Approximately(square.main.startSizeXMultiplier, 3.7f) &&
                        Mathf.Approximately(left.shape.position.x, -1.85f) &&
                        Mathf.Approximately(right.shape.position.x, 1.85f) &&
-                       RecoveredLaneEffectRuntime.IsCritical(
-                           RecoveredNoteType.ScratchCriticalHold) &&
-                       !RecoveredLaneEffectRuntime.IsCritical(RecoveredNoteType.ScratchHold);
+                       LaneEffectRuntime.IsCritical(
+                           NoteType.ScratchCriticalHold) &&
+                       !LaneEffectRuntime.IsCritical(NoteType.ScratchHold);
             }
             finally
             {
@@ -4605,53 +4606,53 @@ namespace OpenWDS.Editor
             Sirius.Game.LaneGroup laneGroup,
             Transform effectParent)
         {
-            var runtime = new RecoveredLaneEffectRuntime(
+            var runtime = new LaneEffectRuntime(
                 laneGroup,
                 effectParent,
                 AssetDatabase.LoadAssetAtPath<GameObject>(BeamEffectPath),
                 LoadPrefabs(DefaultBombEffectPaths));
-            var beamDisabledRuntime = new RecoveredLaneEffectRuntime(
+            var beamDisabledRuntime = new LaneEffectRuntime(
                 laneGroup,
                 effectParent,
                 AssetDatabase.LoadAssetAtPath<GameObject>(BeamEffectPath),
-                RecoveredBombType.Default,
+                BombType.Default,
                 LoadPrefabs(DefaultBombEffectPaths),
                 null,
                 null,
                 false);
-            var start = new RecoveredNotationNote
+            var start = new NotationNote
             {
                 Id = 9100,
                 StartTickCount = 1f,
                 EndTickCount = 2f,
-                NoteType = (int)RecoveredNoteType.Hold,
+                NoteType = (int)NoteType.Hold,
                 Lane = 3,
                 Width = 2,
             };
-            var endWithDifferentNoteId = new RecoveredNotationNote
+            var endWithDifferentNoteId = new NotationNote
             {
                 Id = 9101,
                 StartTickCount = 2f,
                 EndTickCount = -1f,
-                NoteType = (int)RecoveredNoteType.Hold,
+                NoteType = (int)NoteType.Hold,
                 Lane = 3,
                 Width = 2,
             };
-            var shifted = new RecoveredNotationNote
+            var shifted = new NotationNote
             {
                 Id = 9102,
                 StartTickCount = 2f,
                 EndTickCount = 3f,
-                NoteType = (int)RecoveredNoteType.ScratchHold,
+                NoteType = (int)NoteType.ScratchHold,
                 Lane = 8,
                 Width = 3,
             };
-            beamDisabledRuntime.OnEffect(RecoveredInputEffectEntity.OnBeam(
-                start, RecoveredTimingType.PerfectStar));
+            beamDisabledRuntime.OnEffect(InputEffectEntity.OnBeam(
+                start, TimingType.PerfectStar));
             if (beamDisabledRuntime.ActiveBeamCount != 0 ||
                 FindChild(effectParent, "Runtime_Beam_9100") != null)
                 return false;
-            runtime.OnEffect(RecoveredInputEffectEntity.OnHoldStart(start));
+            runtime.OnEffect(InputEffectEntity.OnHoldStart(start));
             var instance = FindChild(effectParent, "Runtime_Hold_9100");
             if (instance == null) return false;
             Transform shiftedInstance = null;
@@ -4669,14 +4670,14 @@ namespace OpenWDS.Editor
                     return false;
                 }
 
-                runtime.OnEffect(RecoveredInputEffectEntity.OnHoldEnd(
+                runtime.OnEffect(InputEffectEntity.OnHoldEnd(
                     endWithDifferentNoteId));
                 foreach (var particle in
                          instance.GetComponentsInChildren<ParticleSystem>(true))
                 {
                     if (particle.main.loop) return false;
                 }
-                runtime.OnEffect(RecoveredInputEffectEntity.OnHoldStart(shifted));
+                runtime.OnEffect(InputEffectEntity.OnHoldStart(shifted));
                 shiftedInstance = FindChild(effectParent, "Runtime_Hold_9102");
                 if (shiftedInstance == null || shiftedInstance == instance)
                     return false;
@@ -4703,35 +4704,35 @@ namespace OpenWDS.Editor
             var defaultPrefabs = LoadPrefabs(DefaultBombEffectPaths);
             var notesPrefabs = LoadPrefabs(NotesBombEffectPaths);
             var sakuraPrefabs = LoadPrefabs(SakuraBombEffectPaths);
-            if (RecoveredLaneEffectRuntime.SelectBombPrefabs(
-                    RecoveredBombType.Default, defaultPrefabs, notesPrefabs,
+            if (LaneEffectRuntime.SelectBombPrefabs(
+                    BombType.Default, defaultPrefabs, notesPrefabs,
                     sakuraPrefabs) != defaultPrefabs ||
-                RecoveredLaneEffectRuntime.SelectBombPrefabs(
-                    RecoveredBombType.Notes, defaultPrefabs, notesPrefabs,
+                LaneEffectRuntime.SelectBombPrefabs(
+                    BombType.Notes, defaultPrefabs, notesPrefabs,
                     sakuraPrefabs) != notesPrefabs ||
-                RecoveredLaneEffectRuntime.SelectBombPrefabs(
-                    RecoveredBombType.Sakura, defaultPrefabs, notesPrefabs,
+                LaneEffectRuntime.SelectBombPrefabs(
+                    BombType.Sakura, defaultPrefabs, notesPrefabs,
                     sakuraPrefabs) != sakuraPrefabs ||
-                (int)RecoveredBombType.Default != 1 ||
-                (int)RecoveredBombType.Notes != 2 ||
-                (int)RecoveredBombType.Sakura != 3 ||
-                (int)RecoveredGameTapEffectType.Default != 0 ||
-                (int)RecoveredGameTapEffectType.Light != 1)
+                (int)BombType.Default != 1 ||
+                (int)BombType.Notes != 2 ||
+                (int)BombType.Sakura != 3 ||
+                (int)GameTapEffectType.Default != 0 ||
+                (int)GameTapEffectType.Light != 1)
                 return false;
-            if (RecoveredLaneEffectRuntime.GetBombPrefabIndex(
-                    RecoveredNoteType.Normal) != 0 ||
-                RecoveredLaneEffectRuntime.GetBombPrefabIndex(
-                    RecoveredNoteType.Critical) != 1 ||
-                RecoveredLaneEffectRuntime.GetBombPrefabIndex(
-                    RecoveredNoteType.Hold) != 3 ||
-                RecoveredLaneEffectRuntime.GetBombPrefabIndex(
-                    RecoveredNoteType.Flick) != 4 ||
-                RecoveredLaneEffectRuntime.GetBombPrefabIndex(
-                    RecoveredNoteType.SoundPurple) != 5 ||
-                !RecoveredLaneEffectRuntime.IsStrong(
-                    RecoveredNoteType.Normal, RecoveredTimingType.Great) ||
-                RecoveredLaneEffectRuntime.IsStrong(
-                    RecoveredNoteType.Flick, RecoveredTimingType.Great))
+            if (LaneEffectRuntime.GetBombPrefabIndex(
+                    NoteType.Normal) != 0 ||
+                LaneEffectRuntime.GetBombPrefabIndex(
+                    NoteType.Critical) != 1 ||
+                LaneEffectRuntime.GetBombPrefabIndex(
+                    NoteType.Hold) != 3 ||
+                LaneEffectRuntime.GetBombPrefabIndex(
+                    NoteType.Flick) != 4 ||
+                LaneEffectRuntime.GetBombPrefabIndex(
+                    NoteType.SoundPurple) != 5 ||
+                !LaneEffectRuntime.IsStrong(
+                    NoteType.Normal, TimingType.Great) ||
+                LaneEffectRuntime.IsStrong(
+                    NoteType.Flick, TimingType.Great))
             {
                 return false;
             }
@@ -4783,7 +4784,7 @@ namespace OpenWDS.Editor
                     ? holdSideRight.main.startSizeXMultiplier : 0f;
                 // Re-run after capturing the authored endpoint sizes. Retail
                 // changes only the first two box widths.
-                hold.Initialize(4, false, RecoveredLaneEffectRuntime.SingleLaneWidth);
+                hold.Initialize(4, false, LaneEffectRuntime.SingleLaneWidth);
                 var holdParticle = holdSerialized.FindProperty("_bombParticle")
                     .objectReferenceValue as ParticleSystem;
                 var holdStar = holdSerialized.FindProperty("_bombStar")
@@ -4836,15 +4837,15 @@ namespace OpenWDS.Editor
             try
             {
                 var defaultController = defaultBomb.GetComponent<
-                    Sirius.Game.IRecoveredBombController>();
+                    Sirius.Game.IBombController>();
                 var notesController = notesBomb.GetComponent<
-                    Sirius.Game.IRecoveredBombController>();
+                    Sirius.Game.IBombController>();
                 var sakuraController = sakuraBomb.GetComponent<
-                    Sirius.Game.IRecoveredBombController>();
+                    Sirius.Game.IBombController>();
                 var scratchController = scratchBomb.GetComponent<
-                    Sirius.Game.IRecoveredBombController>();
+                    Sirius.Game.IBombController>();
                 var soundController = soundBomb.GetComponent<
-                    Sirius.Game.IRecoveredBombController>();
+                    Sirius.Game.IBombController>();
                 if (defaultController == null || notesController == null ||
                     sakuraController == null || scratchController == null ||
                     soundController == null)
@@ -5003,13 +5004,13 @@ namespace OpenWDS.Editor
             var scratchObject = UnityEngine.Object.Instantiate(prefabs[4]);
             try
             {
-                var bomb = bombObject.GetComponent<Sirius.Game.IRecoveredBombController>();
-                var hold = holdObject.GetComponent<Sirius.Game.IRecoveredHoldEffectController>();
-                var scratch = scratchObject.GetComponent<Sirius.Game.IRecoveredBombController>();
+                var bomb = bombObject.GetComponent<Sirius.Game.IBombController>();
+                var hold = holdObject.GetComponent<Sirius.Game.IHoldEffectController>();
+                var scratch = scratchObject.GetComponent<Sirius.Game.IBombController>();
                 if (bomb == null || hold == null || scratch == null) return false;
                 bomb.Initialize(4, 1000, true);
                 scratch.Initialize(4, 1000, false);
-                hold.Initialize(4, true, RecoveredLaneEffectRuntime.SingleLaneWidth);
+                hold.Initialize(4, true, LaneEffectRuntime.SingleLaneWidth);
 
                 var bombBehaviour = isNotes
                     ? (MonoBehaviour)bombObject.GetComponent<Sirius.Game.BombNotesController>()
@@ -5071,56 +5072,56 @@ namespace OpenWDS.Editor
                 var chartPath = Path.Combine(
                     Application.dataPath, "StreamingAssets", "OpenWDS",
                     "StandardCharts", "1", "1", "2.csv");
-                var notation = RecoveredStandardNotation.Parse(File.ReadAllText(chartPath));
-                var runtime = new RecoveredNoteVisualRuntime(
+                var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
+                var runtime = new NoteVisualRuntime(
                     notation, root.transform, LoadRuntimeNotePrefabs(), 5d);
-                var concurrentDisabled = new RecoveredNoteVisualRuntime(
+                var concurrentDisabled = new NoteVisualRuntime(
                     notation, root.transform, LoadRuntimeNotePrefabs(), 5d,
                     0d, null, 8, false);
                 if (runtime.MoveMilliseconds != 1483 ||
                     runtime.TotalConcurrentLineCount != 28 ||
                     concurrentDisabled.TotalConcurrentLineCount != 0 ||
-                    RecoveredNoteVisualRuntime.GetPrefabIndex(83) != 0 ||
-                    RecoveredNoteVisualRuntime.GetPrefabIndex(101) != 1 ||
-                    RecoveredNoteVisualRuntime.GetPrefabIndex(31) != 6 ||
-                    RecoveredNoteVisualRuntime.GetArrowActiveCount(3, false) != 5 ||
-                    RecoveredNoteVisualRuntime.GetArrowActiveCount(4, false) != 5 ||
-                    RecoveredNoteVisualRuntime.GetArrowActiveCount(4, true) != 11 ||
-                    RecoveredNoteVisualRuntime.GetArrowActiveCount(6, true) != 18 ||
-                    RecoveredNoteVisualRuntime.GetArrowAnimationStateName(false, 5) !=
+                    NoteVisualRuntime.GetPrefabIndex(83) != 0 ||
+                    NoteVisualRuntime.GetPrefabIndex(101) != 1 ||
+                    NoteVisualRuntime.GetPrefabIndex(31) != 6 ||
+                    NoteVisualRuntime.GetArrowActiveCount(3, false) != 5 ||
+                    NoteVisualRuntime.GetArrowActiveCount(4, false) != 5 ||
+                    NoteVisualRuntime.GetArrowActiveCount(4, true) != 11 ||
+                    NoteVisualRuntime.GetArrowActiveCount(6, true) != 18 ||
+                    NoteVisualRuntime.GetArrowAnimationStateName(false, 5) !=
                         "ScratchNotesArrow_flick5_anim" ||
-                    RecoveredNoteVisualRuntime.GetArrowAnimationStateName(true, 11) !=
+                    NoteVisualRuntime.GetArrowAnimationStateName(true, 11) !=
                         "ScratchNotesArrow_jump11_anim" ||
                     !Mathf.Approximately(
-                        RecoveredNoteVisualRuntime.GetArrowInterval(3), 0.35f) ||
+                        NoteVisualRuntime.GetArrowInterval(3), 0.35f) ||
                     !Mathf.Approximately(
-                        RecoveredNoteVisualRuntime.GetArrowInterval(4), 0.36f) ||
+                        NoteVisualRuntime.GetArrowInterval(4), 0.36f) ||
                     !Mathf.Approximately(
-                        RecoveredOriginalGameConfig.GetLaneMaskScaleY(0), 12.5f) ||
+                        OriginalGameConfig.GetLaneMaskScaleY(0), 12.5f) ||
                     !Mathf.Approximately(
-                        RecoveredOriginalGameConfig.GetLaneMaskScaleY(100), 790f))
+                        OriginalGameConfig.GetLaneMaskScaleY(100), 790f))
                 {
                     return false;
                 }
-                var fourLaneWidth = RecoveredNotePositionCalculator.GetNoteWidth(
+                var fourLaneWidth = NotePositionCalculator.GetNoteWidth(
                     4,
-                    RecoveredGameConfigValues.NoteWidthPerLane,
-                    RecoveredGameConfigValues.LaneBorderWidth);
+                    GameConfigValues.NoteWidthPerLane,
+                    GameConfigValues.LaneBorderWidth);
                 if (!Mathf.Approximately(
-                        RecoveredNoteVisualRuntime.GetTapVisualWidth(fourLaneWidth),
+                        NoteVisualRuntime.GetTapVisualWidth(fourLaneWidth),
                         fourLaneWidth - 0.15f) ||
                     !Mathf.Approximately(
-                        RecoveredNoteVisualRuntime.GetHoldLineWidth(fourLaneWidth),
+                        NoteVisualRuntime.GetHoldLineWidth(fourLaneWidth),
                         fourLaneWidth - 0.15f + 0.1f))
                 {
                     return false;
                 }
                 if (!Mathf.Approximately(
-                        RecoveredOriginalGameConfig.GetNoteHeightRotationX(1), 6f) ||
+                        OriginalGameConfig.GetNoteHeightRotationX(1), 6f) ||
                     !Mathf.Approximately(
-                        RecoveredOriginalGameConfig.GetNoteHeightRotationX(8), -15f) ||
+                        OriginalGameConfig.GetNoteHeightRotationX(8), -15f) ||
                     !Mathf.Approximately(
-                        RecoveredOriginalGameConfig.GetNoteHeightRotationX(10), -21f))
+                        OriginalGameConfig.GetNoteHeightRotationX(10), -21f))
                 {
                     return false;
                 }
@@ -5169,79 +5170,79 @@ namespace OpenWDS.Editor
 
         private static bool ValidateConcurrentLineCompletion(Transform parent)
         {
-            var first = new RecoveredNotationNote
+            var first = new NotationNote
             {
                 Id = 990001,
-                NoteType = (int)RecoveredNoteType.Normal,
+                NoteType = (int)NoteType.Normal,
                 Lane = 2,
                 Width = 1,
                 StartTickCount = 1f,
                 EndTickCount = -0.001f,
             };
-            var firstPair = new RecoveredNotationNote
+            var firstPair = new NotationNote
             {
                 Id = 990002,
-                NoteType = (int)RecoveredNoteType.Critical,
+                NoteType = (int)NoteType.Critical,
                 Lane = 8,
                 Width = 1,
                 StartTickCount = 1f,
                 EndTickCount = -0.001f,
             };
-            var missed = new RecoveredNotationNote
+            var missed = new NotationNote
             {
                 Id = 990003,
-                NoteType = (int)RecoveredNoteType.Normal,
+                NoteType = (int)NoteType.Normal,
                 Lane = 3,
                 Width = 1,
                 StartTickCount = 2f,
                 EndTickCount = -0.001f,
             };
-            var missedPair = new RecoveredNotationNote
+            var missedPair = new NotationNote
             {
                 Id = 990004,
-                NoteType = (int)RecoveredNoteType.Critical,
+                NoteType = (int)NoteType.Critical,
                 Lane = 9,
                 Width = 1,
                 StartTickCount = 2f,
                 EndTickCount = -0.001f,
             };
-            var holdStart = new RecoveredNotationNote
+            var holdStart = new NotationNote
             {
                 Id = 990005,
-                NoteType = (int)RecoveredNoteType.HoldStart,
+                NoteType = (int)NoteType.HoldStart,
                 Lane = 1,
                 Width = 1,
                 StartTickCount = 4f,
                 EndTickCount = -0.001f,
             };
-            var holdStartPair = new RecoveredNotationNote
+            var holdStartPair = new NotationNote
             {
                 Id = 990006,
-                NoteType = (int)RecoveredNoteType.CriticalHoldStart,
+                NoteType = (int)NoteType.CriticalHoldStart,
                 Lane = 10,
                 Width = 1,
                 StartTickCount = 4f,
                 EndTickCount = -0.001f,
             };
-            var holdBody = new RecoveredNotationNote
+            var holdBody = new NotationNote
             {
                 Id = 990007,
-                NoteType = (int)RecoveredNoteType.Hold,
+                NoteType = (int)NoteType.Hold,
                 Lane = 2,
                 Width = 1,
                 StartTickCount = 5f,
                 EndTickCount = 6f,
             };
-            var holdBodyPair = new RecoveredNotationNote
+            var holdBodyPair = new NotationNote
             {
                 Id = 990008,
-                NoteType = (int)RecoveredNoteType.ScratchHold,
+                NoteType = (int)NoteType.ScratchHold,
                 Lane = 9,
                 Width = 1,
                 StartTickCount = 5f,
                 EndTickCount = 6f,
             };
-            var runtime = new RecoveredNoteVisualRuntime(
+            var runtime = new NoteVisualRuntime(
                 new[]
                 {
                     first, firstPair, missed, missedPair,
@@ -5257,11 +5258,11 @@ namespace OpenWDS.Editor
 
             runtime.OnInputResults(new[]
             {
-                RecoveredInputResultEntity.Create(
+                InputResultEntity.Create(
                     first,
-                    new RecoveredTimingDecision(
-                        RecoveredTimingType.PerfectStar,
-                        RecoveredTimingAssistType.None,
+                    new TimingDecision(
+                        TimingType.PerfectStar,
+                        TimingAssistType.None,
                         0L)),
             });
             if (runtime.ActiveConcurrentLineCount != 1 ||
@@ -5272,7 +5273,7 @@ namespace OpenWDS.Editor
 
             runtime.OnInputResults(new[]
             {
-                RecoveredInputResultEntity.OnMiss(missed),
+                InputResultEntity.OnMiss(missed),
             });
             if (runtime.ActiveConcurrentLineCount != 1 ||
                 runtime.CompletedConcurrentLineCount != 1)
@@ -5291,11 +5292,11 @@ namespace OpenWDS.Editor
             runtime.Tick(4000L);
             runtime.OnInputResults(new[]
             {
-                RecoveredInputResultEntity.Create(
+                InputResultEntity.Create(
                     holdStart,
-                    new RecoveredTimingDecision(
-                        RecoveredTimingType.PerfectStar,
-                        RecoveredTimingAssistType.None,
+                    new TimingDecision(
+                        TimingType.PerfectStar,
+                        TimingAssistType.None,
                         0L)),
             });
             if (runtime.ActiveConcurrentLineCount != 0 ||
@@ -5308,11 +5309,11 @@ namespace OpenWDS.Editor
             runtime.Tick(6000L);
             runtime.OnInputResults(new[]
             {
-                RecoveredInputResultEntity.Create(
+                InputResultEntity.Create(
                     holdBody,
-                    new RecoveredTimingDecision(
-                        RecoveredTimingType.PerfectStar,
-                        RecoveredTimingAssistType.None,
+                    new TimingDecision(
+                        TimingType.PerfectStar,
+                        TimingAssistType.None,
                         0L)),
             });
             if (runtime.ActiveConcurrentLineCount != 0 ||
@@ -5321,16 +5322,16 @@ namespace OpenWDS.Editor
 
             // Both ordinary branches must clear immediately on successful
             // Scratch/Flick, even when the paired note has not been hit yet.
-            foreach (var type in new[] { RecoveredNoteType.Scratch, RecoveredNoteType.Flick })
+            foreach (var type in new[] { NoteType.Scratch, NoteType.Flick })
             {
                 first.NoteType = (int)type;
-                var directional = new RecoveredNoteVisualRuntime(
+                var directional = new NoteVisualRuntime(
                     new[] { first, firstPair }, parent, LoadRuntimeNotePrefabs(), 5d);
                 directional.Tick(1000L);
                 if (directional.ActiveConcurrentLineCount != 1) return false;
-                directional.OnInputResults(new[] { RecoveredInputResultEntity.Create(first,
-                    new RecoveredTimingDecision(RecoveredTimingType.PerfectStar,
-                        RecoveredTimingAssistType.None, 0L)) });
+                directional.OnInputResults(new[] { InputResultEntity.Create(first,
+                    new TimingDecision(TimingType.PerfectStar,
+                        TimingAssistType.None, 0L)) });
                 if (directional.ActiveConcurrentLineCount != 0 ||
                     directional.CompletedConcurrentLineCount != 1) return false;
                 directional.Tick(5000L);
@@ -5347,16 +5348,16 @@ namespace OpenWDS.Editor
 
         private static bool ValidateHoldVisualState(Transform parent)
         {
-            var note = new RecoveredNotationNote
+            var note = new NotationNote
             {
                 Id = 987654,
-                NoteType = (int)RecoveredNoteType.Hold,
+                NoteType = (int)NoteType.Hold,
                 Lane = 3,
                 Width = 2,
                 StartTickCount = 1f,
                 EndTickCount = 2f,
             };
-            var runtime = new RecoveredNoteVisualRuntime(
+            var runtime = new NoteVisualRuntime(
                 new[] { note }, parent, LoadRuntimeNotePrefabs(), 5d);
             var spawnMilliseconds = note.StartMilliseconds - runtime.MoveMilliseconds;
             runtime.Tick(spawnMilliseconds);
@@ -5388,13 +5389,13 @@ namespace OpenWDS.Editor
             }
             var initializedEndY = end.localPosition.y;
             runtime.Tick(0);
-            var endExpected = RecoveredNotePositionCalculator.CalculatePositionY(
+            var endExpected = NotePositionCalculator.CalculatePositionY(
                 note.EndMilliseconds,
                 0,
-                RecoveredNotePositionCalculator.CalculateSpeedRate(5d),
+                NotePositionCalculator.CalculateSpeedRate(5d),
                 0d,
-                RecoveredGameConfigValues.PositionPow3Rate,
-                RecoveredGameConfigValues.PositionPow1Rate);
+                GameConfigValues.PositionPow3Rate,
+                GameConfigValues.PositionPow1Rate);
             var endFollowsHeight = !Mathf.Approximately(
                                        end.localPosition.y, initializedEndY) &&
                                    Mathf.Approximately(
@@ -5419,7 +5420,7 @@ namespace OpenWDS.Editor
                 return false;
             }
             runtime.Tick(1125);
-            var gray = RecoveredOriginalGameConfig.HoldNoteGrayOutColor;
+            var gray = OriginalGameConfig.HoldNoteGrayOutColor;
             var isGray = Approximately(line.color, gray);
             var handled = runtime.OnHold(note.Id, true);
             line.GetPropertyBlock(block);
@@ -5431,16 +5432,16 @@ namespace OpenWDS.Editor
 
         private static bool ValidateArrowVisualState(Transform parent)
         {
-            var note = new RecoveredNotationNote
+            var note = new NotationNote
             {
                 Id = 987655,
-                NoteType = (int)RecoveredNoteType.Flick,
+                NoteType = (int)NoteType.Flick,
                 Lane = 3,
                 Width = 4,
                 StartTickCount = 1f,
                 EndTickCount = -1f,
             };
-            var runtime = new RecoveredNoteVisualRuntime(
+            var runtime = new NoteVisualRuntime(
                 new[] { note }, parent, LoadRuntimeNotePrefabs(), 5d);
             runtime.Tick(0);
             var instance = parent.Find("Runtime_987655_50");
@@ -5513,16 +5514,16 @@ namespace OpenWDS.Editor
 
         private static bool ValidateScratchHoldEndPosition(Transform parent)
         {
-            var note = new RecoveredNotationNote
+            var note = new NotationNote
             {
                 Id = 987656,
-                NoteType = (int)RecoveredNoteType.ScratchHold,
+                NoteType = (int)NoteType.ScratchHold,
                 Lane = 3,
                 Width = 4,
                 StartTickCount = 1f,
                 EndTickCount = 2f,
             };
-            var runtime = new RecoveredNoteVisualRuntime(
+            var runtime = new NoteVisualRuntime(
                 new[] { note }, parent, LoadRuntimeNotePrefabs(), 5d);
             runtime.Tick(0);
             var instance = parent.Find("Runtime_987656_110");
@@ -5533,24 +5534,24 @@ namespace OpenWDS.Editor
                 return false;
             }
             var firstLocalHeight = end.localPosition.y;
-            var firstExpected = RecoveredNotePositionCalculator.CalculatePositionY(
+            var firstExpected = NotePositionCalculator.CalculatePositionY(
                 note.EndMilliseconds,
                 0,
-                RecoveredNotePositionCalculator.CalculateSpeedRate(5d),
+                NotePositionCalculator.CalculateSpeedRate(5d),
                 0d,
-                RecoveredGameConfigValues.PositionPow3Rate,
-                RecoveredGameConfigValues.PositionPow1Rate);
+                GameConfigValues.PositionPow3Rate,
+                GameConfigValues.PositionPow1Rate);
             var firstValid = Mathf.Approximately(
                 instance.localPosition.y + end.localPosition.y,
                 firstExpected);
             runtime.Tick(500);
-            var secondExpected = RecoveredNotePositionCalculator.CalculatePositionY(
+            var secondExpected = NotePositionCalculator.CalculatePositionY(
                 note.EndMilliseconds,
                 500,
-                RecoveredNotePositionCalculator.CalculateSpeedRate(5d),
+                NotePositionCalculator.CalculateSpeedRate(5d),
                 0d,
-                RecoveredGameConfigValues.PositionPow3Rate,
-                RecoveredGameConfigValues.PositionPow1Rate);
+                GameConfigValues.PositionPow3Rate,
+                GameConfigValues.PositionPow1Rate);
             var secondValid = Mathf.Approximately(
                 instance.localPosition.y + end.localPosition.y,
                 secondExpected);
@@ -5561,10 +5562,10 @@ namespace OpenWDS.Editor
 
         private static bool ValidateJumpScratchArrowVisualState(Transform parent)
         {
-            var note = new RecoveredNotationNote
+            var note = new NotationNote
             {
                 Id = 987657,
-                NoteType = (int)RecoveredNoteType.ScratchHold,
+                NoteType = (int)NoteType.ScratchHold,
                 Lane = 3,
                 Width = 3,
                 StartTickCount = 1f,
@@ -5572,7 +5573,7 @@ namespace OpenWDS.Editor
                 GimmickType = 1,
                 GimmickValue = -6,
             };
-            var runtime = new RecoveredNoteVisualRuntime(
+            var runtime = new NoteVisualRuntime(
                 new[] { note }, parent, LoadRuntimeNotePrefabs(), 5d,
                 0d, AssetDatabase.LoadAssetAtPath<Material>(ScratchHoldMaterialPath));
             runtime.Tick(0);
@@ -5606,16 +5607,16 @@ namespace OpenWDS.Editor
                     break;
                 }
             }
-            var opposite = new RecoveredNotationNote
+            var opposite = new NotationNote
             {
-                NoteType = (int)RecoveredNoteType.ScratchHold,
+                NoteType = (int)NoteType.ScratchHold,
                 Lane = 3,
                 Width = 3,
                 GimmickType = 1,
                 GimmickValue = 6,
             };
             var oppositeEndX =
-                RecoveredNoteVisualRuntime.GetJumpScratchEndOffsetX(opposite);
+                NoteVisualRuntime.GetJumpScratchEndOffsetX(opposite);
             var jumpLaneCount = Mathf.Abs(note.GimmickValue);
             var initialEndX = end != null ? end.localPosition.x : float.NaN;
             var expectedState = Animator.StringToHash(
@@ -5695,66 +5696,66 @@ namespace OpenWDS.Editor
         {
             var phases = new[]
             {
-                RecoveredTouchPhase.Began,
-                RecoveredTouchPhase.Moved,
-                RecoveredTouchPhase.Stationary,
-                RecoveredTouchPhase.Ended,
-                RecoveredTouchPhase.Canceled,
-                RecoveredTouchPhase.None,
+                TouchPhase.Began,
+                TouchPhase.Moved,
+                TouchPhase.Stationary,
+                TouchPhase.Ended,
+                TouchPhase.Canceled,
+                TouchPhase.None,
             };
             for (var index = 0; index < phases.Length - 1; index++)
             {
-                if (RecoveredInputOrdering.CompareTouchPhase(phases[index], phases[index + 1]) >= 0)
+                if (InputOrdering.CompareTouchPhase(phases[index], phases[index + 1]) >= 0)
                 {
                     return false;
                 }
             }
 
-            var inputs = new List<RecoveredInputEntity>
+            var inputs = new List<InputEntity>
             {
-                new RecoveredInputEntity(1, 30, Vector2.zero, Vector2.zero, Vector2.zero,
-                    RecoveredTouchPhase.Began),
-                new RecoveredInputEntity(2, 10, Vector2.zero, Vector2.zero, Vector2.zero,
-                    RecoveredTouchPhase.Canceled),
-                new RecoveredInputEntity(3, 20, Vector2.zero, Vector2.zero, Vector2.zero,
-                    RecoveredTouchPhase.Moved),
+                new InputEntity(1, 30, Vector2.zero, Vector2.zero, Vector2.zero,
+                    TouchPhase.Began),
+                new InputEntity(2, 10, Vector2.zero, Vector2.zero, Vector2.zero,
+                    TouchPhase.Canceled),
+                new InputEntity(3, 20, Vector2.zero, Vector2.zero, Vector2.zero,
+                    TouchPhase.Moved),
             };
-            RecoveredInputOrdering.SortLikeInputHandler(inputs);
+            InputOrdering.SortLikeInputHandler(inputs);
             return inputs[0].Milliseconds == 10 &&
                    inputs[1].Milliseconds == 20 &&
                    inputs[2].Milliseconds == 30 &&
-                   new RecoveredInputEntity(7, 1, Vector2.zero, Vector2.zero, Vector2.zero,
-                       RecoveredTouchPhase.Began).Equals(
-                       new RecoveredInputEntity(7, 2, Vector2.one, Vector2.one, Vector2.one,
-                           RecoveredTouchPhase.Ended));
+                   new InputEntity(7, 1, Vector2.zero, Vector2.zero, Vector2.zero,
+                       TouchPhase.Began).Equals(
+                       new InputEntity(7, 2, Vector2.one, Vector2.one, Vector2.one,
+                           TouchPhase.Ended));
         }
 
         private static bool ValidateHitLaneEntity()
         {
-            var hit = new RecoveredHitLaneEntity(0, 2, 3, 4, 5);
-            var sameUniqueId = new RecoveredHitLaneEntity(0, 2, 3, 4, 5);
-            var mainHit = new RecoveredHitLaneEntity(6, 2, 3, 4, 5);
+            var hit = new HitLaneEntity(0, 2, 3, 4, 5);
+            var sameUniqueId = new HitLaneEntity(0, 2, 3, 4, 5);
+            var mainHit = new HitLaneEntity(6, 2, 3, 4, 5);
             return hit.Exists &&
                    hit.GetLaneIdOrDefault() == 2 &&
                    hit.GetHashCode() == 2030405 &&
                    hit.Equals(sameUniqueId) &&
                    mainHit.GetLaneIdOrDefault() == 6 &&
-                   !default(RecoveredHitLaneEntity).Exists;
+                   !default(HitLaneEntity).Exists;
         }
 
         private static bool ValidateInputLifecycle()
         {
-            var flickInputs = new RecoveredFlickInputManager();
-            var laneHits = new RecoveredLaneHitManager();
-            var began = new RecoveredInputEntity(
+            var flickInputs = new FlickInputManager();
+            var laneHits = new LaneHitManager();
+            var began = new InputEntity(
                 9, 100, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Began);
-            var moved = new RecoveredInputEntity(
+                TouchPhase.Began);
+            var moved = new InputEntity(
                 9, 130, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Moved);
-            var ended = new RecoveredInputEntity(
+                TouchPhase.Moved);
+            var ended = new InputEntity(
                 9, 160, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Ended);
+                TouchPhase.Ended);
 
             if (!flickInputs.TrySetBeganTime(in began, out var beganMilliseconds) ||
                 beganMilliseconds != 100 ||
@@ -5766,13 +5767,13 @@ namespace OpenWDS.Editor
             laneHits.Set(9, 4);
             if (laneHits.IsChangedHitLaneId(4, 9) ||
                 !laneHits.IsChangedHitLaneId(5, 9) ||
-                !RecoveredInputLifecycle.IsEnded(RecoveredTouchPhase.Canceled))
+                !InputLifecycle.IsEnded(TouchPhase.Canceled))
             {
                 return false;
             }
 
             var removedHoldTouchId = 0;
-            RecoveredInputLifecycle.FinalizeEndedTouches(
+            InputLifecycle.FinalizeEndedTouches(
                 new[] { ended },
                 flickInputs,
                 laneHits,
@@ -5784,39 +5785,39 @@ namespace OpenWDS.Editor
 
         private static bool ValidateInputFireCore()
         {
-            var early = new RecoveredNotationNote { StartTickCount = 1f, NoteType = 10 };
-            var late = new RecoveredNotationNote { StartTickCount = 2f, NoteType = 50 };
-            var candidates = RecoveredInputFireCore.CreateSortedCandidates(
+            var early = new NotationNote { StartTickCount = 1f, NoteType = 10 };
+            var late = new NotationNote { StartTickCount = 2f, NoteType = 50 };
+            var candidates = InputFireCore.CreateSortedCandidates(
                 new[] { late },
                 new[] { early });
             if (candidates[0] != early ||
-                RecoveredInputFireCore.GetCandidateAction(80) != RecoveredCandidateAction.Tap ||
-                RecoveredInputFireCore.GetCandidateAction(50) != RecoveredCandidateAction.Flick ||
-                RecoveredInputFireCore.GetCandidateAction(900) != RecoveredCandidateAction.Ignore)
+                InputFireCore.GetCandidateAction(80) != CandidateAction.Tap ||
+                InputFireCore.GetCandidateAction(50) != CandidateAction.Flick ||
+                InputFireCore.GetCandidateAction(900) != CandidateAction.Ignore)
             {
                 return false;
             }
 
-            var touches = new List<RecoveredInputEntity>
+            var touches = new List<InputEntity>
             {
-                new RecoveredInputEntity(12, 1000, Vector2.zero, Vector2.zero,
-                    Vector2.zero, RecoveredTouchPhase.Began),
+                new InputEntity(12, 1000, Vector2.zero, Vector2.zero,
+                    Vector2.zero, TouchPhase.Began),
             };
-            var hitLanes = new List<RecoveredHitLaneEntity>
+            var hitLanes = new List<HitLaneEntity>
             {
-                new RecoveredHitLaneEntity(3, 0, 0, 0, 0),
+                new HitLaneEntity(3, 0, 0, 0, 0),
             };
-            var beganHitLanes = new List<RecoveredHitLaneEntity>(hitLanes);
-            var laneHits = new RecoveredLaneHitManager();
-            var endedTouches = new List<RecoveredInputEntity>();
-            RecoveredInputFireCore.ConsumeTapAndFlickPass(
+            var beganHitLanes = new List<HitLaneEntity>(hitLanes);
+            var laneHits = new LaneHitManager();
+            var endedTouches = new List<InputEntity>();
+            InputFireCore.ConsumeTapAndFlickPass(
                 touches,
                 hitLanes,
                 beganHitLanes,
                 candidates,
                 laneHits,
                 (input, current, began, note) =>
-                    new RecoveredCandidateDecision(note == early, current.GetLaneIdOrDefault()),
+                    new CandidateDecision(note == early, current.GetLaneIdOrDefault()),
                 endedTouches);
             return touches.Count == 0 &&
                    hitLanes.Count == 0 &&
@@ -5841,10 +5842,10 @@ namespace OpenWDS.Editor
             var chartRoot = Path.Combine(
                 Application.dataPath, "StreamingAssets", "OpenWDS",
                 "StandardCharts", "1", "1");
-            var notation = RecoveredStandardNotation.Parse(
+            var notation = StandardNotation.Parse(
                 File.ReadAllText(Path.Combine(chartRoot, "1.csv")));
-            var clock = new RecoveredGameClock(3.019f, 0d);
-            var autoTouch = new RecoveredAutoTouch(
+            var clock = new GameClock(3.019f, 0d);
+            var autoTouch = new AutoTouch(
                 clock,
                 notation,
                 note =>
@@ -5859,17 +5860,17 @@ namespace OpenWDS.Editor
                 return false;
             }
 
-            RecoveredNotationNote firstHoldStart = null;
-            RecoveredNotationNote firstHoldBody = null;
+            NotationNote firstHoldStart = null;
+            NotationNote firstHoldBody = null;
             foreach (var note in notation)
             {
-                if (note.NoteType == (int)RecoveredNoteType.HoldStart &&
+                if (note.NoteType == (int)NoteType.HoldStart &&
                     note.Lane == 7 && note.Width == 4 &&
                     note.StartMilliseconds == 3050)
                 {
                     firstHoldStart = note;
                 }
-                else if (note.NoteType == (int)RecoveredNoteType.Hold &&
+                else if (note.NoteType == (int)NoteType.Hold &&
                          note.Lane == 7 && note.Width == 4 &&
                          note.StartMilliseconds == 3050)
                 {
@@ -5880,11 +5881,11 @@ namespace OpenWDS.Editor
             {
                 return false;
             }
-            var holdManager = new RecoveredLaneHoldManager();
-            var holdEvents = new List<RecoveredInputEffectEntity>();
+            var holdManager = new LaneHoldManager();
+            var holdEvents = new List<InputEffectEntity>();
 
             clock.Sync(6.07f, 6070, 10f, 10000); // chart time 3051 ms
-            var touches = new List<RecoveredInputEntity>();
+            var touches = new List<InputEntity>();
             autoTouch.GetTouches(touches);
             if (touches.Count != 6 || autoTouch.ActiveHoldingCount != 1)
             {
@@ -5893,7 +5894,7 @@ namespace OpenWDS.Editor
             var foundConvertedHoldBegin = false;
             foreach (var touch in touches)
             {
-                if (touch.Phase == RecoveredTouchPhase.Began &&
+                if (touch.Phase == TouchPhase.Began &&
                     touch.Milliseconds == 9999 &&
                     touch.TouchId == firstHoldBody.Id)
                 {
@@ -5906,9 +5907,9 @@ namespace OpenWDS.Editor
                 holdEvents[0].NoteId != firstHoldBody.Id ||
                 holdEvents[0].StartMilliseconds != firstHoldBody.StartMilliseconds ||
                 holdEvents[0].LaneId != 7 || holdEvents[0].Width != 4 ||
-                holdEvents[0].NoteType != RecoveredNoteType.Hold ||
-                holdEvents[0].TimingType != RecoveredTimingType.None ||
-                holdEvents[0].EffectType != RecoveredInputEffectType.HoldStart)
+                holdEvents[0].NoteType != NoteType.Hold ||
+                holdEvents[0].TimingType != TimingType.None ||
+                holdEvents[0].EffectType != InputEffectType.HoldStart)
             {
                 return false;
             }
@@ -5916,7 +5917,7 @@ namespace OpenWDS.Editor
             touches.Clear();
             autoTouch.GetTouches(touches);
             if (!foundConvertedHoldBegin || touches.Count != 1 ||
-                touches[0].Phase != RecoveredTouchPhase.Stationary)
+                touches[0].Phase != TouchPhase.Stationary)
             {
                 return false;
             }
@@ -5931,36 +5932,36 @@ namespace OpenWDS.Editor
             touches.Clear();
             autoTouch.GetTouches(touches);
             if (touches.Count != 1 ||
-                touches[0].Phase != RecoveredTouchPhase.Ended ||
+                touches[0].Phase != TouchPhase.Ended ||
                 touches[0].TouchId != firstHoldBody.Id ||
                 autoTouch.ActiveHoldingCount != 0)
             {
                 return false;
             }
-            var timing = RecoveredHoldTimingDecider.DecideEnd(
+            var timing = HoldTimingDecider.DecideEnd(
                 clock, touches[0].Milliseconds, firstHoldBody);
             holdManager.Remove(touches[0].TouchId);
             holdManager.GetHoldEvents(holdEvents);
             laneHoldLifecycleValid =
-                timing.TimingType == RecoveredTimingType.PerfectStar &&
-                timing.TimingAssistType == RecoveredTimingAssistType.None &&
+                timing.TimingType == TimingType.PerfectStar &&
+                timing.TimingAssistType == TimingAssistType.None &&
                 holdManager.Count == 0 &&
                 holdEvents.Count == 1 &&
                 holdEvents[0].NoteId == firstHoldBody.Id &&
-                holdEvents[0].EffectType == RecoveredInputEffectType.HoldEnd &&
+                holdEvents[0].EffectType == InputEffectType.HoldEnd &&
                 ValidateSharedHoldOccupancy(firstHoldBody);
             return laneHoldLifecycleValid;
         }
 
-        private static bool ValidateSharedHoldOccupancy(RecoveredNotationNote hold)
+        private static bool ValidateSharedHoldOccupancy(NotationNote hold)
         {
-            var manager = new RecoveredLaneHoldManager();
-            var events = new List<RecoveredInputEffectEntity>();
+            var manager = new LaneHoldManager();
+            var events = new List<InputEffectEntity>();
             manager.Set(101, hold);
             manager.Set(102, hold);
             manager.GetHoldEvents(events);
             if (events.Count != 1 ||
-                events[0].EffectType != RecoveredInputEffectType.HoldStart ||
+                events[0].EffectType != InputEffectType.HoldStart ||
                 manager.Count != 2 || !manager.Exists(hold, 101))
             {
                 return false;
@@ -5977,7 +5978,7 @@ namespace OpenWDS.Editor
             manager.Remove(102);
             manager.GetHoldEvents(events);
             return events.Count == 1 &&
-                   events[0].EffectType == RecoveredInputEffectType.HoldEnd &&
+                   events[0].EffectType == InputEffectType.HoldEnd &&
                    manager.Count == 0;
         }
 
@@ -5986,8 +5987,8 @@ namespace OpenWDS.Editor
             var chartPath = Path.Combine(
                 Application.dataPath, "StreamingAssets", "OpenWDS",
                 "StandardCharts", "1", "1", "1.csv");
-            var notation = RecoveredStandardNotation.Parse(File.ReadAllText(chartPath));
-            var manager = new RecoveredStandardHoldNoteManager(notation);
+            var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
+            var manager = new StandardHoldNoteManager(notation);
             if (manager.HoldNoteCount != 24 ||
                 manager.HoldingNoteCount != 102 ||
                 manager.UncompletedHoldStartNoteCount != 24)
@@ -5995,11 +5996,11 @@ namespace OpenWDS.Editor
                 return false;
             }
 
-            var hitLane = new RecoveredHitLaneEntity(7, 0, 0, 0, 0);
-            var tooEarlyAction = new RecoveredStandardHoldAction(manager);
-            var stationary = new RecoveredInputEntity(
+            var hitLane = new HitLaneEntity(7, 0, 0, 0, 0);
+            var tooEarlyAction = new StandardHoldAction(manager);
+            var stationary = new InputEntity(
                 5, 0, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Stationary);
+                TouchPhase.Stationary);
             // AutoTouch sends Stationary on every rendered frame. Sweep the
             // complete early GOOD window so a discrete test cannot accidentally
             // jump from -126 ms straight to the exact end again.
@@ -6014,7 +6015,7 @@ namespace OpenWDS.Editor
 
             // isHolding=false first acquires the body against StartMilliseconds;
             // a later call with LaneHold's current body judges EndMilliseconds.
-            var action = new RecoveredStandardHoldAction(manager);
+            var action = new StandardHoldAction(manager);
             var acquired = action.TryHold(stationary, hitLane, 3050);
             if (!acquired.Assigned || acquired.Consumed ||
                 acquired.HoldNote == null)
@@ -6025,11 +6026,11 @@ namespace OpenWDS.Editor
                 stationary, hitLane, 5084, acquired.HoldNote);
             if (!result.Consumed || result.LaneId != 7 ||
                 result.HoldNote == null || result.HoldStartNote == null ||
-                result.HoldNote.NoteType != (int)RecoveredNoteType.Hold ||
+                result.HoldNote.NoteType != (int)NoteType.Hold ||
                 result.HoldNote.StartMilliseconds != 3050 ||
                 result.HoldNote.EndMilliseconds != 5084 ||
                 result.HoldStartNote.StartMilliseconds != 3050 ||
-                result.Timing.TimingType != RecoveredTimingType.PerfectStar ||
+                result.Timing.TimingType != TimingType.PerfectStar ||
                 result.DeletedHoldingNoteCount != 10 ||
                 manager.HoldNoteCount != 23 ||
                 manager.HoldingNoteCount != 92 ||
@@ -6042,11 +6043,11 @@ namespace OpenWDS.Editor
             // InputAction.OnHoldEnd uses HoldTimingDecider before the endpoint.
             // End-126 is outside the window; End-125 is the inclusive GOOD
             // boundary and End-60 is the PERFECT_STAR boundary.
-            var releaseManager = new RecoveredStandardHoldNoteManager(notation);
-            var releaseAction = new RecoveredStandardHoldAction(releaseManager);
-            var ended = new RecoveredInputEntity(
+            var releaseManager = new StandardHoldNoteManager(notation);
+            var releaseAction = new StandardHoldAction(releaseManager);
+            var ended = new InputEntity(
                 5, 0, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Ended);
+                TouchPhase.Ended);
             var releaseAcquired =
                 releaseAction.TryHold(stationary, hitLane, 3050);
             if (!releaseAcquired.Assigned || releaseAcquired.Consumed ||
@@ -6054,13 +6055,13 @@ namespace OpenWDS.Editor
                     ended, hitLane, 4958, releaseAcquired.HoldNote).Consumed)
                 return false;
 
-            var graceManager = new RecoveredStandardHoldNoteManager(notation);
-            var graceAction = new RecoveredStandardHoldAction(graceManager);
+            var graceManager = new StandardHoldNoteManager(notation);
+            var graceAction = new StandardHoldAction(graceManager);
             var graceAcquired = graceAction.TryHold(stationary, hitLane, 4500);
             var releaseResult = graceAction.TryHold(
                 ended, hitLane, 4959, graceAcquired.HoldNote);
             if (!releaseResult.Consumed ||
-                releaseResult.Timing.TimingType != RecoveredTimingType.Good ||
+                releaseResult.Timing.TimingType != TimingType.Good ||
                 graceManager.HoldNoteCount != 23 ||
                 graceManager.HoldingNoteCount != 92 ||
                 graceManager.UncompletedHoldStartNoteCount != 23)
@@ -6068,26 +6069,26 @@ namespace OpenWDS.Editor
                 return false;
             }
 
-            var sound = new RecoveredNotationNote
+            var sound = new NotationNote
             {
                 Id = 9200, StartTickCount = 1f, EndTickCount = -1f,
-                NoteType = (int)RecoveredNoteType.Sound, Lane = 7, Width = 1,
+                NoteType = (int)NoteType.Sound, Lane = 7, Width = 1,
             };
-            var purple = new RecoveredNotationNote
+            var purple = new NotationNote
             {
                 Id = 9201, StartTickCount = 1f, EndTickCount = -1f,
-                NoteType = (int)RecoveredNoteType.SoundPurple, Lane = 7, Width = 1,
+                NoteType = (int)NoteType.SoundPurple, Lane = 7, Width = 1,
             };
-            var eighth = new RecoveredNotationNote
+            var eighth = new NotationNote
             {
                 Id = 9202, StartTickCount = 1f, EndTickCount = -1f,
-                NoteType = (int)RecoveredNoteType.HoldEighth, Lane = 7, Width = 1,
+                NoteType = (int)NoteType.HoldEighth, Lane = 7, Width = 1,
             };
-            var holdingManager = new RecoveredStandardHoldNoteManager(
+            var holdingManager = new StandardHoldNoteManager(
                 new[] { sound, purple, eighth });
-            var unified = new RecoveredUnifiedHoldAction(
+            var unified = new UnifiedHoldAction(
                 holdingManager,
-                new RecoveredScratchNoteManager(
+                new ScratchNoteManager(
                     new[] { sound, purple, eighth }));
             var holdingOnly = unified.TryHold(stationary, hitLane, 1000);
             return !holdingOnly.Consumed &&
@@ -6103,27 +6104,27 @@ namespace OpenWDS.Editor
             var chartPath = Path.Combine(
                 Application.dataPath, "StreamingAssets", "OpenWDS",
                 "StandardCharts", "1", "1", "1.csv");
-            var notation = RecoveredStandardNotation.Parse(File.ReadAllText(chartPath));
-            var noteManager = new RecoveredStandardHoldNoteManager(notation);
-            var action = new RecoveredStandardHoldAction(noteManager);
-            var input = new RecoveredInputEntity(
+            var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
+            var noteManager = new StandardHoldNoteManager(notation);
+            var action = new StandardHoldAction(noteManager);
+            var input = new InputEntity(
                 77, 0, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Stationary);
-            var touches = new List<RecoveredInputEntity> { input };
-            var hitLanes = new List<RecoveredHitLaneEntity>
+                TouchPhase.Stationary);
+            var touches = new List<InputEntity> { input };
+            var hitLanes = new List<HitLaneEntity>
             {
-                new RecoveredHitLaneEntity(7, 0, 0, 0, 0),
+                new HitLaneEntity(7, 0, 0, 0, 0),
             };
-            var laneHits = new RecoveredLaneHitManager();
-            var laneHolds = new RecoveredLaneHoldManager();
-            var assigned = RecoveredInputFireCore.ConsumeHoldPass(
+            var laneHits = new LaneHitManager();
+            var laneHolds = new LaneHoldManager();
+            var assigned = InputFireCore.ConsumeHoldPass(
                 touches,
                 hitLanes,
                 laneHits,
                 laneHolds,
                 (currentInput, currentHitLane) =>
                     action.TryHold(currentInput, currentHitLane, 3050));
-            var consumed = RecoveredInputFireCore.ConsumeHoldPass(
+            var consumed = InputFireCore.ConsumeHoldPass(
                 touches,
                 hitLanes,
                 laneHits,
@@ -6135,7 +6136,7 @@ namespace OpenWDS.Editor
                             currentInput.TouchId, out var currentHold)
                             ? currentHold
                             : null));
-            var effects = new List<RecoveredInputEffectEntity>();
+            var effects = new List<InputEffectEntity>();
             laneHolds.GetHoldEvents(effects);
             var ordinaryLifecycleValid =
                    assigned == 0 && consumed == 1 &&
@@ -6144,49 +6145,49 @@ namespace OpenWDS.Editor
                    effects.Count == 1 &&
                    effects[0].StartMilliseconds == 3050 &&
                    effects[0].LaneId == 7 && effects[0].Width == 4 &&
-                   effects[0].EffectType == RecoveredInputEffectType.HoldStart;
+                   effects[0].EffectType == InputEffectType.HoldStart;
             if (!ordinaryLifecycleValid) return false;
 
             // A released body remains assignable for its complete duration.
             // Replacing the finger emits End/Start so NoteView restores its
             // judgment-line crop, and End-125 is accepted as an early GOOD.
-            var reconnectStart = new RecoveredNotationNote
+            var reconnectStart = new NotationNote
             {
                 Id = 9900,
                 StartTickCount = 1f,
                 EndTickCount = -1f,
-                NoteType = (int)RecoveredNoteType.HoldStart,
+                NoteType = (int)NoteType.HoldStart,
                 Lane = 4,
                 Width = 2,
             };
-            var reconnectBody = new RecoveredNotationNote
+            var reconnectBody = new NotationNote
             {
                 Id = 9901,
                 StartTickCount = 1f,
                 EndTickCount = 2f,
-                NoteType = (int)RecoveredNoteType.Hold,
+                NoteType = (int)NoteType.Hold,
                 Lane = 4,
                 Width = 2,
             };
-            var reconnectManager = new RecoveredStandardHoldNoteManager(
+            var reconnectManager = new StandardHoldNoteManager(
                 new[] { reconnectStart, reconnectBody });
-            var reconnectAction = new RecoveredStandardHoldAction(
+            var reconnectAction = new StandardHoldAction(
                 reconnectManager);
-            var reconnectHolds = new RecoveredLaneHoldManager();
-            var reconnectHits = new RecoveredLaneHitManager();
-            var reconnectLane = new RecoveredHitLaneEntity(4, 0, 0, 0, 0);
-            var firstTouch = new RecoveredInputEntity(
+            var reconnectHolds = new LaneHoldManager();
+            var reconnectHits = new LaneHitManager();
+            var reconnectLane = new HitLaneEntity(4, 0, 0, 0, 0);
+            var firstTouch = new InputEntity(
                 201, 1200, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Stationary);
-            var secondTouch = new RecoveredInputEntity(
+                TouchPhase.Stationary);
+            var secondTouch = new InputEntity(
                 202, 1500, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Stationary);
-            var firstInputs = new List<RecoveredInputEntity> { firstTouch };
-            var secondInputs = new List<RecoveredInputEntity> { secondTouch };
-            var reconnectLanes = new List<RecoveredHitLaneEntity> {
+                TouchPhase.Stationary);
+            var firstInputs = new List<InputEntity> { firstTouch };
+            var secondInputs = new List<InputEntity> { secondTouch };
+            var reconnectLanes = new List<HitLaneEntity> {
                 reconnectLane
             };
-            RecoveredInputFireCore.ConsumeHoldPass(
+            InputFireCore.ConsumeHoldPass(
                 firstInputs, reconnectLanes, reconnectHits, reconnectHolds,
                 (currentInput, currentLane) =>
                     reconnectAction.TryHold(currentInput, currentLane, 1200));
@@ -6194,14 +6195,14 @@ namespace OpenWDS.Editor
             reconnectHolds.GetHoldEvents(effects);
             var firstStartValid = effects.Count == 1 &&
                 effects[0].NoteId == reconnectBody.Id &&
-                effects[0].EffectType == RecoveredInputEffectType.HoldStart;
+                effects[0].EffectType == InputEffectType.HoldStart;
             reconnectHolds.Remove(firstTouch.TouchId);
             effects.Clear();
             reconnectHolds.GetHoldEvents(effects);
             var liftEndValid = effects.Count == 1 &&
                 effects[0].NoteId == reconnectBody.Id &&
-                effects[0].EffectType == RecoveredInputEffectType.HoldEnd;
-            RecoveredInputFireCore.ConsumeHoldPass(
+                effects[0].EffectType == InputEffectType.HoldEnd;
+            InputFireCore.ConsumeHoldPass(
                 secondInputs, reconnectLanes, reconnectHits, reconnectHolds,
                 (currentInput, currentLane) =>
                     reconnectAction.TryHold(currentInput, currentLane, 1500));
@@ -6209,14 +6210,14 @@ namespace OpenWDS.Editor
             reconnectHolds.GetHoldEvents(effects);
             var replacementStartValid = effects.Count == 1 &&
                 effects[0].NoteId == reconnectBody.Id &&
-                effects[0].EffectType == RecoveredInputEffectType.HoldStart &&
+                effects[0].EffectType == InputEffectType.HoldStart &&
                 reconnectHolds.TryGet(secondTouch.TouchId, out var reassigned) &&
                 reassigned == reconnectBody;
-            var earlyEnd = new RecoveredInputEntity(
+            var earlyEnd = new InputEntity(
                 202, 1875, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Ended);
+                TouchPhase.Ended);
             secondInputs[0] = earlyEnd;
-            var earlyConsumed = RecoveredInputFireCore.ConsumeHoldPass(
+            var earlyConsumed = InputFireCore.ConsumeHoldPass(
                 secondInputs, reconnectLanes, reconnectHits, reconnectHolds,
                 (currentInput, currentLane) =>
                     reconnectAction.TryHold(
@@ -6235,7 +6236,7 @@ namespace OpenWDS.Editor
             // Exercise the public pause transition used by GameRuntime:
             // RemoveAll publishes HoldEnd, then a countdown touch is accepted
             // as a fresh HoldStart and can use the same early tail window.
-            var pauseRuntime = new RecoveredInputHandlerRuntime(
+            var pauseRuntime = new InputHandlerRuntime(
                 new[] { reconnectBody },
                 0f,
                 note => Vector2.zero,
@@ -6244,22 +6245,22 @@ namespace OpenWDS.Editor
             var pauseInitialStart = pauseRuntime.ActiveTouchHoldCount == 1 &&
                 pauseRuntime.HoldEvents.Count == 1 &&
                 pauseRuntime.HoldEvents[0].EffectType ==
-                    RecoveredInputEffectType.HoldStart;
+                    InputEffectType.HoldStart;
             pauseRuntime.ReleaseHoldLanesForPause();
             var pauseReleased = pauseRuntime.ActiveTouchHoldCount == 0 &&
                 pauseRuntime.HoldEvents.Count == 1 &&
                 pauseRuntime.HoldEvents[0].EffectType ==
-                    RecoveredInputEffectType.HoldEnd;
+                    InputEffectType.HoldEnd;
             pauseRuntime.TickPlayer(
                 1500, 1500, new[] { secondTouch });
             var pauseReacquired = pauseRuntime.ActiveTouchHoldCount == 1 &&
                 pauseRuntime.HoldEvents.Count == 1 &&
                 pauseRuntime.HoldEvents[0].EffectType ==
-                    RecoveredInputEffectType.HoldStart;
+                    InputEffectType.HoldStart;
             pauseRuntime.TickPlayer(1875, 1875, new[] { earlyEnd });
             var pauseTailValid = pauseRuntime.InputResults.Count == 1 &&
                 pauseRuntime.InputResults[0].TimingType ==
-                    RecoveredTimingType.Good &&
+                    TimingType.Good &&
                 pauseRuntime.RemainingHoldCount == 0;
             pauseRuntime.Dispose();
             return pauseInitialStart && pauseReleased &&
@@ -6271,11 +6272,11 @@ namespace OpenWDS.Editor
             var chartPath = Path.Combine(
                 Application.dataPath, "StreamingAssets", "OpenWDS",
                 "StandardCharts", "1", "1", "2.csv");
-            var notation = RecoveredStandardNotation.Parse(File.ReadAllText(chartPath));
-            RecoveredNotationNote firstFlick = null;
+            var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
+            NotationNote firstFlick = null;
             foreach (var note in notation)
             {
-                if (note.NoteType == (int)RecoveredNoteType.Flick)
+                if (note.NoteType == (int)NoteType.Flick)
                 {
                     firstFlick = note;
                     break;
@@ -6287,48 +6288,48 @@ namespace OpenWDS.Editor
                 return false;
             }
 
-            var atMinus70 = RecoveredFlickTimingDecider.DecideMusicTime(67980, 68050);
-            var atPlus70 = RecoveredFlickTimingDecider.DecideMusicTime(68120, 68050);
-            var atPlus71 = RecoveredFlickTimingDecider.DecideMusicTime(68121, 68050);
-            var atPlus100 = RecoveredFlickTimingDecider.DecideMusicTime(68150, 68050);
-            var outside = RecoveredFlickTimingDecider.DecideMusicTime(68151, 68050);
-            if (atMinus70.TimingType != RecoveredTimingType.PerfectStar ||
-                atPlus70.TimingType != RecoveredTimingType.PerfectStar ||
-                atPlus71.TimingType != RecoveredTimingType.Great ||
-                atPlus100.TimingType != RecoveredTimingType.Great ||
-                outside.TimingType != RecoveredTimingType.None ||
-                atMinus70.TimingAssistType != RecoveredTimingAssistType.None ||
+            var atMinus70 = FlickTimingDecider.DecideMusicTime(67980, 68050);
+            var atPlus70 = FlickTimingDecider.DecideMusicTime(68120, 68050);
+            var atPlus71 = FlickTimingDecider.DecideMusicTime(68121, 68050);
+            var atPlus100 = FlickTimingDecider.DecideMusicTime(68150, 68050);
+            var outside = FlickTimingDecider.DecideMusicTime(68151, 68050);
+            if (atMinus70.TimingType != TimingType.PerfectStar ||
+                atPlus70.TimingType != TimingType.PerfectStar ||
+                atPlus71.TimingType != TimingType.Great ||
+                atPlus100.TimingType != TimingType.Great ||
+                outside.TimingType != TimingType.None ||
+                atMinus70.TimingAssistType != TimingAssistType.None ||
                 atMinus70.DiffMilliseconds != 0)
             {
                 return false;
             }
 
-            var clock = new RecoveredGameClock(3.019f, 0d);
+            var clock = new GameClock(3.019f, 0d);
             clock.Sync(71.069f, 71069, 100f, 100000); // music time 68050 ms
-            var flickInputs = new RecoveredFlickInputManager();
-            var flickNotes = new RecoveredFlickNoteManager(notation);
+            var flickInputs = new FlickInputManager();
+            var flickNotes = new FlickNoteManager(notation);
             if (flickNotes.Count != 3 ||
-                !RecoveredFlickTimingDecider.IsBeganRangeTarget(
+                !FlickTimingDecider.IsBeganRangeTarget(
                     clock, firstFlick, 99900) ||
-                RecoveredFlickTimingDecider.IsBeganRangeTarget(
+                FlickTimingDecider.IsBeganRangeTarget(
                     clock, firstFlick, 100100))
             {
                 return false;
             }
-            var action = new RecoveredFlickAction(
+            var action = new FlickAction(
                 clock, flickInputs, flickNotes);
-            var began = new RecoveredInputEntity(
+            var began = new InputEntity(
                 91, 100000, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Began);
+                TouchPhase.Began);
             var beganResult = action.TryFlick(began, firstFlick);
             if (!beganResult.Handled || beganResult.Consumed ||
                 beganResult.DeletedNote || flickInputs.Count != 1)
             {
                 return false;
             }
-            var insufficient = new RecoveredInputEntity(
+            var insufficient = new InputEntity(
                 91, 100000, Vector2.zero, Vector2.zero, new Vector2(5f, 5f),
-                RecoveredTouchPhase.Moved);
+                TouchPhase.Moved);
             var insufficientResult = action.TryFlick(insufficient, firstFlick);
             if (!insufficientResult.Handled || insufficientResult.Consumed ||
                 insufficientResult.DeletedNote ||
@@ -6336,75 +6337,75 @@ namespace OpenWDS.Editor
             {
                 return false;
             }
-            var moved = new RecoveredInputEntity(
+            var moved = new InputEntity(
                 91, 100000, Vector2.zero, Vector2.zero, new Vector2(6f, 5f),
-                RecoveredTouchPhase.Moved);
+                TouchPhase.Moved);
             var movedResult = action.TryFlick(moved, firstFlick);
             if (!movedResult.Consumed || !movedResult.DeletedNote ||
-                movedResult.CompletionReason != RecoveredFlickCompletionReason.Moved ||
-                movedResult.Timing.TimingType != RecoveredTimingType.PerfectStar ||
+                movedResult.CompletionReason != FlickCompletionReason.Moved ||
+                movedResult.Timing.TimingType != TimingType.PerfectStar ||
                 flickNotes.Count != 2 || flickInputs.Count != 0)
             {
                 return false;
             }
 
-            var releaseInputs = new RecoveredFlickInputManager();
-            var releaseNotes = new RecoveredFlickNoteManager(notation);
-            var releaseAction = new RecoveredFlickAction(
+            var releaseInputs = new FlickInputManager();
+            var releaseNotes = new FlickNoteManager(notation);
+            var releaseAction = new FlickAction(
                 clock, releaseInputs, releaseNotes);
             releaseAction.TryFlick(began, firstFlick);
-            var ended = new RecoveredInputEntity(
+            var ended = new InputEntity(
                 91, 100050, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Ended);
+                TouchPhase.Ended);
             var releasedResult = releaseAction.TryFlick(ended, firstFlick);
             if (!releasedResult.Consumed ||
-                releasedResult.CompletionReason != RecoveredFlickCompletionReason.Released ||
-                releasedResult.Timing.TimingType != RecoveredTimingType.Great ||
+                releasedResult.CompletionReason != FlickCompletionReason.Released ||
+                releasedResult.Timing.TimingType != TimingType.Great ||
                 releaseNotes.Count != 2 || releaseInputs.Count != 0)
             {
                 return false;
             }
 
-            var expiredInputs = new RecoveredFlickInputManager();
-            var expiredNotes = new RecoveredFlickNoteManager(notation);
-            var expiredAction = new RecoveredFlickAction(
+            var expiredInputs = new FlickInputManager();
+            var expiredNotes = new FlickNoteManager(notation);
+            var expiredAction = new FlickAction(
                 clock, expiredInputs, expiredNotes);
             expiredAction.TryFlick(began, firstFlick);
             clock.Sync(71.149f, 71149, 100.08f, 100080); // both timelines +80 ms
-            var stationary = new RecoveredInputEntity(
+            var stationary = new InputEntity(
                 91, 100080, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Stationary);
+                TouchPhase.Stationary);
             var expiredResult = expiredAction.TryFlick(stationary, firstFlick);
             if (!expiredResult.Consumed || !expiredResult.DeletedNote ||
-                expiredResult.CompletionReason != RecoveredFlickCompletionReason.Expired ||
-                expiredResult.Timing.TimingType != RecoveredTimingType.Great ||
+                expiredResult.CompletionReason != FlickCompletionReason.Expired ||
+                expiredResult.Timing.TimingType != TimingType.Great ||
                 expiredNotes.Count != 2 || expiredInputs.Count != 0)
             {
                 return false;
             }
 
             // Feed the original AutoTouch Flick pair through the recovered action.
-            var autoClock = new RecoveredGameClock(3.019f, 0d);
+            var autoClock = new GameClock(3.019f, 0d);
             autoClock.Sync(71.069f, 71069, 100f, 100000);
-            var autoTouch = new RecoveredAutoTouch(
+            var autoTouch = new AutoTouch(
                 autoClock,
                 new[] { firstFlick },
                 _ => new Vector2(320f, 180f));
-            var autoInputs = new List<RecoveredInputEntity>();
+            var autoInputs = new List<InputEntity>();
             autoTouch.GetTouches(autoInputs);
             if (autoTouch.ScheduledEventCount != 2 || autoInputs.Count != 2 ||
-                autoInputs[0].Phase != RecoveredTouchPhase.Began ||
+                autoInputs[0].Phase != TouchPhase.Began ||
                 autoInputs[0].Milliseconds != 99999 ||
-                autoInputs[1].Phase != RecoveredTouchPhase.Moved ||
+                autoInputs[1].Phase != TouchPhase.Moved ||
                 autoInputs[1].Milliseconds != 100000 ||
                 autoInputs[1].DeltaPosition != new Vector2(50f, 50f) ||
                 autoTouch.ActiveHoldingCount != 0)
             {
                 return false;
             }
-            var autoFlickInputs = new RecoveredFlickInputManager();
-            var autoFlickNotes = new RecoveredFlickNoteManager(new[] { firstFlick });
-            var autoAction = new RecoveredFlickAction(
+            var autoFlickInputs = new FlickInputManager();
+            var autoFlickNotes = new FlickNoteManager(new[] { firstFlick });
+            var autoAction = new FlickAction(
                 autoClock, autoFlickInputs, autoFlickNotes);
             var autoBeginResult = autoAction.TryFlick(autoInputs[0], firstFlick);
             var autoMovedResult = autoAction.TryFlick(autoInputs[1], firstFlick);
@@ -6412,11 +6413,11 @@ namespace OpenWDS.Editor
                    !autoBeginResult.DeletedNote &&
                    autoMovedResult.Handled && autoMovedResult.Consumed &&
                    autoMovedResult.DeletedNote &&
-                   autoMovedResult.CompletionReason == RecoveredFlickCompletionReason.Moved &&
-                   autoMovedResult.Timing.TimingType == RecoveredTimingType.PerfectStar &&
+                   autoMovedResult.CompletionReason == FlickCompletionReason.Moved &&
+                   autoMovedResult.Timing.TimingType == TimingType.PerfectStar &&
                    autoFlickNotes.Count == 0 && autoFlickInputs.Count == 0 &&
-                   RecoveredOriginalGameConfig.FlickDistance == 50f &&
-                   RecoveredOriginalGameConfig.FlickExpiredMilliseconds == 80L;
+                   OriginalGameConfig.FlickDistance == 50f &&
+                   OriginalGameConfig.FlickExpiredMilliseconds == 80L;
         }
 
         private static bool ValidateScratchAction()
@@ -6424,11 +6425,11 @@ namespace OpenWDS.Editor
             var chartPath = Path.Combine(
                 Application.dataPath, "StreamingAssets", "OpenWDS",
                 "StandardCharts", "1", "1", "2.csv");
-            var notation = RecoveredStandardNotation.Parse(File.ReadAllText(chartPath));
-            RecoveredNotationNote firstScratchHold = null;
+            var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
+            NotationNote firstScratchHold = null;
             foreach (var note in notation)
             {
-                if (note.NoteType == (int)RecoveredNoteType.ScratchHold)
+                if (note.NoteType == (int)NoteType.ScratchHold)
                 {
                     firstScratchHold = note;
                     break;
@@ -6442,22 +6443,22 @@ namespace OpenWDS.Editor
                 return false;
             }
 
-            var earlyBoundary = RecoveredScratchTimingDecider.DecideMusicTime(
+            var earlyBoundary = ScratchTimingDecider.DecideMusicTime(
                 966, firstScratchHold);
-            var justBoundary = RecoveredScratchTimingDecider.DecideMusicTime(
+            var justBoundary = ScratchTimingDecider.DecideMusicTime(
                 1066, firstScratchHold);
-            var tooEarly = RecoveredScratchTimingDecider.DecideMusicTime(
+            var tooEarly = ScratchTimingDecider.DecideMusicTime(
                 965, firstScratchHold);
-            if (earlyBoundary.TimingType != RecoveredTimingType.PerfectStar ||
+            if (earlyBoundary.TimingType != TimingType.PerfectStar ||
                 earlyBoundary.DiffMilliseconds != -50 ||
-                justBoundary.TimingType != RecoveredTimingType.Great ||
+                justBoundary.TimingType != TimingType.Great ||
                 justBoundary.DiffMilliseconds != 50 ||
-                tooEarly.TimingType != RecoveredTimingType.None)
+                tooEarly.TimingType != TimingType.None)
             {
                 return false;
             }
 
-            var manager = new RecoveredScratchNoteManager(notation);
+            var manager = new ScratchNoteManager(notation);
             if (manager.Count != 46 ||
                 !manager.IsIncludedLane(5, firstScratchHold) ||
                 !manager.IsIncludedLane(8, firstScratchHold) ||
@@ -6467,17 +6468,17 @@ namespace OpenWDS.Editor
                 return false;
             }
 
-            RecoveredNotationNote leftJump = null;
-            RecoveredNotationNote rightJump = null;
+            NotationNote leftJump = null;
+            NotationNote rightJump = null;
             foreach (var note in notation)
             {
-                if (!RecoveredJumpScratch.IsJumpScratch(note)) continue;
+                if (!JumpScratch.IsJumpScratch(note)) continue;
                 if (note.GimmickValue < 0 && leftJump == null) leftJump = note;
                 if (note.GimmickValue > 0 && rightJump == null) rightJump = note;
             }
             if (leftJump == null || rightJump == null) return false;
-            var leftRange = RecoveredJumpScratch.GetLaneRange(leftJump);
-            var rightRange = RecoveredJumpScratch.GetLaneRange(rightJump);
+            var leftRange = JumpScratch.GetLaneRange(leftJump);
+            var rightRange = JumpScratch.GetLaneRange(rightJump);
             if (leftJump.StartMilliseconds != 3050 ||
                 leftRange.StartLane != 7 || leftRange.EndLane != 12 ||
                 rightJump.StartMilliseconds != 3559 ||
@@ -6486,12 +6487,12 @@ namespace OpenWDS.Editor
                 !manager.IsIncludedLane(12, rightJump, true) ||
                 manager.IsIncludedLane(6, leftJump, true) ||
                 manager.IsIncludedLane(7, firstScratchHold, true) ||
-                !RecoveredJumpScratch.IsConnectedNext(leftJump, rightJump) ||
-                !RecoveredJumpScratch.IsConnectedPrevious(rightJump, leftJump) ||
-                !RecoveredJumpScratch.ExistsConnectedNext(notation, leftJump) ||
-                !RecoveredJumpScratch.ExistsConnectedPrevious(notation, rightJump) ||
-                RecoveredJumpScratch.ExistsConnectedPrevious(notation, leftJump) ||
-                RecoveredJumpScratch.IsConnectedNext(firstScratchHold, leftJump))
+                !JumpScratch.IsConnectedNext(leftJump, rightJump) ||
+                !JumpScratch.IsConnectedPrevious(rightJump, leftJump) ||
+                !JumpScratch.ExistsConnectedNext(notation, leftJump) ||
+                !JumpScratch.ExistsConnectedPrevious(notation, rightJump) ||
+                JumpScratch.ExistsConnectedPrevious(notation, leftJump) ||
+                JumpScratch.IsConnectedNext(firstScratchHold, leftJump))
             {
                 return false;
             }
@@ -6511,10 +6512,10 @@ namespace OpenWDS.Editor
                 return false;
             }
 
-            var action = new RecoveredScratchAction(manager);
-            var insufficient = new RecoveredInputEntity(
+            var action = new ScratchAction(manager);
+            var insufficient = new InputEntity(
                 301, 0, Vector2.zero, Vector2.zero, new Vector2(5f, 5f),
-                RecoveredTouchPhase.Moved);
+                TouchPhase.Moved);
             var beforeClockRange = action.TryScratch(
                 insufficient, firstScratchHold, 5, 1016, false, 965);
             var pending = action.TryScratch(
@@ -6522,22 +6523,22 @@ namespace OpenWDS.Editor
             if (beforeClockRange.Consumed || beforeClockRange.AddedPendingDecide ||
                 pending.Consumed || !pending.AddedPendingDecide ||
                 manager.PendingDecideCount != 1 ||
-                !RecoveredScratchTimingDecider.IsLessThanMinTiming(
+                !ScratchTimingDecider.IsLessThanMinTiming(
                     firstScratchHold, 965) ||
-                !RecoveredScratchTimingDecider.IsMinTimingToJustTiming(
+                !ScratchTimingDecider.IsMinTimingToJustTiming(
                     firstScratchHold, 966) ||
-                !RecoveredScratchTimingDecider.IsJustTimingToMaxTiming(
+                !ScratchTimingDecider.IsJustTimingToMaxTiming(
                     firstScratchHold, 1066))
             {
                 return false;
             }
             manager.ResetPendingDecide();
-            var moved = new RecoveredInputEntity(
+            var moved = new InputEntity(
                 301, 0, Vector2.zero, Vector2.zero, new Vector2(6f, 5f),
-                RecoveredTouchPhase.Moved);
+                TouchPhase.Moved);
             var result = action.TryScratch(moved, firstScratchHold, 8, 1016);
             if (!result.Consumed || !result.DeletedNote ||
-                result.Timing.TimingType != RecoveredTimingType.PerfectStar ||
+                result.Timing.TimingType != TimingType.PerfectStar ||
                 manager.Count != 45)
             {
                 return false;
@@ -6545,19 +6546,19 @@ namespace OpenWDS.Editor
 
             // The late branch is deliberately phase/distance independent and
             // publishes the fixed GREAT/None/0 decision used by TryScratchCore.
-            var lateManager = new RecoveredScratchNoteManager(
+            var lateManager = new ScratchNoteManager(
                 new[] { firstScratchHold });
-            var lateAction = new RecoveredScratchAction(lateManager);
-            var endedWithoutMovement = new RecoveredInputEntity(
+            var lateAction = new ScratchAction(lateManager);
+            var endedWithoutMovement = new InputEntity(
                 302, 0, Vector2.zero, Vector2.zero, Vector2.zero,
-                RecoveredTouchPhase.Ended);
+                TouchPhase.Ended);
             var lateResult = lateAction.TryScratch(
                 endedWithoutMovement, firstScratchHold, 5, 1066);
             if (!lateResult.Consumed || !lateResult.DeletedNote ||
                 lateResult.AddedPendingDecide ||
-                lateResult.Timing.TimingType != RecoveredTimingType.Great ||
+                lateResult.Timing.TimingType != TimingType.Great ||
                 lateResult.Timing.TimingAssistType !=
-                    RecoveredTimingAssistType.None ||
+                    TimingAssistType.None ||
                 lateResult.Timing.DiffMilliseconds != 0 ||
                 lateManager.Count != 0)
             {
@@ -6567,43 +6568,43 @@ namespace OpenWDS.Editor
             // AutoTouch.Initialize's real Jump-Scratch chain: the head emits a
             // Start-time Began, every 110/111 emits Moved at its own End, and
             // the terminal note adds Ended at End + 1 ms.
-            var jumpClock = new RecoveredGameClock(0f, 0d);
-            var jumpAutoTouch = new RecoveredAutoTouch(
+            var jumpClock = new GameClock(0f, 0d);
+            var jumpAutoTouch = new AutoTouch(
                 jumpClock,
                 notation,
                 note => new Vector2(note.Lane, 0f));
-            var chainInputs = new List<RecoveredInputEntity>();
+            var chainInputs = new List<InputEntity>();
             foreach (var input in jumpAutoTouch.ScheduledEvents)
             {
                 if (input.TouchId == leftJump.Id) chainInputs.Add(input);
             }
             if (chainInputs.Count != 6 ||
-                chainInputs[0].Phase != RecoveredTouchPhase.Began ||
+                chainInputs[0].Phase != TouchPhase.Began ||
                 chainInputs[0].Milliseconds != 3050 ||
                 chainInputs[0].ScreenPosition.x != 9f ||
-                chainInputs[1].Phase != RecoveredTouchPhase.Moved ||
+                chainInputs[1].Phase != TouchPhase.Moved ||
                 chainInputs[1].Milliseconds != 3559 ||
                 chainInputs[1].ScreenPosition.x != 9f ||
-                chainInputs[2].Phase != RecoveredTouchPhase.Moved ||
+                chainInputs[2].Phase != TouchPhase.Moved ||
                 chainInputs[2].Milliseconds != 4067 ||
                 chainInputs[2].ScreenPosition.x != 12f ||
-                chainInputs[3].Phase != RecoveredTouchPhase.Moved ||
+                chainInputs[3].Phase != TouchPhase.Moved ||
                 chainInputs[3].Milliseconds != 4576 ||
                 chainInputs[3].ScreenPosition.x != 7f ||
-                chainInputs[4].Phase != RecoveredTouchPhase.Moved ||
+                chainInputs[4].Phase != TouchPhase.Moved ||
                 chainInputs[4].Milliseconds != 5084 ||
                 chainInputs[4].ScreenPosition.x != 12f ||
-                chainInputs[5].Phase != RecoveredTouchPhase.Ended ||
+                chainInputs[5].Phase != TouchPhase.Ended ||
                 chainInputs[5].Milliseconds != 5085 ||
-                RecoveredJumpScratch.GetConnectedFirst(notation, rightJump) != leftJump ||
-                RecoveredJumpScratch.GetDestinationLane(leftJump) != 7 ||
-                RecoveredJumpScratch.GetDestinationLane(rightJump) != 12)
+                JumpScratch.GetConnectedFirst(notation, rightJump) != leftJump ||
+                JumpScratch.GetDestinationLane(leftJump) != 7 ||
+                JumpScratch.GetDestinationLane(rightJump) != 12)
             {
                 return false;
             }
 
-            var jumpManager = new RecoveredScratchNoteManager(notation);
-            var jumpAction = new RecoveredScratchAction(jumpManager);
+            var jumpManager = new ScratchNoteManager(notation);
+            var jumpAction = new ScratchAction(jumpManager);
             if (!jumpAction.TryScratch(
                     chainInputs[2], rightJump, 12, rightJump.EndMilliseconds,
                     true).Consumed)
@@ -6614,19 +6615,19 @@ namespace OpenWDS.Editor
             // Feed the chain head's original End-time AutoTouch movement through
             // the complete Hold pass. It must judge the first segment at its own
             // tail instead of waiting for the next connected segment.
-            var unifiedHoldNotes = new RecoveredStandardHoldNoteManager(notation);
-            var unifiedScratchNotes = new RecoveredScratchNoteManager(notation);
-            var unifiedAction = new RecoveredUnifiedHoldAction(
+            var unifiedHoldNotes = new StandardHoldNoteManager(notation);
+            var unifiedScratchNotes = new ScratchNoteManager(notation);
+            var unifiedAction = new UnifiedHoldAction(
                 unifiedHoldNotes, unifiedScratchNotes);
-            var unifiedTouches = new List<RecoveredInputEntity> { chainInputs[1] };
-            var unifiedHitLanes = new List<RecoveredHitLaneEntity>
+            var unifiedTouches = new List<InputEntity> { chainInputs[1] };
+            var unifiedHitLanes = new List<HitLaneEntity>
             {
-                new RecoveredHitLaneEntity(9, 0, 0, 0, 0),
+                new HitLaneEntity(9, 0, 0, 0, 0),
             };
-            var unifiedLaneHits = new RecoveredLaneHitManager();
-            var unifiedLaneHolds = new RecoveredLaneHoldManager();
-            RecoveredHoldActionResult unifiedResult = default;
-            var unifiedConsumed = RecoveredInputFireCore.ConsumeHoldPass(
+            var unifiedLaneHits = new LaneHitManager();
+            var unifiedLaneHolds = new LaneHoldManager();
+            HoldActionResult unifiedResult = default;
+            var unifiedConsumed = InputFireCore.ConsumeHoldPass(
                 unifiedTouches,
                 unifiedHitLanes,
                 unifiedLaneHits,
@@ -6637,7 +6638,7 @@ namespace OpenWDS.Editor
                         currentInput, currentHitLane, 3559);
                     return unifiedResult;
                 });
-            var unifiedEffects = new List<RecoveredInputEffectEntity>();
+            var unifiedEffects = new List<InputEffectEntity>();
             unifiedLaneHolds.GetHoldEvents(unifiedEffects);
             Debug.Log("OPENWDS_JUMP_HEAD_AUTOPLAY consumed=" + unifiedConsumed +
                       " result=" + unifiedResult.Consumed +
@@ -6657,58 +6658,58 @@ namespace OpenWDS.Editor
                 unifiedResult.AssignmentNote != rightJump ||
                 unifiedResult.DeletedScratchNoteCount != 0 ||
                 unifiedResult.LaneId != 9 ||
-                unifiedResult.Timing.TimingType != RecoveredTimingType.PerfectStar ||
+                unifiedResult.Timing.TimingType != TimingType.PerfectStar ||
                 unifiedScratchNotes.Count != 45 ||
                 unifiedLaneHits.Count != 1 || unifiedLaneHolds.Count != 1 ||
                 unifiedEffects.Count != 1 ||
                 unifiedEffects[0].NoteId != rightJump.Id ||
-                unifiedEffects[0].EffectType != RecoveredInputEffectType.HoldStart)
+                unifiedEffects[0].EffectType != InputEffectType.HoldStart)
             {
                 return false;
             }
 
-            RecoveredNotationNote thirdJump = null;
-            RecoveredNotationNote terminalJump = null;
+            NotationNote thirdJump = null;
+            NotationNote terminalJump = null;
             foreach (var candidate in notation)
             {
-                if (RecoveredJumpScratch.IsConnectedNext(rightJump, candidate))
+                if (JumpScratch.IsConnectedNext(rightJump, candidate))
                     thirdJump = candidate;
             }
             if (thirdJump != null)
             {
                 foreach (var candidate in notation)
                 {
-                    if (RecoveredJumpScratch.IsConnectedNext(thirdJump, candidate))
+                    if (JumpScratch.IsConnectedNext(thirdJump, candidate))
                         terminalJump = candidate;
                 }
             }
             if (thirdJump == null || terminalJump == null) return false;
 
-            var chainManager = new RecoveredScratchNoteManager(
+            var chainManager = new ScratchNoteManager(
                 new[] { leftJump, rightJump, thirdJump, terminalJump });
-            var chainAction = new RecoveredUnifiedHoldAction(
-                new RecoveredStandardHoldNoteManager(
+            var chainAction = new UnifiedHoldAction(
+                new StandardHoldNoteManager(
                     new[] { leftJump, rightJump, thirdJump, terminalJump }),
                 chainManager);
             var chainHeadResult = chainAction.TryHold(
                 chainInputs[1],
-                new RecoveredHitLaneEntity(9, 0, 0, 0, 0),
+                new HitLaneEntity(9, 0, 0, 0, 0),
                 chainInputs[1].Milliseconds);
             var connectedResult = chainAction.TryHold(
                 chainInputs[2],
-                new RecoveredHitLaneEntity(12, 0, 0, 0, 0),
+                new HitLaneEntity(12, 0, 0, 0, 0),
                 chainInputs[2].Milliseconds);
             var thirdResult = chainAction.TryHold(
                 chainInputs[3],
-                new RecoveredHitLaneEntity(7, 0, 0, 0, 0),
+                new HitLaneEntity(7, 0, 0, 0, 0),
                 chainInputs[3].Milliseconds);
             var terminalResult = chainAction.TryHold(
                 chainInputs[4],
-                new RecoveredHitLaneEntity(12, 0, 0, 0, 0),
+                new HitLaneEntity(12, 0, 0, 0, 0),
                 chainInputs[4].Milliseconds);
             var releaseResult = chainAction.TryHold(
                 chainInputs[5],
-                new RecoveredHitLaneEntity(12, 0, 0, 0, 0),
+                new HitLaneEntity(12, 0, 0, 0, 0),
                 chainInputs[5].Milliseconds);
             Debug.Log("OPENWDS_JUMP_CHAIN_AUTOPLAY head=" +
                       chainHeadResult.Consumed + "/" + chainHeadResult.HoldNote?.Id +
@@ -6731,21 +6732,21 @@ namespace OpenWDS.Editor
             if (!chainHeadResult.Consumed ||
                 chainHeadResult.HoldNote != leftJump ||
                 chainHeadResult.Timing.TimingType !=
-                    RecoveredTimingType.PerfectStar ||
+                    TimingType.PerfectStar ||
                 chainHeadResult.DeletedScratchNoteCount != 0 ||
                 !connectedResult.Consumed ||
                 connectedResult.HoldNote != rightJump ||
                 connectedResult.Timing.TimingType !=
-                    RecoveredTimingType.PerfectStar ||
+                    TimingType.PerfectStar ||
                 connectedResult.DeletedScratchNoteCount != 0 ||
                 !thirdResult.Consumed || thirdResult.HoldNote != thirdJump ||
                 thirdResult.Timing.TimingType !=
-                    RecoveredTimingType.PerfectStar ||
+                    TimingType.PerfectStar ||
                 thirdResult.DeletedScratchNoteCount != 0 ||
                 !terminalResult.Consumed ||
                 terminalResult.HoldNote != terminalJump ||
                 terminalResult.Timing.TimingType !=
-                    RecoveredTimingType.PerfectStar ||
+                    TimingType.PerfectStar ||
                 releaseResult.Consumed || chainManager.Count != 0 ||
                 chainManager.Contains(leftJump) ||
                 chainManager.Contains(rightJump) ||
@@ -6758,27 +6759,27 @@ namespace OpenWDS.Editor
             // Type 40 has a distinct StartMilliseconds target and one-event
             // AutoTouch schedule. No standard chart currently contains type 40,
             // so this fixture only exercises values proven by Initialize.
-            var scratch = new RecoveredNotationNote
+            var scratch = new NotationNote
             {
                 Id = 999,
                 StartTickCount = 2f,
                 EndTickCount = -1f,
-                NoteType = (int)RecoveredNoteType.Scratch,
+                NoteType = (int)NoteType.Scratch,
                 Lane = 3,
                 Width = 2,
             };
-            var autoClock = new RecoveredGameClock(0f, 0d);
+            var autoClock = new GameClock(0f, 0d);
             autoClock.Sync(2f, 2000, 2f, 2000);
-            var autoTouch = new RecoveredAutoTouch(
+            var autoTouch = new AutoTouch(
                 autoClock, new[] { scratch }, _ => new Vector2(320f, 180f));
-            var inputs = new List<RecoveredInputEntity>();
+            var inputs = new List<InputEntity>();
             autoTouch.GetTouches(inputs);
             return autoTouch.ScheduledEventCount == 1 && inputs.Count == 1 &&
-                   inputs[0].Phase == RecoveredTouchPhase.Moved &&
+                   inputs[0].Phase == TouchPhase.Moved &&
                    inputs[0].Milliseconds == 2000 &&
                    inputs[0].DeltaPosition == new Vector2(50f, 50f) &&
-                   RecoveredScratchTimingDecider.GetTargetMilliseconds(scratch) == 2000 &&
-                   RecoveredOriginalGameConfig.ScratchDistance == 50f;
+                   ScratchTimingDecider.GetTargetMilliseconds(scratch) == 2000 &&
+                   OriginalGameConfig.ScratchDistance == 50f;
         }
 
         private static bool ValidateLaneColliderMappings(Camera camera, GameObject laneGroup)
@@ -6801,7 +6802,7 @@ namespace OpenWDS.Editor
             var mainId = FindColliderId(managers.MainColliders, 1);
             var leftId = FindColliderId(managers.SubLeftInnerColliders, 2);
             var rightId = FindColliderId(managers.SubRightOuterColliders, 3);
-            var raycaster = new RecoveredLaneRaycaster(
+            var raycaster = new LaneRaycaster(
                 camera,
                 managers.MainColliders,
                 managers.SubLeftInnerColliders,
@@ -6821,21 +6822,21 @@ namespace OpenWDS.Editor
 
                 var group = laneGroup.GetComponent<Sirius.Game.LaneGroup>();
                 if (group == null) return false;
-                var inputs = new List<RecoveredInputEntity>(6);
-                var expected = new List<RecoveredHitLaneEntity>(6);
+                var inputs = new List<InputEntity>(6);
+                var expected = new List<HitLaneEntity>(6);
                 for (var lane = 1; lane <= 11; lane += 2)
                 {
                     var screen = camera.WorldToScreenPoint(
                         group.GetLaneCollider(lane).position);
                     var position = new Vector2(screen.x, screen.y);
-                    inputs.Add(new RecoveredInputEntity(
+                    inputs.Add(new InputEntity(
                         lane, 0, position, position, Vector2.zero,
-                        RecoveredTouchPhase.Moved));
+                        TouchPhase.Moved));
                     expected.Add(raycaster.RaycastPoint(position));
                 }
-                var batched = new List<RecoveredHitLaneEntity>(inputs.Count);
+                var batched = new List<HitLaneEntity>(inputs.Count);
                 var beganBatched =
-                    new List<RecoveredHitLaneEntity>(inputs.Count);
+                    new List<HitLaneEntity>(inputs.Count);
                 raycaster.Raycast(inputs, batched, beganBatched);
                 return batched.Count == expected.Count &&
                        !batched.Where(
@@ -6870,7 +6871,7 @@ namespace OpenWDS.Editor
             var camera = cameraObject.AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.015f, 0.02f, 0.04f, 1f);
-            camera.fieldOfView = RecoveredGameConfigValues.CameraFieldOfView;
+            camera.fieldOfView = GameConfigValues.CameraFieldOfView;
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 100f;
             return camera;
@@ -7073,10 +7074,10 @@ namespace OpenWDS.Editor
         private static bool ValidatePositionFormula()
         {
             return Mathf.Approximately(
-                       RecoveredNotePositionCalculator.CalculateSpeedRate(10d),
+                       NotePositionCalculator.CalculateSpeedRate(10d),
                        6f) &&
                    Mathf.Approximately(
-                       RecoveredNotePositionCalculator.CalculatePositionY(
+                       NotePositionCalculator.CalculatePositionY(
                            1000,
                            0,
                            1f,
@@ -7085,7 +7086,7 @@ namespace OpenWDS.Editor
                            3d),
                        5f) &&
                    Mathf.Approximately(
-                       RecoveredNotePositionCalculator.CalculateMoveSeconds(
+                       NotePositionCalculator.CalculateMoveSeconds(
                            5d, 5000, 3, 4.45f),
                        1.4833333f);
         }
@@ -7094,25 +7095,25 @@ namespace OpenWDS.Editor
         {
             const float noteWidthPerLane = 0.85f;
             const float laneBorderWidth = 0.075f;
-            var oneLaneWidth = RecoveredNotePositionCalculator.GetNoteWidth(
+            var oneLaneWidth = NotePositionCalculator.GetNoteWidth(
                 1,
                 noteWidthPerLane,
                 laneBorderWidth);
-            var twoLaneWidth = RecoveredNotePositionCalculator.GetNoteWidth(
+            var twoLaneWidth = NotePositionCalculator.GetNoteWidth(
                 2,
                 noteWidthPerLane,
                 laneBorderWidth);
             return Mathf.Approximately(oneLaneWidth, 0.85f) &&
                    Mathf.Approximately(twoLaneWidth, 1.775f) &&
                    Mathf.Approximately(
-                       RecoveredNotePositionCalculator.GetNotePositionX(
+                       NotePositionCalculator.GetNotePositionX(
                            1,
                            oneLaneWidth,
                            noteWidthPerLane,
                            laneBorderWidth),
                        -5.0875f) &&
                    Mathf.Approximately(
-                       RecoveredNotePositionCalculator.GetNotePositionX(
+                       NotePositionCalculator.GetNotePositionX(
                            12,
                            oneLaneWidth,
                            noteWidthPerLane,
@@ -7122,12 +7123,12 @@ namespace OpenWDS.Editor
 
         private static bool ValidateSettingsDefaults()
         {
-            var system = RecoveredGameSettings.System.Default();
-            var basic = RecoveredGameSettings.Basic.Default();
-            var detail = RecoveredGameSettings.Detail.Default();
-            var custom = RecoveredGameSettings.Custom.Default();
-            var sound = RecoveredGameSettings.SoundVolume.Default();
-            var bluetooth = RecoveredGameSettings.Bluetooth.Default();
+            var system = GameSettings.System.Default();
+            var basic = GameSettings.Basic.Default();
+            var detail = GameSettings.Detail.Default();
+            var custom = GameSettings.Custom.Default();
+            var sound = GameSettings.SoundVolume.Default();
+            var bluetooth = GameSettings.Bluetooth.Default();
             return system.TextDisplaySpeed == 10 &&
                    system.TextSpeed == 10 &&
                    system.QualitySetting == 2 &&
@@ -7158,84 +7159,84 @@ namespace OpenWDS.Editor
 
         private static bool ValidateLaneSettingsMath()
         {
-            return Mathf.Approximately(RecoveredGameSettings.CalculateLaneScale(80), 0.8f) &&
-                   Mathf.Approximately(RecoveredGameSettings.CalculateLaneScale(100), 1f) &&
-                   Mathf.Approximately(RecoveredGameSettings.CalculateLaneScale(120), 1.2f) &&
+            return Mathf.Approximately(GameSettings.CalculateLaneScale(80), 0.8f) &&
+                   Mathf.Approximately(GameSettings.CalculateLaneScale(100), 1f) &&
+                   Mathf.Approximately(GameSettings.CalculateLaneScale(120), 1.2f) &&
                    Mathf.Approximately(
-                       RecoveredGameSettings.CalculateLaneDarknessAlpha(0), 0f) &&
+                       GameSettings.CalculateLaneDarknessAlpha(0), 0f) &&
                    Mathf.Approximately(
-                       RecoveredGameSettings.CalculateLaneDarknessAlpha(80), 0.8f) &&
+                       GameSettings.CalculateLaneDarknessAlpha(80), 0.8f) &&
                    Mathf.Approximately(
-                       RecoveredGameSettings.CalculateLaneDarknessAlpha(100), 1f) &&
+                       GameSettings.CalculateLaneDarknessAlpha(100), 1f) &&
                    Mathf.Approximately(
-                       RecoveredGameSettings.CalculateLaneBorderAlpha(0),
+                       GameSettings.CalculateLaneBorderAlpha(0),
                        14f / 255f) &&
                    Mathf.Approximately(
-                       RecoveredGameSettings.CalculateLaneBorderAlpha(100),
+                       GameSettings.CalculateLaneBorderAlpha(100),
                        51f / 255f);
         }
 
         private static bool ValidateSettingsUiBinding()
         {
-            return RecoveredGameSettings.ConvertBooleanToToggleIndex(true) == 0 &&
-                   RecoveredGameSettings.ConvertBooleanToToggleIndex(false) == 1 &&
-                   RecoveredGameSettings.ConvertToggleIndexToBoolean(0) &&
-                   !RecoveredGameSettings.ConvertToggleIndexToBoolean(1) &&
-                   RecoveredGameSettings.ConvertThreeChoiceToggleIndex(0) == 2 &&
-                   RecoveredGameSettings.ConvertThreeChoiceToggleIndex(1) == 1 &&
-                   RecoveredGameSettings.ConvertThreeChoiceToggleIndex(2) == 0 &&
-                   RecoveredGameSettings.IsValidLaneWidth(80) &&
-                   RecoveredGameSettings.IsValidLaneWidth(100) &&
-                   RecoveredGameSettings.IsValidLaneWidth(120) &&
-                   !RecoveredGameSettings.IsValidLaneWidth(81) &&
-                   RecoveredGameSettings.IsValidNoteHeight(8) &&
-                   RecoveredGameSettings.IsValidNoteSpeed(1d) &&
-                   RecoveredGameSettings.IsValidNoteSpeed(5d) &&
-                   RecoveredGameSettings.IsValidNoteSpeed(20.5d) &&
-                   RecoveredGameSettings.IsValidNoteSpeed(25d) &&
-                   !RecoveredGameSettings.IsValidNoteSpeed(25.05d) &&
-                   RecoveredGameSettings.CalculateNoteDisplayTime(0, 5d) == 1480 &&
-                   RecoveredGameSettings.CalculateNoteDisplayTime(30, 11.1d) == 467 &&
-                   RecoveredGameSettings.CalculateNoteDisplayTime(95, 25d) == 15 &&
-                   RecoveredGameSettings.CalculateNoteDisplayTime(100, 5d) == 0 &&
+            return GameSettings.ConvertBooleanToToggleIndex(true) == 0 &&
+                   GameSettings.ConvertBooleanToToggleIndex(false) == 1 &&
+                   GameSettings.ConvertToggleIndexToBoolean(0) &&
+                   !GameSettings.ConvertToggleIndexToBoolean(1) &&
+                   GameSettings.ConvertThreeChoiceToggleIndex(0) == 2 &&
+                   GameSettings.ConvertThreeChoiceToggleIndex(1) == 1 &&
+                   GameSettings.ConvertThreeChoiceToggleIndex(2) == 0 &&
+                   GameSettings.IsValidLaneWidth(80) &&
+                   GameSettings.IsValidLaneWidth(100) &&
+                   GameSettings.IsValidLaneWidth(120) &&
+                   !GameSettings.IsValidLaneWidth(81) &&
+                   GameSettings.IsValidNoteHeight(8) &&
+                   GameSettings.IsValidNoteSpeed(1d) &&
+                   GameSettings.IsValidNoteSpeed(5d) &&
+                   GameSettings.IsValidNoteSpeed(20.5d) &&
+                   GameSettings.IsValidNoteSpeed(25d) &&
+                   !GameSettings.IsValidNoteSpeed(25.05d) &&
+                   GameSettings.CalculateNoteDisplayTime(0, 5d) == 1480 &&
+                   GameSettings.CalculateNoteDisplayTime(30, 11.1d) == 467 &&
+                   GameSettings.CalculateNoteDisplayTime(95, 25d) == 15 &&
+                   GameSettings.CalculateNoteDisplayTime(100, 5d) == 0 &&
                    Mathf.Approximately(
-                       RecoveredGameSettings.CalculateCombinedVolume(100, 100),
+                       GameSettings.CalculateCombinedVolume(100, 100),
                        1f) &&
                    Mathf.Approximately(
-                       RecoveredGameSettings.CalculateCombinedVolume(80, 50),
+                       GameSettings.CalculateCombinedVolume(80, 50),
                        0.4f) &&
                    Mathf.Approximately(
-                       RecoveredGameSettings.CalculateCombinedVolume(0, 100),
+                       GameSettings.CalculateCombinedVolume(0, 100),
                        0f);
         }
 
         private static bool ValidateSettingsPersistenceDescriptor()
         {
-            return RecoveredSettingsPersistence.AesKeySize == 128 &&
-                   RecoveredSettingsPersistence.CurrentDirectory == "Users" &&
-                   RecoveredSettingsPersistence.Password == "9Yw|G_2EgDC(" &&
-                   RecoveredSettingsPersistence.Salt == "jPNv$zT3Biqa" &&
-                   RecoveredSettingsPersistence.SystemSettingsKey == "CsdcW8wz" &&
-                   RecoveredSettingsPersistence.GameSettingsKey == "P9cziA6b" &&
-                   RecoveredSettingsPersistence.GameDetailSettingsKey == "fU5ZnT6y" &&
-                   RecoveredSettingsPersistence.GameCustomSettingsKey == "wD4XR8Wm" &&
-                   RecoveredSettingsPersistence.SoundVolumeSettingsKey == "Tx9Lr3Pd" &&
-                   RecoveredSettingsPersistence.BluetoothSettingsKey == "X3sEZdWb";
+            return SettingsPersistence.AesKeySize == 128 &&
+                   SettingsPersistence.CurrentDirectory == "Users" &&
+                   SettingsPersistence.Password == "9Yw|G_2EgDC(" &&
+                   SettingsPersistence.Salt == "jPNv$zT3Biqa" &&
+                   SettingsPersistence.SystemSettingsKey == "CsdcW8wz" &&
+                   SettingsPersistence.GameSettingsKey == "P9cziA6b" &&
+                   SettingsPersistence.GameDetailSettingsKey == "fU5ZnT6y" &&
+                   SettingsPersistence.GameCustomSettingsKey == "wD4XR8Wm" &&
+                   SettingsPersistence.SoundVolumeSettingsKey == "Tx9Lr3Pd" &&
+                   SettingsPersistence.BluetoothSettingsKey == "X3sEZdWb";
         }
 
         private static bool ValidateSettingsCrypto()
         {
             const string plainText = "{\"x\":1}";
             const string expectedCipherText = "ZyK7Vf+Ja3VzGmrShfqBPw==";
-            var cipherText = RecoveredSettingsCrypto.EncryptUtf8(plainText);
+            var cipherText = SettingsCrypto.EncryptUtf8(plainText);
             return cipherText == expectedCipherText &&
-                   RecoveredSettingsCrypto.DecryptUtf8(cipherText) == plainText;
+                   SettingsCrypto.DecryptUtf8(cipherText) == plainText;
         }
 
         private static bool ValidateSettingsSession()
         {
-            var session = new RecoveredSettingsSession(
-                RecoveredSettingsSession.Snapshot.Default());
+            var session = new SettingsSession(
+                SettingsSession.Snapshot.Default());
             if (session.HasChanges)
             {
                 return false;
@@ -7267,8 +7268,8 @@ namespace OpenWDS.Editor
                 "openwds-settings-validation-" + Guid.NewGuid().ToString("N"));
             try
             {
-                var store = new RecoveredSettingsStore(root);
-                var settings = RecoveredSettingsSession.Snapshot.Default();
+                var store = new SettingsStore(root);
+                var settings = SettingsSession.Snapshot.Default();
                 settings.GameSettings.NoteSpeed = 14d;
                 settings.GameDetailSettings.LaneWidth = 115;
                 settings.SoundVolumeSettings.GameNotesTap = 73;
@@ -7277,14 +7278,14 @@ namespace OpenWDS.Editor
                 var loaded = store.LoadOrDefault();
                 var users = Path.Combine(
                     root,
-                    RecoveredSettingsPersistence.CurrentDirectory);
+                    SettingsPersistence.CurrentDirectory);
                 return loaded.GameSettings.NoteSpeed == 14d &&
                        loaded.GameDetailSettings.LaneWidth == 115 &&
                        loaded.SoundVolumeSettings.GameNotesTap == 73 &&
                        Directory.GetFiles(users).Length == 6 &&
                        !File.ReadAllText(Path.Combine(
                            users,
-                           RecoveredSettingsPersistence.GameSettingsKey))
+                           SettingsPersistence.GameSettingsKey))
                            .Contains("NoteSpeed");
             }
             finally
@@ -7392,21 +7393,21 @@ namespace OpenWDS.Editor
                 "\"Id\":10103,\"Difficulty\":3,\"Level\":20,\"NoteCount\":8," +
                 "\"DebugNotationAssetPath\":\"Assets/OpenWDS/Local/101_3_notation.asset\"," +
                 "\"DebugMusicConfigAssetPath\":\"Assets/OpenWDS/Local/101_music.asset\"}]}]}";
-            var catalog = RecoveredLocalMusicCatalog.FromJson(catalogJson);
-            var selected = catalog.Select(101, RecoveredMusicDifficulty.Extra);
+            var catalog = LocalMusicCatalog.FromJson(catalogJson);
+            var selected = catalog.Select(101, MusicDifficulty.Extra);
             var presenter = selected.CreatePresenterParameter(false);
             var game = presenter.CreateGameParameter();
 
-            return (int)RecoveredMusicDifficulty.Olivier == 5 &&
-                   (int)RecoveredLiveType.Normal == 1 &&
-                   (int)RecoveredLiveType.MultiRoom == 13 &&
-                   (int)RecoveredMusicVideoType.Movie == 2 &&
+            return (int)MusicDifficulty.Olivier == 5 &&
+                   (int)LiveType.Normal == 1 &&
+                   (int)LiveType.MultiRoom == 13 &&
+                   (int)MusicVideoType.Movie == 2 &&
                    selected.Live.Id == 10103 &&
                    selected.Live.Level == 20 &&
                    selected.Live.NoteCount == 8 &&
                    presenter.MusicId == 101 &&
-                   presenter.Difficulty == RecoveredMusicDifficulty.Extra &&
-                   presenter.LiveType == RecoveredLiveType.Normal &&
+                   presenter.Difficulty == MusicDifficulty.Extra &&
+                   presenter.LiveType == LiveType.Normal &&
                    presenter.VocalVersion == 1 &&
                    presenter.ProtoNotationUrl == string.Empty &&
                    presenter.ProtoMusicConfigUrl == string.Empty &&
@@ -7418,15 +7419,15 @@ namespace OpenWDS.Editor
 
         private static bool ValidatePauseRetireRoute()
         {
-            if (RecoveredGameRuntime.GetRetireDestination(
-                    RecoveredLiveType.Normal) !=
-                RecoveredGameExitRoute.MusicSelection)
+            if (GameRuntime.GetRetireDestination(
+                    LiveType.Normal) !=
+                GameExitRoute.MusicSelection)
                 return false;
 
             try
             {
-                RecoveredGameRuntime.GetRetireDestination(
-                    RecoveredLiveType.MultiRoom);
+                GameRuntime.GetRetireDestination(
+                    LiveType.MultiRoom);
                 return false;
             }
             catch (NotSupportedException)
@@ -7446,13 +7447,13 @@ namespace OpenWDS.Editor
                 "StandardCharts",
                 "1",
                 "1");
-            var notation = RecoveredStandardNotation.Parse(
+            var notation = StandardNotation.Parse(
                 File.ReadAllText(Path.Combine(root, "1.csv")));
-            var config = RecoveredStandardNotation.ParseMusicConfig(
+            var config = StandardNotation.ParseMusicConfig(
                 File.ReadAllText(Path.Combine(root, "music_config.csv")));
-            var expertNotation = RecoveredStandardNotation.Parse(
+            var expertNotation = StandardNotation.Parse(
                 File.ReadAllText(Path.Combine(root, "4.csv")));
-            RecoveredNotationNote marker = null;
+            NotationNote marker = null;
             foreach (var note in notation)
             {
                 if (note.NoteType == 20 && note.Lane == 1 && note.Width == 4 &&
@@ -7466,8 +7467,8 @@ namespace OpenWDS.Editor
             var adjacentFlick = expertNotation.FirstOrDefault(note => note.Id == 265);
             var adjacentHoldStart = expertNotation.FirstOrDefault(note => note.Id == 336);
             var wideFlick = expertNotation.FirstOrDefault(note => note.Id == 338);
-            var flickHit = new RecoveredHitLaneEntity(9, 10, 8, 0, 0);
-            var wideFlickHit = new RecoveredHitLaneEntity(4, 5, 3, 0, 0);
+            var flickHit = new HitLaneEntity(9, 10, 8, 0, 0);
+            var wideFlickHit = new HitLaneEntity(4, 5, 3, 0, 0);
             var adjacentColliderOwnershipValid =
                 adjacentTap != null && adjacentFlick != null &&
                 adjacentHoldStart != null && wideFlick != null &&
@@ -7477,14 +7478,14 @@ namespace OpenWDS.Editor
                 adjacentFlick.IgnoreLeftOuterCollider &&
                 adjacentHoldStart.IgnoreRightInnerCollider &&
                 wideFlick.IgnoreLeftInnerCollider &&
-                !RecoveredNotationNoteProvider.TryGetIncludedLane(
+                !NotationNoteProvider.TryGetIncludedLane(
                     flickHit, adjacentTap, out _) &&
-                RecoveredNotationNoteProvider.TryGetIncludedLane(
+                NotationNoteProvider.TryGetIncludedLane(
                     flickHit, adjacentFlick, out var flickLane) &&
                 flickLane == 9 &&
-                !RecoveredNotationNoteProvider.TryGetIncludedLane(
+                !NotationNoteProvider.TryGetIncludedLane(
                     wideFlickHit, adjacentHoldStart, out _) &&
-                RecoveredNotationNoteProvider.TryGetIncludedLane(
+                NotationNoteProvider.TryGetIncludedLane(
                     wideFlickHit, wideFlick, out var wideFlickLane) &&
                 wideFlickLane == 4;
             return notation.Length == 204 &&
@@ -7504,44 +7505,44 @@ namespace OpenWDS.Editor
 
         private static bool ValidateSplitRandomProcessor()
         {
-            var split3 = new RecoveredNotationNote
+            var split3 = new NotationNote
             {
                 Id = 1, StartTickCount = 1f, EndTickCount = 2f,
                 GimmickType = 13,
             };
-            var split5 = new RecoveredNotationNote
+            var split5 = new NotationNote
             {
                 Id = 6, StartTickCount = 3f, EndTickCount = 4f,
                 GimmickType = 15,
             };
             var split3Notes = new[]
             {
-                new RecoveredNotationNote { Id = 2, StartTickCount = 1f, Lane = 1, Width = 1 },
-                new RecoveredNotationNote { Id = 3, StartTickCount = 1.5f, Lane = 5, Width = 1 },
-                new RecoveredNotationNote { Id = 4, StartTickCount = 2f, Lane = 9, Width = 1 },
+                new NotationNote { Id = 2, StartTickCount = 1f, Lane = 1, Width = 1 },
+                new NotationNote { Id = 3, StartTickCount = 1.5f, Lane = 5, Width = 1 },
+                new NotationNote { Id = 4, StartTickCount = 2f, Lane = 9, Width = 1 },
             };
-            var unmapped = new RecoveredNotationNote
+            var unmapped = new NotationNote
             {
                 Id = 5, StartTickCount = 1.5f, Lane = 2, Width = 1,
             };
             var split5Notes = new[]
             {
-                new RecoveredNotationNote { Id = 7, StartTickCount = 3f, Lane = 1, Width = 99 },
-                new RecoveredNotationNote { Id = 8, StartTickCount = 3.25f, Lane = 4, Width = 99 },
-                new RecoveredNotationNote { Id = 9, StartTickCount = 3.5f, Lane = 6, Width = 99 },
-                new RecoveredNotationNote { Id = 10, StartTickCount = 3.75f, Lane = 8, Width = 99 },
-                new RecoveredNotationNote { Id = 11, StartTickCount = 4f, Lane = 10, Width = 99 },
+                new NotationNote { Id = 7, StartTickCount = 3f, Lane = 1, Width = 99 },
+                new NotationNote { Id = 8, StartTickCount = 3.25f, Lane = 4, Width = 99 },
+                new NotationNote { Id = 9, StartTickCount = 3.5f, Lane = 6, Width = 99 },
+                new NotationNote { Id = 10, StartTickCount = 3.75f, Lane = 8, Width = 99 },
+                new NotationNote { Id = 11, StartTickCount = 4f, Lane = 10, Width = 99 },
             };
-            var outside = new RecoveredNotationNote
+            var outside = new NotationNote
             {
                 Id = 12, StartTickCount = 5f, Lane = 1, Width = 4,
             };
-            var zeroLengthSplit = new RecoveredNotationNote
+            var zeroLengthSplit = new NotationNote
             {
                 Id = 13, StartTickCount = 6f, EndTickCount = 6f,
                 GimmickType = 16,
             };
-            var zeroLengthTarget = new RecoveredNotationNote
+            var zeroLengthTarget = new NotationNote
             {
                 Id = 14, StartTickCount = 6f, Lane = 1, Width = 4,
             };
@@ -7553,7 +7554,7 @@ namespace OpenWDS.Editor
                 zeroLengthTarget,
             };
 
-            var returned = RecoveredNotationNoteProcessor.UpdateForSplitRandom(notation);
+            var returned = NotationNoteProcessor.UpdateForSplitRandom(notation);
             var split3Lanes = new HashSet<int>(split3Notes.Select(note => note.Lane));
             var split5Lanes = new HashSet<int>(split5Notes.Select(note => note.Lane));
             return ReferenceEquals(returned, notation) &&
@@ -7575,20 +7576,20 @@ namespace OpenWDS.Editor
             var chartPath = Path.Combine(
                 Application.dataPath, "StreamingAssets", "OpenWDS",
                 "StandardCharts", "1", "1", "4.csv");
-            var notation = RecoveredStandardNotation.Parse(File.ReadAllText(chartPath));
-            var splitNotes = new List<RecoveredNotationNote>();
+            var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
+            var splitNotes = new List<NotationNote>();
             foreach (var note in notation)
             {
-                if (RecoveredSplitLaneRuntime.IsSplitLane(note.GimmickType))
+                if (SplitLaneRuntime.IsSplitLane(note.GimmickType))
                     splitNotes.Add(note);
             }
 
-            var scheduler = new RecoveredSplitLaneRuntime(notation);
+            var scheduler = new SplitLaneRuntime(notation);
             splitLaneCount = scheduler.SplitLaneCount;
             if (splitLaneCount != 7 ||
-                RecoveredSplitLaneRuntime.ConvertGimmickType(13) != 33 ||
-                RecoveredSplitLaneRuntime.ConvertGimmickType(51) != 51 ||
-                RecoveredSplitLaneRuntime.MinimumShowingMilliseconds != 1500 ||
+                SplitLaneRuntime.ConvertGimmickType(13) != 33 ||
+                SplitLaneRuntime.ConvertGimmickType(51) != 51 ||
+                SplitLaneRuntime.MinimumShowingMilliseconds != 1500 ||
                 !Mathf.Approximately(
                     Sirius.Game.LaneGroup.CalculateLaneBorderAlpha(100), 51f / 255f) ||
                 !Mathf.Approximately(
@@ -7608,7 +7609,7 @@ namespace OpenWDS.Editor
                     effectIds.Add(entry.SplitLaneEffectId);
                     if (!entry.ShouldShow ||
                         entry.SplitCount != note.GimmickType % 10 ||
-                        entry.SplitLaneType != RecoveredSplitLaneType.Full)
+                        entry.SplitLaneType != SplitLaneType.Full)
                     {
                         return false;
                     }
@@ -7629,14 +7630,14 @@ namespace OpenWDS.Editor
                 return false;
             }
 
-            var overlap = new RecoveredSplitLaneRuntime(new[]
+            var overlap = new SplitLaneRuntime(new[]
             {
-                new RecoveredNotationNote
+                new NotationNote
                 {
                     Id = 1, StartTickCount = 1f, EndTickCount = 3f,
                     GimmickType = 13, GimmickValue = 10170,
                 },
-                new RecoveredNotationNote
+                new NotationNote
                 {
                     Id = 2, StartTickCount = 2f, EndTickCount = 4f,
                     GimmickType = 14, GimmickValue = 1060,
@@ -7652,9 +7653,9 @@ namespace OpenWDS.Editor
 
         private static bool ValidateGameClock()
         {
-            var clock = new RecoveredGameClock(3.019f, 0d);
+            var clock = new GameClock(3.019f, 0d);
             clock.Sync(4f, 4000, 10f, 10000);
-            var adjustedClock = new RecoveredGameClock(3.019f, 3.5d);
+            var adjustedClock = new GameClock(3.019f, 3.5d);
             adjustedClock.Sync(4f, 4000, 10f, 10000);
             return Mathf.Approximately(clock.PassedTime, 0.981f) &&
                    clock.PassedMilliseconds == 981 &&
@@ -7671,40 +7672,40 @@ namespace OpenWDS.Editor
 
         private static bool ValidateTapTiming()
         {
-            var earlyBoundary = RecoveredTapTimingDecider.DecideMusicTime(991, 1016);
-            var lateBoundary = RecoveredTapTimingDecider.DecideMusicTime(1056, 1016);
-            var earlyOutside = RecoveredTapTimingDecider.DecideMusicTime(890, 1016);
-            var lateOutside = RecoveredTapTimingDecider.DecideMusicTime(1142, 1016);
-            return earlyBoundary.TimingType == RecoveredTimingType.PerfectStar &&
-                   earlyBoundary.TimingAssistType == RecoveredTimingAssistType.Fast &&
+            var earlyBoundary = TapTimingDecider.DecideMusicTime(991, 1016);
+            var lateBoundary = TapTimingDecider.DecideMusicTime(1056, 1016);
+            var earlyOutside = TapTimingDecider.DecideMusicTime(890, 1016);
+            var lateOutside = TapTimingDecider.DecideMusicTime(1142, 1016);
+            return earlyBoundary.TimingType == TimingType.PerfectStar &&
+                   earlyBoundary.TimingAssistType == TimingAssistType.Fast &&
                    earlyBoundary.DiffMilliseconds == -25 &&
-                   lateBoundary.TimingType == RecoveredTimingType.Perfect &&
-                   lateBoundary.TimingAssistType == RecoveredTimingAssistType.Slow &&
+                   lateBoundary.TimingType == TimingType.Perfect &&
+                   lateBoundary.TimingAssistType == TimingAssistType.Slow &&
                    lateBoundary.DiffMilliseconds == 40 &&
-                   earlyOutside.TimingType == RecoveredTimingType.None &&
-                   lateOutside.TimingType == RecoveredTimingType.Miss;
+                   earlyOutside.TimingType == TimingType.None &&
+                   lateOutside.TimingType == TimingType.Miss;
         }
 
         private static bool ValidateHoldTiming()
         {
-            var atMinus125 = RecoveredHoldTimingDecider.DecideEndMusicTime(875, 0, 1000);
-            var atMinus100 = RecoveredHoldTimingDecider.DecideEndMusicTime(900, 0, 1000);
-            var atMinus60 = RecoveredHoldTimingDecider.DecideEndMusicTime(940, 0, 1000);
-            var atMinus40 = RecoveredHoldTimingDecider.DecideEndMusicTime(960, 0, 1000);
-            var beforeRange = RecoveredHoldTimingDecider.DecideEndMusicTime(874, 0, 1000);
-            var shortInside = RecoveredHoldTimingDecider.DecideEndMusicTime(64, 0, 100);
-            var shortOutside = RecoveredHoldTimingDecider.DecideEndMusicTime(24, 0, 100);
-            return RecoveredHoldTimingDecider.HoldEndThresholdMilliseconds == 150 &&
-                   atMinus125.TimingType == RecoveredTimingType.Good &&
-                   atMinus100.TimingType == RecoveredTimingType.Great &&
-                   atMinus60.TimingType == RecoveredTimingType.PerfectStar &&
-                   atMinus40.TimingType == RecoveredTimingType.PerfectStar &&
+            var atMinus125 = HoldTimingDecider.DecideEndMusicTime(875, 0, 1000);
+            var atMinus100 = HoldTimingDecider.DecideEndMusicTime(900, 0, 1000);
+            var atMinus60 = HoldTimingDecider.DecideEndMusicTime(940, 0, 1000);
+            var atMinus40 = HoldTimingDecider.DecideEndMusicTime(960, 0, 1000);
+            var beforeRange = HoldTimingDecider.DecideEndMusicTime(874, 0, 1000);
+            var shortInside = HoldTimingDecider.DecideEndMusicTime(64, 0, 100);
+            var shortOutside = HoldTimingDecider.DecideEndMusicTime(24, 0, 100);
+            return HoldTimingDecider.HoldEndThresholdMilliseconds == 150 &&
+                   atMinus125.TimingType == TimingType.Good &&
+                   atMinus100.TimingType == TimingType.Great &&
+                   atMinus60.TimingType == TimingType.PerfectStar &&
+                   atMinus40.TimingType == TimingType.PerfectStar &&
                    atMinus40.DiffMilliseconds == -40 &&
-                   beforeRange.TimingType == RecoveredTimingType.None &&
+                   beforeRange.TimingType == TimingType.None &&
                    beforeRange.DiffMilliseconds == 0 &&
-                   shortInside.TimingType == RecoveredTimingType.PerfectStar &&
+                   shortInside.TimingType == TimingType.PerfectStar &&
                    shortInside.DiffMilliseconds == -36 &&
-                   shortOutside.TimingType == RecoveredTimingType.None;
+                   shortOutside.TimingType == TimingType.None;
         }
 
         private static void WriteReport(PreviewReport report)

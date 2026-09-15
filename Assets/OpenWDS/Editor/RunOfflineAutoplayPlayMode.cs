@@ -19,6 +19,9 @@ namespace OpenWDS.Editor
         private const string PhaseKey = "OpenWDS.AutoplayPlayMode.Phase";
         private const string StartedKey = "OpenWDS.AutoplayPlayMode.StartedUtcTicks";
         private const string ErrorKey = "OpenWDS.AutoplayPlayMode.FirstError";
+        private const string StarActPixelsKey = "OpenWDS.AutoplayPlayMode.StarActPixels";
+        private const string CharacterPixelsKey = "OpenWDS.AutoplayPlayMode.CharacterPixels";
+        private const string StorageFixtureKey = "OpenWDS.AutoplayPlayMode.StorageFixture";
         private const string PauseSmokeKey =
             "OpenWDS.AutoplayPlayMode.PauseSmokePassed";
         private const string SenseCutInVisualKey =
@@ -104,6 +107,13 @@ namespace OpenWDS.Editor
             public bool senseCutInVisualObserved;
             public bool introductionVisualObserved;
             public bool clearVisualObserved;
+            public int starActPixels, characterPixels, starActPlayCount, resultCharacterPlayCount, resultVoicePlayCount;
+            public bool resultVoiceFinished, senseDisplayExpected;
+            public string resultCharacterKey;
+            public bool storageFixture;
+            public bool starActVoiceObserved;
+            public int starActVoicePlayCount;
+            public int starActColorCount;
         }
 
         static RunOfflineAutoplayPlayMode()
@@ -126,6 +136,10 @@ namespace OpenWDS.Editor
             SessionState.SetString(PhaseKey, "play");
             SessionState.SetString(StartedKey, DateTime.UtcNow.Ticks.ToString());
             SessionState.EraseString(ErrorKey);
+            SessionState.SetInt(StarActPixelsKey, 0);
+            SessionState.SetBool(ActiveKey + ".starVoice", false);
+            SessionState.SetInt(CharacterPixelsKey, 0);
+            SessionState.SetBool(StorageFixtureKey, Environment.GetEnvironmentVariable("OPENWDS_STARACT_STORAGE_FIXTURE") == "1");
             SessionState.SetBool(PauseSmokeKey, false);
             SessionState.SetBool(SenseCutInVisualKey, false);
             SessionState.SetBool(IntroductionVisualKey, false);
@@ -153,7 +167,7 @@ namespace OpenWDS.Editor
                     "OPENWDS_INTRODUCTION_CAPTURE_UNLOCK") == "1")
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<
-                    RecoveredGameRuntime>();
+                    GameRuntime>();
                 if (runtime == null)
                     throw new InvalidOperationException(
                         "Offline preview runtime is missing.");
@@ -191,7 +205,7 @@ namespace OpenWDS.Editor
             }
             if (!EditorApplication.isPlaying || EditorApplication.isCompiling) return;
 
-            var runtime = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
+            var runtime = UnityEngine.Object.FindObjectOfType<GameRuntime>();
             var firstError = SessionState.GetString(ErrorKey, string.Empty);
             if (!string.IsNullOrEmpty(firstError))
             {
@@ -220,7 +234,7 @@ namespace OpenWDS.Editor
                     introduction.IsUnlockOlivier != expectedUnlock ||
                     (expectedUnlock &&
                      introduction.SelectedDifficultyIndex !=
-                     (int)RecoveredMusicDifficulty.Olivier - 1))
+                     (int)MusicDifficulty.Olivier - 1))
                 {
                     Fail(
                         "GameIntroduction selected the wrong difficulty branch.",
@@ -228,7 +242,7 @@ namespace OpenWDS.Editor
                     return;
                 }
                 var sharedSe = UnityEngine.Object.FindObjectOfType<
-                    RecoveredUiSeRuntime>();
+                    UiSeRuntime>();
                 if (expectedUnlock &&
                     (sharedSe == null ||
                      sharedSe.LastCueName != "Olivier_glass" ||
@@ -252,6 +266,7 @@ namespace OpenWDS.Editor
                 !RunPauseSmoke(runtime, elapsed))
                 return;
             ObserveSenseCutInVisual(runtime);
+            ObserveCharacterPresentations(runtime);
             if (!runtime.InputHandler.IsGameCompleted ||
                 !runtime.IsResultShown) return;
             if (runtime.ResultSe == null ||
@@ -270,6 +285,7 @@ namespace OpenWDS.Editor
                 ? liveResultPanel.transform.parent?.GetComponent<CanvasGroup>()
                 : null;
             if (leftPanelGroup == null || leftPanelGroup.alpha < 0.99f) return;
+            if (runtime.CharacterPresentation != null && !runtime.CharacterPresentation.VoiceFinished) return;
 
             var report = BuildReport(runtime, elapsed);
             var inputPassed = report.collectedCount > 0 &&
@@ -293,11 +309,14 @@ namespace OpenWDS.Editor
                             report.senseActivationCount == 8 &&
                             runtime.GameHud.AdditionalScoreCutInPanel != null &&
                             runtime.GameHud.AdditionalScoreCutInPanel.ActivationCount == 8 &&
-                            report.senseCutInVisualObserved &&
+                            (report.senseCutInVisualObserved == report.senseDisplayExpected) &&
                             report.introductionVisualObserved &&
                             report.clearVisualObserved &&
                             report.starActScore == 5170L &&
                             report.starActActivationCount == 1 &&
+                            report.starActPlayCount == 1 && report.starActPixels > 1000 &&
+                            report.resultCharacterPlayCount == 1 && report.characterPixels > 1000 &&
+                            report.resultVoicePlayCount == 1 && report.resultVoiceFinished &&
                             report.maxScore == 5596L &&
                             report.life == 1000 && report.maxLife == 1000 &&
                             report.principal == 840 &&
@@ -306,7 +325,7 @@ namespace OpenWDS.Editor
                             runtime.GameResultPresentationCount == 1 &&
                             runtime.ClearSe != null &&
                             runtime.ClearSe.LastCueName ==
-                                RecoveredGameRuntime.GetBoundaryClearType(
+                                GameRuntime.GetBoundaryClearType(
                                     runtime.GameResultRuntime).ToString() &&
                             runtime.ClearSe.PlayCount == 1 &&
                             runtime.ClearSe.LastPlayback.id !=
@@ -329,6 +348,14 @@ namespace OpenWDS.Editor
                             Math.Abs(runtime.GameResultRuntime
                                 .GetDisplayedAchievementRate(2) - 101d) <
                                 0.000001d;
+            if (report.storageFixture)
+                report.passed = inputPassed && report.perfectStar == 656 &&
+                    report.starActScore == 8901 && report.starActActivationCount == 1 &&
+                    report.starActPlayCount == 1 && report.starActColorCount == 4 && report.starActPixels > 1000 &&
+                    report.resultCharacterPlayCount == 1 && report.characterPixels > 1000 &&
+                    report.resultVoicePlayCount == 1 && report.resultVoiceFinished && report.pauseSmokePassed;
+            if (!SessionState.GetBool(TargetedChartKey, false))
+                report.passed &= report.starActVoiceObserved && report.starActVoicePlayCount == 1;
             if (!report.passed)
             {
                 report.failure = "Faithful automatic judging did not finish " +
@@ -349,7 +376,7 @@ namespace OpenWDS.Editor
             Finish(true);
         }
 
-        private static void RunClearCaptureOnly(RecoveredGameRuntime runtime)
+        private static void RunClearCaptureOnly(GameRuntime runtime)
         {
             var clear = Resources.FindObjectsOfTypeAll<
                     Sirius.Game.GameResultPanel>()
@@ -369,10 +396,10 @@ namespace OpenWDS.Editor
                 var requestedType = Environment.GetEnvironmentVariable(
                     "OPENWDS_CLEAR_CAPTURE_TYPE");
                 var clearType =
-                    Enum.TryParse<Sirius.Game.RecoveredBoundaryClearType>(
+                    Enum.TryParse<Sirius.Game.BoundaryClearType>(
                         requestedType, true, out var parsedType)
                         ? parsedType
-                        : Sirius.Game.RecoveredBoundaryClearType.Clear;
+                        : Sirius.Game.BoundaryClearType.Clear;
                 clear.Show(clearType);
                 SessionState.SetBool(ClearCaptureStartedKey, true);
                 Debug.Log(
@@ -390,26 +417,38 @@ namespace OpenWDS.Editor
         }
 
         private static AutoplayReport BuildReport(
-            RecoveredGameRuntime runtime, double elapsed)
+            GameRuntime runtime, double elapsed)
         {
             var input = runtime.InputHandler;
             var result = runtime.GameResultRuntime;
             var report = new AutoplayReport
             {
+                starActVoiceObserved = SessionState.GetBool(ActiveKey + ".starVoice", false),
+                starActVoicePlayCount = runtime.CharacterPresentation?.StarActVoicePlayCount ?? 0,
+                starActPixels = SessionState.GetInt(StarActPixelsKey, 0),
+                characterPixels = SessionState.GetInt(CharacterPixelsKey, 0),
+                starActPlayCount = runtime.CharacterPresentation?.StarActPlayCount ?? 0,
+                resultCharacterPlayCount = runtime.CharacterPresentation?.ResultPlayCount ?? 0,
+                resultVoicePlayCount = runtime.CharacterPresentation?.VoicePlayCount ?? 0,
+                resultVoiceFinished = runtime.CharacterPresentation?.VoiceFinished ?? false,
+                resultCharacterKey = runtime.CharacterPresentation?.CharacterKey,
+                storageFixture = SessionState.GetBool(StorageFixtureKey, false),
+                starActColorCount = runtime.CharacterPresentation?.LastStarActLights?.Length ?? 0,
+                senseDisplayExpected = new SettingsStore().LoadOrDefault().GameSettings.IsActiveSenseDisplay,
                 generatedAtUtc = DateTime.UtcNow.ToString("O"),
                 musicId = SessionState.GetInt(MusicIdKey, 1),
                 difficulty = SessionState.GetString(
-                    DifficultyKey, RecoveredMusicDifficulty.Stella.ToString()),
+                    DifficultyKey, MusicDifficulty.Stella.ToString()),
                 autoJudgeEnabled = runtime.IsAutoJudgeEnabled,
                 elapsedSeconds = elapsed,
                 collectedCount = result.Count,
                 maxCombo = result.MaxCombo,
-                perfectStar = GetCount(result, RecoveredTimingType.PerfectStar),
-                perfect = GetCount(result, RecoveredTimingType.Perfect),
-                great = GetCount(result, RecoveredTimingType.Great),
-                good = GetCount(result, RecoveredTimingType.Good),
-                bad = GetCount(result, RecoveredTimingType.Bad),
-                miss = GetCount(result, RecoveredTimingType.Miss),
+                perfectStar = GetCount(result, TimingType.PerfectStar),
+                perfect = GetCount(result, TimingType.Perfect),
+                great = GetCount(result, TimingType.Great),
+                good = GetCount(result, TimingType.Good),
+                bad = GetCount(result, TimingType.Bad),
+                miss = GetCount(result, TimingType.Miss),
                 nonPerfectResults = FormatNonPerfectResults(result),
                 remainingTap = input.RemainingTapCount,
                 remainingFlick = input.RemainingFlickCount,
@@ -524,11 +563,11 @@ namespace OpenWDS.Editor
                     ?.GetComponent<Image>();
                 var requestedDifficulty = Enum.TryParse(
                     report.difficulty, true,
-                    out RecoveredMusicDifficulty parsedDifficulty)
+                    out MusicDifficulty parsedDifficulty)
                     ? parsedDifficulty
-                    : RecoveredMusicDifficulty.Stella;
+                    : MusicDifficulty.Stella;
                 report.resultDifficultyColorValid = difficultyImage != null &&
-                    (requestedDifficulty != RecoveredMusicDifficulty.Stella ||
+                    (requestedDifficulty != MusicDifficulty.Stella ||
                      ((Color32)difficultyImage.color).Equals(
                          new Color32(134, 103, 233, 255)));
                 var lamps = musicInfo?.Find("ClearLamps");
@@ -586,12 +625,13 @@ namespace OpenWDS.Editor
 
         private static void ConfigureRequestedChart()
         {
-            var runtime = UnityEngine.Object.FindObjectOfType<RecoveredGameRuntime>();
+            var runtime = UnityEngine.Object.FindObjectOfType<GameRuntime>();
             if (runtime == null)
                 throw new InvalidOperationException(
                     "Offline preview runtime is missing.");
             var runtimeObject = new SerializedObject(runtime);
             runtimeObject.FindProperty("_enableAutoJudge").boolValue = true;
+
 
             var rawMusicId = Environment.GetEnvironmentVariable(
                 "OPENWDS_AUTO_JUDGE_MUSIC_ID");
@@ -601,7 +641,7 @@ namespace OpenWDS.Editor
                 SessionState.SetBool(TargetedChartKey, false);
                 SessionState.SetInt(MusicIdKey, 1);
                 SessionState.SetString(
-                    DifficultyKey, RecoveredMusicDifficulty.Stella.ToString());
+                    DifficultyKey, MusicDifficulty.Stella.ToString());
                 return;
             }
             if (!long.TryParse(rawMusicId, out var musicId) || musicId <= 0)
@@ -611,11 +651,11 @@ namespace OpenWDS.Editor
             var rawDifficulty = Environment.GetEnvironmentVariable(
                 "OPENWDS_AUTO_JUDGE_DIFFICULTY");
             if (string.IsNullOrWhiteSpace(rawDifficulty))
-                rawDifficulty = RecoveredMusicDifficulty.Stella.ToString();
+                rawDifficulty = MusicDifficulty.Stella.ToString();
             if (!Enum.TryParse(
                     rawDifficulty, true,
-                    out RecoveredMusicDifficulty difficulty) ||
-                difficulty == RecoveredMusicDifficulty.None)
+                    out MusicDifficulty difficulty) ||
+                difficulty == MusicDifficulty.None)
                 throw new ArgumentException(
                     "OPENWDS_AUTO_JUDGE_DIFFICULTY is invalid: " + rawDifficulty);
 
@@ -625,7 +665,7 @@ namespace OpenWDS.Editor
             if (catalogAsset == null)
                 throw new FileNotFoundException(
                     "Local music catalog is missing.", catalogPath);
-            var selection = RecoveredLocalMusicCatalog
+            var selection = LocalMusicCatalog
                 .FromJson(catalogAsset.text)
                 .Select(musicId, difficulty);
             var chartPath = "Assets/StreamingAssets/" +
@@ -637,7 +677,7 @@ namespace OpenWDS.Editor
                     $"Requested chart assets are missing: {chartPath}, {configPath}");
 
             var criMusic = UnityEngine.Object.FindObjectOfType<
-                RecoveredCriMusicRuntime>();
+                CriMusicRuntime>();
             if (criMusic == null)
                 throw new InvalidOperationException(
                     "Offline preview CRI music runtime is missing.");
@@ -682,8 +722,65 @@ namespace OpenWDS.Editor
                 $"musicId={musicId} difficulty={difficulty} chart={chartPath}");
         }
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void ConfigureStorageUnit()
+        {
+            if (!SessionState.GetBool(ActiveKey, false) || !SessionState.GetBool(StorageFixtureKey, false)) return;
+            var runtime = UnityEngine.Object.FindObjectOfType<GameRuntime>();
+            var serialized = new SerializedObject(runtime);
+            serialized.FindProperty("_testPlayerUnitAsset").objectReferenceValue = new TextAsset(File.ReadAllText(
+                Path.Combine(Application.streamingAssetsPath, "OpenWDS/TestPlayer/stella-high-star-storage-unit.json")));
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void PrepareCurrentCatalogInputs()
+        {
+            if (!Application.isBatchMode || !SessionState.GetBool(ActiveKey, false)) return;
+            // The standalone test enters through the same session boundary as
+            // the selection page, with the actual current Jacket bundle. The
+            // deleted Music<N>Jacket.png was never a valid runtime provider.
+            var catalog = LocalMusicCatalog.FromJson(File.ReadAllText(
+                Path.Combine(Application.dataPath, "OpenWDS/OfflineData/LocalMusicCatalog.json")));
+            var difficulty = (MusicDifficulty)Enum.Parse(typeof(MusicDifficulty),
+                SessionState.GetString(DifficultyKey, "Stella"));
+            var selection = catalog.Select(SessionState.GetInt(MusicIdKey, 1), difficulty);
+            var chart = new TextAsset(File.ReadAllText(Path.Combine(Application.streamingAssetsPath, selection.Live.DebugNotationAssetPath)));
+            var config = new TextAsset(File.ReadAllText(Path.Combine(Application.streamingAssetsPath, selection.Live.DebugMusicConfigAssetPath)));
+            var bundle = AssetBundle.LoadFromMemory(File.ReadAllBytes(Path.Combine(Application.streamingAssetsPath, selection.Music.JacketAssetPath)));
+            if (bundle == null) throw new InvalidOperationException("Current Jacket bundle did not load.");
+            var sprite = bundle.LoadAllAssets<Sprite>().Single();
+            bundle.Unload(false);
+            LocalMusicSelectionSession.Set(selection, chart, config, sprite, catalog.Musics);
+        }
+
+        private static void ObserveCharacterPresentations(GameRuntime runtime)
+        {
+            var presentation = runtime.CharacterPresentation;
+            if (presentation == null || !presentation.IsReady) return;
+            if (presentation.StarActVoicePlaying) SessionState.SetBool(ActiveKey + ".starVoice", true);
+            if (SessionState.GetInt(StarActPixelsKey, 0) == 0 && presentation.StarActPlayCount > 0 && !runtime.IsResultShown)
+            {
+                var animator = presentation.CutIn.GetComponentInChildren<Animator>();
+                var state = animator.GetCurrentAnimatorStateInfo(0);
+                if (state.normalizedTime > 0.15f && state.normalizedTime < 0.6f &&
+                    Mathf.Abs(presentation.CutIn.transform.position.x) < 100f)
+                    SessionState.SetInt(StarActPixelsKey, PresentationRenderingValidation.Capture(runtime.GameCamera,
+                        presentation.CutIn.GetComponentsInChildren<Renderer>(true),
+                        SessionState.GetBool(StorageFixtureKey, false) ? "staract-storage-gameplay.png" : "staract-gameplay.png"));
+            }
+            if (SessionState.GetInt(CharacterPixelsKey, 0) == 0 && presentation.ResultPlayCount == 1 && presentation.VoiceFinished)
+            {
+                var character = presentation.Character;
+                if (character.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime < 0.2f) return;
+                var camera = UnityEngine.Object.FindObjectsOfType<Camera>().Single(c => c.name == "MainCam" && c.enabled);
+                SessionState.SetInt(CharacterPixelsKey, PresentationRenderingValidation.Capture(camera,
+                    character.GetComponentsInChildren<Renderer>(true), "result-character-gameplay.png"));
+            }
+        }
+
         private static void ObserveBoundaryPerformances(
-            RecoveredGameRuntime runtime)
+            GameRuntime runtime)
         {
             if (!SessionState.GetBool(IntroductionVisualKey, false) &&
                 runtime.IsIntroductionPlaying)
@@ -726,7 +823,7 @@ namespace OpenWDS.Editor
                 if (clear != null && clear.gameObject.activeInHierarchy &&
                     clear.IsPlaying &&
                     clear.ClearType ==
-                    Sirius.Game.RecoveredBoundaryClearType.AllPerfect)
+                    Sirius.Game.BoundaryClearType.AllPerfect)
                 {
                     if (!SessionState.GetBool(ClearVisualKey, false))
                         SessionState.SetBool(ClearVisualKey, true);
@@ -738,7 +835,7 @@ namespace OpenWDS.Editor
         }
 
         private static void CaptureClearFrame(
-            RecoveredGameRuntime runtime,
+            GameRuntime runtime,
             Sirius.Game.GameResultPanel clear,
             string sessionKey,
             float normalizedTime,
@@ -814,7 +911,7 @@ namespace OpenWDS.Editor
         }
 
         private static void CaptureIntroductionFrame(
-            RecoveredGameRuntime runtime,
+            GameRuntime runtime,
             Sirius.Game.GameIntroductionAnimationController introduction,
             string sessionKey, float normalizedTime, string fileName)
         {
@@ -911,7 +1008,7 @@ namespace OpenWDS.Editor
             return path;
         }
 
-        private static void ObserveSenseCutInVisual(RecoveredGameRuntime runtime)
+        private static void ObserveSenseCutInVisual(GameRuntime runtime)
         {
             if (SessionState.GetBool(SenseCutInVisualKey, false) ||
                 runtime.GameHud == null)
@@ -938,10 +1035,10 @@ namespace OpenWDS.Editor
         }
 
         private static bool RunPauseSmoke(
-            RecoveredGameRuntime runtime, double elapsed)
+            GameRuntime runtime, double elapsed)
         {
             var pause = UnityEngine.Object.FindObjectOfType<
-                RecoveredGamePauseRuntime>();
+                GamePauseRuntime>();
             if (pause == null || pause.CurrentSettings == null) return false;
 
             try
@@ -962,11 +1059,11 @@ namespace OpenWDS.Editor
                 var noteHeightBefore =
                     pause.CurrentSettings.GameDetailSettings.NoteHeight;
                 var expectedTimingY =
-                    RecoveredGameHudRuntime.CalculatePositionY(
+                    GameHudRuntime.CalculatePositionY(
                         pause.CurrentSettings.GameDetailSettings
                             .TimingEffectOffset);
                 var expectedTimingScale =
-                    RecoveredGameHudRuntime.GetTimingEffectScale(
+                    GameHudRuntime.GetTimingEffectScale(
                         pause.CurrentSettings.GameDetailSettings
                             .TimingEffectScaleType);
                 var formalLaneGroup =
@@ -989,7 +1086,7 @@ namespace OpenWDS.Editor
                         0.8f * laneAlphaBefore / 100f) > 0.0001f ||
                     Math.Abs(
                         formalLaneGroup.LaneScaleX -
-                        RecoveredGameSettings.CalculateLaneScale(
+                        GameSettings.CalculateLaneScale(
                             laneWidthBefore)) > 0.0001f ||
                     runtime.GameHud.TimingParent ==
                         formalLaneGroup.LaneEffectParent ||
@@ -1016,9 +1113,9 @@ namespace OpenWDS.Editor
                     throw new InvalidOperationException(
                         "Focus loss did not open Pause and pause the game.");
                 var gameSe = UnityEngine.Object.FindObjectOfType<
-                    RecoveredGameSeRuntime>();
+                    GameSeRuntime>();
                 var criMusic = UnityEngine.Object.FindObjectOfType<
-                    RecoveredCriMusicRuntime>();
+                    CriMusicRuntime>();
                 if (gameSe == null || gameSe.HoldingCount != 0 ||
                     gameSe.IsHoldingPlaybackActive)
                     throw new InvalidOperationException(
@@ -1038,7 +1135,7 @@ namespace OpenWDS.Editor
                     throw new InvalidOperationException(
                         "Focus regain resumed music through an active game pause.");
                 var timingAssistSettingField =
-                    typeof(RecoveredGameHudRuntime).GetField(
+                    typeof(GameHudRuntime).GetField(
                         "_timingAssistSettingType",
                         BindingFlags.Instance | BindingFlags.NonPublic);
                 if (runtime.GameHud == null ||
@@ -1049,21 +1146,21 @@ namespace OpenWDS.Editor
                     pause.CurrentSettings.GameDetailSettings
                         .TimingAssistSettingType;
                 timingAssistSettingField.SetValue(runtime.GameHud, 2);
-                var assistNote = new RecoveredNotationNote
+                var assistNote = new NotationNote
                 {
                     Id = -100,
                     StartTickCount = 1f,
-                    NoteType = (int)RecoveredNoteType.Normal,
+                    NoteType = (int)NoteType.Normal,
                     Lane = 6,
                     Width = 1,
                 };
-                var assistDecision = new RecoveredTimingDecision(
-                    RecoveredTimingType.Great,
-                    RecoveredTimingAssistType.Fast,
+                var assistDecision = new TimingDecision(
+                    TimingType.Great,
+                    TimingAssistType.Fast,
                     -60);
-                var assistResult = RecoveredInputResultEntity.Create(
+                var assistResult = InputResultEntity.Create(
                     assistNote, assistDecision);
-                var assistCombo = new RecoveredGameResultRuntime(
+                var assistCombo = new GameResultRuntime(
                     new[] { assistNote });
                 assistCombo.Collect(assistResult);
                 runtime.GameHud.ProcessFrame(
@@ -1091,7 +1188,7 @@ namespace OpenWDS.Editor
                     $"localY={assistEffect.transform.localPosition.y:F3} " +
                     $"scale={assistEffect.transform.localScale.x:F3}");
                 var comboEffectSettingField =
-                    typeof(RecoveredGameHudRuntime).GetField(
+                    typeof(GameHudRuntime).GetField(
                         "_isActiveComboEffect",
                         BindingFlags.Instance | BindingFlags.NonPublic);
                 if (comboEffectSettingField == null)
@@ -1099,27 +1196,27 @@ namespace OpenWDS.Editor
                         "Combo effect HUD setting field is unavailable.");
                 var persistedComboEffect =
                     pause.CurrentSettings.GameDetailSettings.IsActiveComboEffect;
-                var perfectStarDecision = new RecoveredTimingDecision(
-                    RecoveredTimingType.PerfectStar,
-                    RecoveredTimingAssistType.None,
+                var perfectStarDecision = new TimingDecision(
+                    TimingType.PerfectStar,
+                    TimingAssistType.None,
                     0);
-                var perfectStarResult = RecoveredInputResultEntity.Create(
+                var perfectStarResult = InputResultEntity.Create(
                     assistNote, perfectStarDecision);
-                var perfectStarCombo = new RecoveredGameResultRuntime(
+                var perfectStarCombo = new GameResultRuntime(
                     new[] { assistNote });
                 perfectStarCombo.Collect(perfectStarResult);
                 comboEffectSettingField.SetValue(runtime.GameHud, false);
                 runtime.GameHud.ProcessFrame(
                     new[] { perfectStarResult }, perfectStarCombo);
                 if (runtime.GameHud.ComboPanel.ComboType !=
-                    Sirius.Game.UI.RecoveredComboType.None)
+                    Sirius.Game.UI.ComboType.None)
                     throw new InvalidOperationException(
                         "Disabled combo effect did not force the retail normal style.");
                 comboEffectSettingField.SetValue(runtime.GameHud, true);
                 runtime.GameHud.ProcessFrame(
                     new[] { perfectStarResult }, perfectStarCombo);
                 if (runtime.GameHud.ComboPanel.ComboType !=
-                    Sirius.Game.UI.RecoveredComboType.AllPerfect)
+                    Sirius.Game.UI.ComboType.AllPerfect)
                     throw new InvalidOperationException(
                         "Enabled combo effect did not retain the All Perfect style.");
                 comboEffectSettingField.SetValue(
@@ -1363,7 +1460,7 @@ namespace OpenWDS.Editor
                     ? displayTimeObject.GetComponent<Text>()
                     : null;
                 var expectedDisplayTime =
-                    RecoveredGameSettings.CalculateNoteDisplayTime(
+                    GameSettings.CalculateNoteDisplayTime(
                         pause.CurrentSettings.GameDetailSettings.NoteStartOffset,
                         before).ToString();
                 if (displayTimeText == null ||
@@ -1427,16 +1524,16 @@ namespace OpenWDS.Editor
                 const int simulationLane = 5;
                 const int simulationWidth = 2;
                 var simulationNoteWidth =
-                    RecoveredNotePositionCalculator.GetNoteWidth(
+                    NotePositionCalculator.GetNoteWidth(
                         simulationWidth,
-                        RecoveredGameConfigValues.NoteWidthPerLane,
-                        RecoveredGameConfigValues.LaneBorderWidth);
+                        GameConfigValues.NoteWidthPerLane,
+                        GameConfigValues.LaneBorderWidth);
                 var expectedSimulationNoteX =
-                    RecoveredNotePositionCalculator.GetNotePositionX(
+                    NotePositionCalculator.GetNotePositionX(
                         simulationLane,
                         simulationNoteWidth,
-                        RecoveredGameConfigValues.NoteWidthPerLane,
-                        RecoveredGameConfigValues.LaneBorderWidth);
+                        GameConfigValues.NoteWidthPerLane,
+                        GameConfigValues.LaneBorderWidth);
                 var simulationNotes1 = simulationNote != null
                     ? FindNamedDescendant(simulationNote, "Notes1")
                     : null;
@@ -1447,7 +1544,7 @@ namespace OpenWDS.Editor
                             renderer.drawMode != SpriteDrawMode.Simple)
                     : null;
                 var previewMask =
-                    1 << RecoveredGameSimulationPreview.IsolatedRenderLayer;
+                    1 << GameSimulationPreview.IsolatedRenderLayer;
                 Debug.Log(
                     "OPENWDS_SIMULATION_GEOMETRY " +
                     $"raw={simulationRawImage != null} " +
@@ -1468,9 +1565,9 @@ namespace OpenWDS.Editor
                     $"{expectedSimulationNoteX} " +
                     $"noteScale={simulationNote?.localScale} " +
                     $"renderer={simulationNoteRenderer?.size.x}/" +
-                    $"{RecoveredNoteVisualRuntime.GetTapVisualWidth(simulationNoteWidth)} " +
+                    $"{NoteVisualRuntime.GetTapVisualWidth(simulationNoteWidth)} " +
                     $"start={previewStartLine?.transform.localPosition.y}/" +
-                    $"{RecoveredOriginalGameConfig.GetNoteVisiblePositionY(pause.CurrentSettings.GameDetailSettings.NoteStartOffset)} " +
+                    $"{OriginalGameConfig.GetNoteVisiblePositionY(pause.CurrentSettings.GameDetailSettings.NoteStartOffset)} " +
                     $"view={simulationImageRect?.sizeDelta} " +
                     $"uv={simulationRawImage?.uvRect} " +
                     $"mask={simulationCamera?.cullingMask}/{previewMask} " +
@@ -1526,18 +1623,18 @@ namespace OpenWDS.Editor
                     Math.Abs(
                         Mathf.DeltaAngle(
                             simulationNote.localEulerAngles.x,
-                            RecoveredOriginalGameConfig.GetNoteHeightRotationX(
+                            OriginalGameConfig.GetNoteHeightRotationX(
                                 noteHeightBefore))) > 0.0001f ||
                     simulationNote.localScale != Vector3.one ||
                     simulationNoteRenderer == null ||
                     Math.Abs(
                         simulationNoteRenderer.size.x -
-                        RecoveredNoteVisualRuntime.GetTapVisualWidth(
+                        NoteVisualRuntime.GetTapVisualWidth(
                             simulationNoteWidth)) > 0.0001f ||
                     previewStartLine == null ||
                     !Mathf.Approximately(
                         previewStartLine.transform.localPosition.y,
-                        RecoveredOriginalGameConfig.GetNoteVisiblePositionY(
+                        OriginalGameConfig.GetNoteVisiblePositionY(
                             pause.CurrentSettings.GameDetailSettings.NoteStartOffset)) ||
                     simulationImageRect == null ||
                     Math.Abs(simulationImageRect.sizeDelta.x - 290f) > 0.01f ||
@@ -1545,7 +1642,7 @@ namespace OpenWDS.Editor
                     Math.Abs(simulationRawImage.uvRect.width - 0.16f) > 0.0001f ||
                     simulationCamera.cullingMask != previewMask ||
                     simulationNote.gameObject.layer !=
-                        RecoveredGameSimulationPreview.IsolatedRenderLayer)
+                        GameSimulationPreview.IsolatedRenderLayer)
                     throw new InvalidOperationException(
                         "Original GameSimulation RenderTexture preview geometry " +
                         "or recovered render isolation is invalid.");
@@ -1558,7 +1655,7 @@ namespace OpenWDS.Editor
                             "isolated GameSimulation layer.");
                 }
                 var previewRuntime = simulationRoot != null
-                    ? simulationRoot.GetComponent<RecoveredGameSimulationPreview>()
+                    ? simulationRoot.GetComponent<GameSimulationPreview>()
                     : null;
                 previewRuntime?.SendMessage(
                     "PlayHitEffect", SendMessageOptions.RequireReceiver);
@@ -1595,7 +1692,7 @@ namespace OpenWDS.Editor
                         "recovered PreviewUI hit branch.");
 
                 var increaseLaneWidth =
-                    laneWidthBefore < RecoveredGameSettings.MaximumLaneWidth;
+                    laneWidthBefore < GameSettings.MaximumLaneWidth;
                 var laneWidthButton = FindSettingsButton(
                     "LaneWidthSettings",
                     increaseLaneWidth ? "Plus" : "Minus");
@@ -1605,14 +1702,14 @@ namespace OpenWDS.Editor
                 laneWidthButton.onClick.Invoke();
                 var laneWidthChanged = laneWidthBefore +
                     (increaseLaneWidth
-                        ? RecoveredGameSettings.LaneWidthStep
-                        : -RecoveredGameSettings.LaneWidthStep);
+                        ? GameSettings.LaneWidthStep
+                        : -GameSettings.LaneWidthStep);
                 if (pause.CurrentSettings.GameDetailSettings.LaneWidth !=
                         laneWidthChanged ||
                     simulationLaneGroup == null ||
                     Math.Abs(
                         simulationLaneGroup.LaneScaleX -
-                        RecoveredGameSettings.CalculateLaneScale(
+                        GameSettings.CalculateLaneScale(
                             laneWidthChanged)) > 0.0001f)
                     throw new InvalidOperationException(
                         "Lane width did not update both settings and the " +
@@ -1624,7 +1721,7 @@ namespace OpenWDS.Editor
                     simulationLaneGroup.LaneDarknessAlpha;
                 var increaseNoteHeight =
                     noteHeightBefore <
-                    RecoveredGameSettings.MaximumNoteHeight;
+                    GameSettings.MaximumNoteHeight;
                 var noteHeightButton = FindSettingsButton(
                     "NotesHeightSettings",
                     increaseNoteHeight ? "Plus" : "Minus");
@@ -1634,8 +1731,8 @@ namespace OpenWDS.Editor
                 noteHeightButton.onClick.Invoke();
                 var noteHeightChanged = noteHeightBefore +
                     (increaseNoteHeight
-                        ? RecoveredGameSettings.NoteHeightStep
-                        : -RecoveredGameSettings.NoteHeightStep);
+                        ? GameSettings.NoteHeightStep
+                        : -GameSettings.NoteHeightStep);
                 if (pause.CurrentSettings.GameDetailSettings.NoteHeight !=
                         noteHeightChanged ||
                     Math.Abs(Mathf.DeltaAngle(
@@ -1647,7 +1744,7 @@ namespace OpenWDS.Editor
 
                 var increaseLaneAlpha =
                     laneAlphaBefore <
-                    RecoveredGameSettings.MaximumLaneAlpha;
+                    GameSettings.MaximumLaneAlpha;
                 var laneAlphaButton = FindSettingsButton(
                     "LaneAlphaSettings",
                     increaseLaneAlpha ? "Plus" : "Minus");
@@ -1657,8 +1754,8 @@ namespace OpenWDS.Editor
                 laneAlphaButton.onClick.Invoke();
                 var laneAlphaChanged = laneAlphaBefore +
                     (increaseLaneAlpha
-                        ? RecoveredGameSettings.LaneAlphaStep
-                        : -RecoveredGameSettings.LaneAlphaStep);
+                        ? GameSettings.LaneAlphaStep
+                        : -GameSettings.LaneAlphaStep);
                 if (pause.CurrentSettings.GameSettings.LaneAlphaValue !=
                         laneAlphaChanged ||
                     Math.Abs(
@@ -1668,7 +1765,7 @@ namespace OpenWDS.Editor
                         "Lane darkness did not change the setting, or was " +
                         "incorrectly applied to the existing preview lane.");
 
-                var increase = before < RecoveredGameSettings.MaximumNoteSpeed;
+                var increase = before < GameSettings.MaximumNoteSpeed;
                 var button = FindSettingsButton(
                     "NoteSpeedSettings",
                     increase ? "DecimalPlus" : "DecimalMinus");
@@ -1678,8 +1775,8 @@ namespace OpenWDS.Editor
                 button.onClick.Invoke();
                 var expected = Math.Round(
                     before + (increase
-                        ? RecoveredGameSettings.NoteSpeedFineStep
-                        : -RecoveredGameSettings.NoteSpeedFineStep),
+                        ? GameSettings.NoteSpeedFineStep
+                        : -GameSettings.NoteSpeedFineStep),
                     2);
                 var changed = pause.CurrentSettings.GameSettings.NoteSpeed;
                 if (Math.Abs(changed - expected) > 0.000001d ||
@@ -1688,7 +1785,7 @@ namespace OpenWDS.Editor
                         $"NoteSpeed binding failed: {before:F1} -> {changed:F1}, " +
                         $"expected {expected:F1}.");
                 expectedDisplayTime =
-                    RecoveredGameSettings.CalculateNoteDisplayTime(
+                    GameSettings.CalculateNoteDisplayTime(
                         pause.CurrentSettings.GameDetailSettings.NoteStartOffset,
                         changed).ToString();
                 if (displayTimeText.text != expectedDisplayTime)
@@ -1709,7 +1806,7 @@ namespace OpenWDS.Editor
                         $"{volumeChanged}, expected {volumeExpected}.");
 
                 var increaseTextSpeed =
-                    textSpeedBefore < RecoveredGameSettings.MaximumTextSpeed;
+                    textSpeedBefore < GameSettings.MaximumTextSpeed;
                 var textSpeedButton = FindSettingsButton(
                     "TextDisplaySpeedSettings",
                     increaseTextSpeed ? "Plus" : "Minus");
@@ -1726,7 +1823,7 @@ namespace OpenWDS.Editor
 
                 var increaseBluetooth =
                     bluetoothTimingBefore <
-                    RecoveredGameSettings.MaximumNoteTimingValue;
+                    GameSettings.MaximumNoteTimingValue;
                 var bluetoothButton = FindSettingsButton(
                     "BluetoothSoundTimingOffsetSettings",
                     increaseBluetooth ? "Plus" : "Minus");
@@ -1736,8 +1833,8 @@ namespace OpenWDS.Editor
                 bluetoothButton.onClick.Invoke();
                 var bluetoothExpected = bluetoothTimingBefore +
                     (increaseBluetooth
-                        ? RecoveredGameSettings.NoteTimingValueStep
-                        : -RecoveredGameSettings.NoteTimingValueStep);
+                        ? GameSettings.NoteTimingValueStep
+                        : -GameSettings.NoteTimingValueStep);
                 if (Math.Abs(
                     pause.CurrentSettings.BluetoothSettings.NoteTimingValue -
                     bluetoothExpected) > 0.000001d)
@@ -1966,13 +2063,13 @@ namespace OpenWDS.Editor
         }
 
         private static int GetCount(
-            RecoveredGameResultRuntime result, RecoveredTimingType timing)
+            GameResultRuntime result, TimingType timing)
         {
             return result.TimingCounts.TryGetValue(timing, out var count) ? count : 0;
         }
 
         private static string FormatRemainingFlickNotes(
-            RecoveredInputHandlerRuntime input)
+            InputHandlerRuntime input)
         {
             var values = new string[input.RemainingFlickNotes.Count];
             for (var index = 0; index < input.RemainingFlickNotes.Count; index++)
@@ -1985,7 +2082,7 @@ namespace OpenWDS.Editor
         }
 
         private static string FormatNonPerfectResults(
-            RecoveredGameResultRuntime result)
+            GameResultRuntime result)
         {
             return string.Join(
                 ",",
@@ -1995,7 +2092,7 @@ namespace OpenWDS.Editor
         }
 
         private static string FormatRemainingFlickInputDiagnostics(
-            RecoveredInputHandlerRuntime input)
+            InputHandlerRuntime input)
         {
             var values = new string[input.RemainingFlickNotes.Count];
             for (var index = 0; index < input.RemainingFlickNotes.Count; index++)
@@ -2009,7 +2106,7 @@ namespace OpenWDS.Editor
 
         private static void Fail(
             string message,
-            RecoveredGameRuntime runtime,
+            GameRuntime runtime,
             double elapsed,
             bool writeReport = true)
         {
@@ -2050,9 +2147,10 @@ namespace OpenWDS.Editor
                     SessionState.GetInt(MusicIdKey, 1),
                     SessionState.GetString(
                             DifficultyKey,
-                            RecoveredMusicDifficulty.Stella.ToString())
+                            MusicDifficulty.Stella.ToString())
                         .ToLowerInvariant())
                 : "unity-playmode-auto-judge-validation.json";
+            if (SessionState.GetBool(StorageFixtureKey, false)) reportName = "unity-playmode-staract-storage-validation.json";
             var reportPath = Path.Combine(
                 repositoryRoot, "reverse", "reports",
                 reportName);

@@ -5,7 +5,7 @@ using DG.Tweening;
 
 namespace Sirius.GameResult
 {
-    public sealed class GameResultRatePanel : RecoveredGameResultPanelBase
+    public sealed class GameResultRatePanel : GameResultPanelBase
     {
         [SerializeField] private Object _notationRate;
         [SerializeField] private Object _playerRate;
@@ -13,7 +13,7 @@ namespace Sirius.GameResult
         [SerializeField] private Text _playerRateText;
         [SerializeField] private Text _noRateText;
 
-        public override void Initialize(RecoveredGameResultViewData data)
+        public override void Initialize(GameResultViewData data)
         {
             base.Initialize(data);
             // GameResultRatePanel.Initialize in the original ARM64 has no AUTO
@@ -63,7 +63,7 @@ namespace Sirius.GameResult
                     // Original GameResultRate applies ColorHelper.RateColor on
                     // every count-up update, including the final value.
                     currentText.color =
-                        OpenWDS.Runtime.RecoveredPlayerRating
+                        OpenWDS.Runtime.PlayerRating
                             .GetGameResultTextColor(currentRate);
                 }
             }
@@ -84,7 +84,7 @@ namespace Sirius.GameResult
                     previousText.text = previousRate.ToString(
                         "0.00", CultureInfo.InvariantCulture);
                     previousText.color =
-                        OpenWDS.Runtime.RecoveredPlayerRating
+                        OpenWDS.Runtime.PlayerRating
                             .GetGameResultTextColor(previousRate);
                 }
             }
@@ -96,7 +96,7 @@ namespace Sirius.GameResult
             if (notTarget != null) notTarget.gameObject.SetActive(false);
         }
 
-        internal Sequence CreateCountUp(RecoveredGameResultViewData data, System.Action completion)
+        internal Sequence CreateCountUp(GameResultViewData data, System.Action completion)
         {
             // GameResultRatePanel joins the two independent rate sequences.
             return DOTween.Sequence()
@@ -115,7 +115,7 @@ namespace Sirius.GameResult
             var previousGroup = previous.GetComponent<CanvasGroup>();
             var value = 0d;
             current.text = "0.00";
-            current.color = OpenWDS.Runtime.RecoveredPlayerRating.GetGameResultTextColor(0d);
+            current.color = OpenWDS.Runtime.PlayerRating.GetGameResultTextColor(0d);
             if (isNewRecord)
             {
                 previousGroup.alpha = 0f;
@@ -127,7 +127,7 @@ namespace Sirius.GameResult
             {
                 value = updated;
                 current.text = updated.ToString("0.00", CultureInfo.InvariantCulture);
-                current.color = OpenWDS.Runtime.RecoveredPlayerRating.GetGameResultTextColor(updated);
+                current.color = OpenWDS.Runtime.PlayerRating.GetGameResultTextColor(updated);
             }, target, 0.3f).SetEase(Ease.Linear));
             sequence.AppendCallback(() => completion?.Invoke());
             if (isNewRecord)

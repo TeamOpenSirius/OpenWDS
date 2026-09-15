@@ -38,10 +38,10 @@ namespace OpenWDS.Editor
             {
                 if (Path.GetFileName(path) == "music_config.csv") continue;
                 chartFileCount++;
-                foreach (var note in RecoveredStandardNotation.Parse(
+                foreach (var note in StandardNotation.Parse(
                              File.ReadAllText(path)))
                 {
-                    if (!RecoveredSplitLaneRuntime.IsSplitLane(note.GimmickType))
+                    if (!SplitLaneRuntime.IsSplitLane(note.GimmickType))
                         continue;
                     chartSplitLaneEventCount++;
                     referencedIds.Add(note.GimmickValue);
@@ -50,11 +50,11 @@ namespace OpenWDS.Editor
 
             var shaderNames = new[]
             {
-                "OpenWDS/Recovered/SplitEffect/ParticleAdditive",
-                "OpenWDS/Recovered/SplitEffect/ParticleAlpha",
-                "OpenWDS/Recovered/SplitEffect/SplitEffectSyuriken",
-                "OpenWDS/Recovered/SplitEffect/ParticleTrailAdditive",
-                "OpenWDS/Recovered/SplitEffect/ButterflyEffect",
+                "OpenWDS/SplitEffect/ParticleAdditive",
+                "OpenWDS/SplitEffect/ParticleAlpha",
+                "OpenWDS/SplitEffect/SplitEffectSyuriken",
+                "OpenWDS/SplitEffect/ParticleTrailAdditive",
+                "OpenWDS/SplitEffect/ButterflyEffect",
             };
             var recoveredShaderNames = new HashSet<string>();
             foreach (var shaderName in shaderNames)
@@ -65,11 +65,11 @@ namespace OpenWDS.Editor
             }
 
             var parent = new GameObject("SplitEffectValidationParent");
-            RecoveredSplitLaneAssetRuntime runtime = null;
+            SplitLaneAssetRuntime runtime = null;
             var validatedPrefabCount = 0;
             try
             {
-                runtime = new RecoveredSplitLaneAssetRuntime(parent.transform);
+                runtime = new SplitLaneAssetRuntime(parent.transform);
                 var prefabIds = runtime.PrefabIds.OrderBy(value => value).ToArray();
                 foreach (var referencedId in referencedIds)
                     if (!prefabIds.Contains(referencedId))
@@ -78,7 +78,7 @@ namespace OpenWDS.Editor
                 var instanceId = 1;
                 foreach (var effectId in prefabIds)
                 {
-                    var note = new RecoveredNotationNote
+                    var note = new NotationNote
                     {
                         Id = instanceId++,
                         StartTickCount = 0f,
@@ -86,7 +86,7 @@ namespace OpenWDS.Editor
                         GimmickType = 33,
                         GimmickValue = effectId,
                     };
-                    var entry = new RecoveredSplitLaneEntry(note, 33, true, false);
+                    var entry = new SplitLaneEntry(note, 33, true, false);
                     var before = parent.transform.childCount;
                     runtime.OnSplitLane(in entry);
                     if (parent.transform.childCount != before + 1)
@@ -127,7 +127,7 @@ namespace OpenWDS.Editor
                         {
                             if (material == null || material.shader == null) continue;
                             if (material.shader.name.StartsWith(
-                                    "OpenWDS/Recovered/SplitEffect/",
+                                    "OpenWDS/SplitEffect/",
                                     StringComparison.Ordinal))
                                 recoveredShaderNames.Add(material.shader.name);
                             if (!material.shader.isSupported)
