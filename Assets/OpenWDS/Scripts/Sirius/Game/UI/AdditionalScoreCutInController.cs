@@ -17,6 +17,7 @@ namespace Sirius.Game.UI
         [SerializeField] private TextMeshProUGUI _score;
 
         public bool HasArtwork =>
+            _charaIcon != null && _charaIcon.enabled && _charaIcon.sprite != null &&
             _leftImage != null && _leftImage.sprite != null &&
             _rightImage != null && _rightImage.sprite != null &&
             _senseActiveImage != null && _senseActiveImage.sprite != null &&
@@ -38,11 +39,10 @@ namespace Sirius.Game.UI
             if (_charaIcon != null)
             {
                 _charaIcon.sprite = characterIcon;
-                // Character-card icons belong to the account/character asset
-                // provider. Keep the local common cut-in valid when it is absent.
                 _charaIcon.enabled = characterIcon != null;
             }
-            if (_score != null) _score.text = pointValue.ToString();
+            if (_senseActiveImage != null) _senseActiveImage.SetNativeSize();
+            if (_score != null) _score.text = "+" + pointValue.ToString();
         }
 
         // Receiver retained by the original SenceCutIn_anim clip. Slot

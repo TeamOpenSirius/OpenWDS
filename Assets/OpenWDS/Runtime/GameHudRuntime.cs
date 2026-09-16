@@ -383,7 +383,7 @@ namespace OpenWDS.Runtime
                             candidate.position == senseEvent.activatingPosition);
                     if (card != null)
                         _additionalScoreCutInPanel?.OnSenseScoreAdded(
-                            card.senseType, addedScore);
+                            card.senseType, addedScore, card.characterMasterId);
                     var activationBefore = _starActScore.ActivationCount;
                     var starActAdded = _starActScore.OnSenseActivated(senseEvent);
                     RefreshSenseLights(_starActScore.HoldingLights);

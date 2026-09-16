@@ -1,4 +1,4 @@
-using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Sirius.Game.UI
@@ -18,7 +18,8 @@ namespace Sirius.Game.UI
         private Sprite[] _sprites;
         private bool _isActive;
         private int _currentCutIn;
-        private Coroutine[] _running;
+        private IReadOnlyDictionary<long, Sprite> _characterIcons;
+        private bool _animationsReady;
         private Vector3 _configuredScreenPosition;
 
         public int ActivationCount { get; private set; }
@@ -36,7 +37,9 @@ namespace Sirius.Game.UI
                 {
                     if (cutIn == null || !cutIn.HasArtwork) continue;
                     var group = cutIn.GetComponent<CanvasGroup>();
-                    if (group == null || group.alpha > 0.001f) return true;
+                    var parentGroup = cutIn.transform.parent.GetComponent<CanvasGroup>();
+                    if ((group == null || group.alpha > 0.001f) &&
+                        (parentGroup == null || parentGroup.alpha > 0.001f)) return true;
                 }
                 return false;
             }
@@ -55,18 +58,10 @@ namespace Sirius.Game.UI
                 throw new System.ArgumentNullException(nameof(camera));
             if (effectParent == null)
                 throw new System.ArgumentNullException(nameof(effectParent));
+            foreach (var animator in _commonCutInAnimators) animator.enabled = false;
+            foreach (var animator in _commonCutInParentAnimators) animator.enabled = false;
             _sprites = sprites;
             _isActive = isActive;
-            _running = new Coroutine[_commonCutIns != null
-                ? _commonCutIns.Length
-                : 0];
-            if (_commonCutInParentRectTransforms != null)
-                foreach (var rect in _commonCutInParentRectTransforms)
-                    if (rect != null &&
-                        rect.GetComponent<
-                            AdditionalScoreCutInAnimationEventReceiver>() == null)
-                        rect.gameObject.AddComponent<
-                            AdditionalScoreCutInAnimationEventReceiver>();
             // Zenject invokes the retail constructor after the Canvas is
             // ready. The recovery configures the prefab during scene startup,
             // so finish the pending Canvas layout before writing screen-space
@@ -96,49 +91,56 @@ namespace Sirius.Game.UI
             return new Vector3(screenPosition.x, screenPosition.y, 0f);
         }
 
-        public void OnSenseScoreAdded(int senseType, long addedScore)
+        public void PreparePresentation(RuntimeAnimatorController content,
+            RuntimeAnimatorController parent, IReadOnlyDictionary<long, Sprite> characterIcons)
         {
-            if (!_isActive || _sprites == null || _commonCutIns == null ||
-                _commonCutIns.Length == 0)
-                return;
-            var typeIndex = Mathf.Clamp(senseType, 1, 4) - 1;
-            var slot = _currentCutIn++ % _commonCutIns.Length;
-            var controller = _commonCutIns[slot];
-            controller.SetValue(
-                _sprites[typeIndex * 3],
-                _sprites[typeIndex * 3 + 1],
-                _sprites[typeIndex * 3 + 2],
-                null,
-                addedScore);
+            if (content == null || parent == null || characterIcons == null)
+                throw new System.ArgumentException("Original Sense presentation resources are required.");
+            _characterIcons = characterIcons;
+            for (var slot = 0; slot < _commonCutIns.Length; slot++)
+            {
+                _commonCutInAnimators[slot].runtimeAnimatorController = content;
+                _commonCutInParentAnimators[slot].runtimeAnimatorController = parent;
+                _commonCutInAnimators[slot].enabled = true;
+                _commonCutInParentAnimators[slot].enabled = true;
+            }
+            _animationsReady = true;
+            ResetPanel();
+        }
 
-            if (_commonCutInParentRectTransforms != null &&
-                slot < _commonCutInParentRectTransforms.Length)
+        public void OnSenseScoreAdded(int senseType, long addedScore, long characterId)
+        {
+            // Retail IsValidSenseType rejects Alternative and other non-display
+            // types instead of clamping them to a different visual type.
+            if (!_isActive || senseType < 1 || senseType > 4) return;
+            if (!_animationsReady || !_characterIcons.TryGetValue(characterId, out var icon) || icon == null)
+                throw new System.InvalidOperationException("Sense resources were not prepared for " + characterId);
+            var typeIndex = senseType - 1;
+            var slot = _currentCutIn;
+            _commonCutIns[slot].SetValue(_sprites[typeIndex * 3],
+                _sprites[typeIndex * 3 + 1], _sprites[typeIndex * 3 + 2], icon, addedScore);
+            _commonCutInParentRectTransforms[slot].SetAsLastSibling();
+            _commonCutInAnimators[slot].SetTrigger("OnStart");
+            _commonCutInParentAnimators[slot].SetTrigger("Initialize");
+            _commonCutInAnimators[slot].Update(0f);
+            // PlayAnimation (0xba09514): move the previous visible item up,
+            // fade the second previous, initialize the third previous.
+            for (var offset = 1; offset <= 3; offset++)
             {
-                var rect = _commonCutInParentRectTransforms[slot];
-                rect.SetAsLastSibling();
-                rect.gameObject.SetActive(false);
-                rect.gameObject.SetActive(true);
+                var before = (slot - offset + _commonCutIns.Length) % _commonCutIns.Length;
+                if (_commonCutInAnimators[before].GetCurrentAnimatorStateInfo(0).IsName("Init")) continue;
+                if (offset == 3) InitializeCutIn(before);
+                else _commonCutInParentAnimators[before].SetTrigger(offset == 1 ? "MoveUp" : "FadeOut");
             }
-            if (_commonCutInParentAnimators != null &&
-                slot < _commonCutInParentAnimators.Length &&
-                _commonCutInParentAnimators[slot] != null)
-            {
-                _commonCutInParentAnimators[slot].Play(
-                    "CutIn_anim", 0, 0f);
-                _commonCutInParentAnimators[slot].Update(0f);
-            }
-            if (_commonCutInAnimators != null &&
-                slot < _commonCutInAnimators.Length &&
-                _commonCutInAnimators[slot] != null)
-            {
-                _commonCutInAnimators[slot].Play("Wait", 0, 0f);
-                _commonCutInAnimators[slot].SetTrigger("Animate");
-                _commonCutInAnimators[slot].Update(0f);
-            }
+            _currentCutIn = (slot + 1) % _commonCutIns.Length;
             UpdateOriginalAnimationStateValidation(slot);
-            if (_running[slot] != null) StopCoroutine(_running[slot]);
-            _running[slot] = StartCoroutine(PlayParentCurve(slot));
             ActivationCount++;
+        }
+
+        private void InitializeCutIn(int slot)
+        {
+            _commonCutInAnimators[slot].SetTrigger("Initialize");
+            _commonCutInParentAnimators[slot].SetTrigger("Initialize");
         }
 
         private void UpdateOriginalAnimationStateValidation(int slot)
@@ -148,12 +150,12 @@ namespace Sirius.Game.UI
                 slot < _commonCutInParentAnimators.Length &&
                 _commonCutInParentAnimators[slot] != null &&
                 _commonCutInParentAnimators[slot]
-                    .GetCurrentAnimatorStateInfo(0).IsName("CutIn_anim") &&
+                    .GetCurrentAnimatorStateInfo(0).IsName("Init") &&
                 _commonCutInAnimators != null &&
                 slot < _commonCutInAnimators.Length &&
                 _commonCutInAnimators[slot] != null &&
                 _commonCutInAnimators[slot]
-                    .GetCurrentAnimatorStateInfo(0).IsName("SenceCutIn_anim");
+                    .GetCurrentAnimatorStateInfo(0).IsName("FadeIn");
         }
 
         public void ResetPanel()
@@ -161,53 +163,22 @@ namespace Sirius.Game.UI
             _currentCutIn = 0;
             ActivationCount = 0;
             LastAnimationUsedOriginalStates = false;
-            if (_commonCutIns != null)
-                foreach (var cutIn in _commonCutIns)
-                    if (cutIn != null)
-                    {
-                        cutIn.Initialize();
-                        var group = cutIn.GetComponent<CanvasGroup>();
-                        if (group != null) group.alpha = 0f;
-                    }
-        }
-
-        private IEnumerator PlayParentCurve(int slot)
-        {
-            var rect = _commonCutInParentRectTransforms[slot];
-            var parentGroup = rect.GetComponent<CanvasGroup>();
-            var contentGroup = _commonCutIns[slot].GetComponent<CanvasGroup>();
-            var basePosition = rect.anchoredPosition;
-            if (parentGroup != null) parentGroup.alpha = 1f;
-            if (contentGroup != null) contentGroup.alpha = 1f;
-
-            // CutIn_anim: x 320→0 at 0.1666667s, content fades by 0.5s,
-            // parent holds to 0.6666667s then fades through its 1.1666666s end.
-            var elapsed = 0f;
-            const float end = 1.1666666f;
-            while (elapsed < end)
+            if (_commonCutIns == null) return;
+            for (var slot = 0; slot < _commonCutIns.Length; slot++)
             {
-                elapsed += Time.deltaTime;
-                UpdateOriginalAnimationStateValidation(slot);
-                var slide = Mathf.Clamp01(elapsed / 0.1666667f);
-                rect.anchoredPosition = new Vector2(
-                    basePosition.x + Mathf.Lerp(320f, 0f, slide),
-                    basePosition.y);
-                if (contentGroup != null)
-                    contentGroup.alpha = elapsed <= 0.1666667f
-                        ? 1f
-                        : 1f - Mathf.Clamp01(
-                            (elapsed - 0.1666667f) / 0.3333333f);
-                if (parentGroup != null)
-                    parentGroup.alpha = elapsed <= 0.6666667f
-                        ? 1f
-                        : 1f - Mathf.Clamp01(
-                            (elapsed - 0.6666667f) / 0.5f);
-                yield return null;
+                _commonCutIns[slot].Initialize();
+                if (_animationsReady)
+                {
+                    InitializeCutIn(slot);
+                    _commonCutInAnimators[slot].Update(0f);
+                    _commonCutInParentAnimators[slot].Update(0f);
+                }
+                else
+                {
+                    var group = _commonCutIns[slot].GetComponent<CanvasGroup>();
+                    if (group != null) group.alpha = 0f;
+                }
             }
-            rect.anchoredPosition = basePosition;
-            if (parentGroup != null) parentGroup.alpha = 0f;
-            if (contentGroup != null) contentGroup.alpha = 0f;
-            _running[slot] = null;
         }
     }
 }

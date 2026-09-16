@@ -38,6 +38,7 @@ namespace OpenWDS.Runtime
         }
 
         private Index _index;
+        private readonly List<Sprite> _senseIcons = new List<Sprite>();
         private readonly Dictionary<string, AssetBundle> _bundles = new Dictionary<string, AssetBundle>();
         private AssetBundleCreateRequest _loadingBundle;
         private StarActCutInPlayer _cutIn;
@@ -70,7 +71,7 @@ namespace OpenWDS.Runtime
         public StarActCutInPlayer CutIn => _cutIn;
         public CharacterObjectPerformanceTrigger Character => _trigger;
 
-        public IEnumerator Prepare(PlayerUnitFixture unit, Camera gameCamera, int endVoiceSetting, float voiceVolume, System.Random random = null, float gameVoiceVolume = 1f)
+        public IEnumerator Prepare(PlayerUnitFixture unit, Camera gameCamera, int endVoiceSetting, float voiceVolume, System.Random random = null, float gameVoiceVolume = 1f, Sirius.Game.UI.AdditionalScoreCutInPanel sensePanel = null)
         {
             if (unit == null) throw new ArgumentNullException(nameof(unit));
             _voiceVolume = Mathf.Clamp01(voiceVolume);
@@ -91,6 +92,26 @@ namespace OpenWDS.Runtime
             var selected = _index.characters.Single(c => c.id == CharacterBaseId);
             CharacterKey = "CharacterObjects/" + selected.defaultCostumeId.ToString(CultureInfo.InvariantCulture) +
                            CharacterBaseId.ToString(CultureInfo.InvariantCulture);
+            if (sensePanel != null)
+            {
+                var icons = new Dictionary<long, Sprite>();
+                yield return Load("SpriteAtlases/Characters");
+                var atlas = FindAsset<UnityEngine.U2D.SpriteAtlas>("SpriteAtlases/Characters");
+                if (atlas == null) throw new InvalidOperationException("Character icon atlas is missing.");
+                foreach (var card in unit.cards)
+                {
+                    var key = card.characterMasterId.ToString(CultureInfo.InvariantCulture) + "_0";
+                    var icon = atlas.GetSprite(key);
+                    if (icon == null || icon.rect.width <= 0 || icon.rect.height <= 0)
+                        throw new InvalidOperationException("Original Sense character card failed to load: " + key);
+                    icons[card.characterMasterId] = icon;
+                    _senseIcons.Add(icon);
+                }
+                yield return Load("CommonCutin_animator");
+                yield return Load("CommonCutinParent_animator");
+                sensePanel.PreparePresentation(FindAsset<RuntimeAnimatorController>("CommonCutin_animator"),
+                    FindAsset<RuntimeAnimatorController>("CommonCutinParent_animator"), icons);
+            }
             yield return Load(StarActKey);
             yield return Load(CharacterKey);
             var sprite = FindAsset<Sprite>(StarActKey);
@@ -305,6 +326,8 @@ namespace OpenWDS.Runtime
             }
             if (_loadingBundle != null && _loadingBundle.isDone && _loadingBundle.assetBundle != null)
                 _loadingBundle.assetBundle.Unload(true);
+            foreach (var icon in _senseIcons) if (icon != null) Destroy(icon);
+            _senseIcons.Clear();
             _characterPrefab = null;
             foreach (var bundle in _bundles.Values) bundle.Unload(true);
             _bundles.Clear();

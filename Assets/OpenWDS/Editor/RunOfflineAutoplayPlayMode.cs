@@ -1015,6 +1015,8 @@ namespace OpenWDS.Editor
                 return;
             var panel = runtime.GameHud.AdditionalScoreCutInPanel;
             if (panel == null || !panel.HasVisibleCutInArtwork) return;
+            if (!panel.GetComponentsInChildren<Sirius.Game.UI.AdditionalScoreCutInController>()
+                    .Any(c => c.HasArtwork && c.GetComponent<CanvasGroup>().alpha > 0.95f)) return;
             var expectedPosition = panel.ConfiguredScreenPosition;
             if (Vector3.Distance(
                     panel.ParentScreenPosition, expectedPosition) > 0.01f)
@@ -1023,15 +1025,164 @@ namespace OpenWDS.Editor
                     "Game/Effects position: actual=" +
                     panel.ParentScreenPosition + ", expected=" +
                     expectedPosition + ".");
-            // The Animate trigger transitions on the Animator's following
+            // The OnStart trigger transitions on the Animator's following
             // update, so do not reject the same frame that emitted Sense.
             if (!panel.LastAnimationUsedOriginalStates) return;
+            ValidateSenseCutInQueue(panel);
+            CaptureSenseCutIn(runtime, panel);
             SessionState.SetBool(SenseCutInVisualKey, true);
             Debug.Log(
                 "OPENWDS_PLAYMODE_SENSE_CUTIN_VISIBLE " +
                 $"activations={panel.ActivationCount} " +
                 $"screen={panel.ParentScreenPosition} " +
-                "animations=CutIn_anim/SenceCutIn_anim");
+                "animations=CommonCutin/FadeIn,CommonCutinParent/Init characterIcon=visible");
+        }
+
+        private static void CaptureSenseCutIn(GameRuntime runtime, Sirius.Game.UI.AdditionalScoreCutInPanel panel)
+        {
+            var name = SessionState.GetBool(StorageFixtureKey, false)
+                ? "sense-cutin-storage-playmode.png" : "sense-cutin-playmode.png";
+            var output = Path.GetFullPath(Path.Combine(Application.dataPath, "../../../reverse/reports", name));
+            var camera = runtime.GameCamera;
+            var canvas = panel.GetComponentInParent<Canvas>();
+            var oldMode = canvas.renderMode;
+            var oldCamera = canvas.worldCamera;
+            var oldDistance = canvas.planeDistance;
+            var oldTarget = camera.targetTexture;
+            var oldAspect = camera.aspect;
+            var oldActive = RenderTexture.active;
+            // Keep the current viewport ratio and sample its UI at double size.
+            var width = Screen.width * 2;
+            var height = Screen.height * 2;
+            var target = new RenderTexture(width, height, 24);
+            var texture = new Texture2D(width, height, TextureFormat.RGB24, false);
+            var icon = panel.GetComponentsInChildren<Image>()
+                .Single(i => i.name == "Icon" && i.enabled && i.sprite != null);
+            var mask = icon.GetComponentInParent<RectMask2D>();
+            if (mask == null) throw new InvalidOperationException("Sense portrait has no RectMask2D.");
+            try
+            {
+                camera.targetTexture = target;
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = 1f;
+                Canvas.ForceUpdateCanvases();
+                camera.Render();
+                RenderTexture.active = target;
+                texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                texture.Apply();
+                Directory.CreateDirectory(Path.GetDirectoryName(output));
+                File.WriteAllBytes(output, texture.EncodeToPNG());
+                var withIcon = texture.GetPixels32();
+                var corners = new Vector3[4];
+                mask.rectTransform.GetWorldCorners(corners);
+                var lo = camera.WorldToViewportPoint(corners[0]);
+                var hi = camera.WorldToViewportPoint(corners[2]);
+                // Allow only the two-pixel rasterization boundary around the mask.
+                var clip = Rect.MinMaxRect(lo.x * width - 2f, lo.y * height - 2f,
+                    hi.x * width + 2f, hi.y * height + 2f);
+                icon.enabled = false;
+                Canvas.ForceUpdateCanvases();
+                camera.Render();
+                RenderTexture.active = target;
+                texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                texture.Apply();
+                var withoutIcon = texture.GetPixels32();
+                var inside = 0;
+                var outside = 0;
+                for (var i = 0; i < withIcon.Length; i++)
+                {
+                    var x = withIcon[i];
+                    var y = withoutIcon[i];
+                    if (Mathf.Abs(x.r - y.r) + Mathf.Abs(x.g - y.g) + Mathf.Abs(x.b - y.b) <= 12) continue;
+                    if (clip.Contains(new Vector2(i % width, i / width))) inside++;
+                    else outside++;
+                }
+                File.WriteAllText(Path.ChangeExtension(output, ".mask.json"),
+                    "{\"insidePixels\":" + inside + ",\"outsidePixels\":" + outside +
+                    ",\"maskHeight\":60,\"iconHeight\":168}\n");
+                if (inside < 20 || outside != 0)
+                    throw new InvalidOperationException($"Sense portrait clipping failed: inside={inside}, outside={outside}.");
+                Debug.Log($"OPENWDS_SENSE_MASK_PIXELS inside={inside} outside={outside}");
+            }
+            finally
+            {
+                icon.enabled = true;
+                canvas.renderMode = oldMode;
+                canvas.worldCamera = oldCamera;
+                canvas.planeDistance = oldDistance;
+                camera.targetTexture = oldTarget;
+                camera.aspect = oldAspect;
+                RenderTexture.active = oldActive;
+                UnityEngine.Object.DestroyImmediate(texture);
+                UnityEngine.Object.DestroyImmediate(target);
+                Canvas.ForceUpdateCanvases();
+            }
+        }
+
+        private static void ValidateSenseCutInQueue(Sirius.Game.UI.AdditionalScoreCutInPanel source)
+        {
+            var copy = UnityEngine.Object.Instantiate(source, source.transform.parent);
+            try
+            {
+                var type = typeof(Sirius.Game.UI.AdditionalScoreCutInPanel);
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                foreach (var name in new[] { "_sprites", "_characterIcons" })
+                    type.GetField(name, flags).SetValue(copy, type.GetField(name, flags).GetValue(source));
+                type.GetField("_isActive", flags).SetValue(copy, true);
+                var content = (Animator[])type.GetField("_commonCutInAnimators", flags).GetValue(copy);
+                var parents = (Animator[])type.GetField("_commonCutInParentAnimators", flags).GetValue(copy);
+                var icons = (System.Collections.Generic.IReadOnlyDictionary<long, Sprite>)
+                    type.GetField("_characterIcons", flags).GetValue(source);
+                copy.PreparePresentation(content[0].runtimeAnimatorController,
+                    parents[0].runtimeAnimatorController, icons);
+                void Step(float time)
+                {
+                    // Mecanim evaluates a newly triggered state before advancing
+                    // its curve. Sample actual frame-sized updates, not one jump.
+                    foreach (var animator in content) animator.Update(0f);
+                    foreach (var animator in parents) animator.Update(0f);
+                    while (time > 0f)
+                    {
+                        var delta = Mathf.Min(time, 1f / 120f);
+                        foreach (var animator in content) animator.Update(delta);
+                        foreach (var animator in parents) animator.Update(delta);
+                        time -= delta;
+                    }
+                }
+                var id = icons.Keys.First();
+                copy.OnSenseScoreAdded(0, 123, id);
+                copy.OnSenseScoreAdded(5, 123, id);
+                if (copy.ActivationCount != 0) throw new InvalidOperationException("Invalid Sense type was displayed.");
+                copy.OnSenseScoreAdded(1, 123, id);
+                Step(0.2f);
+                var firstRect = (RectTransform)parents[0].transform;
+                var firstY = firstRect.anchoredPosition.y;
+                if (!copy.HasVisibleCutInArtwork) throw new InvalidOperationException("Original Sense curve did not reveal the icon and artwork.");
+                copy.OnSenseScoreAdded(2, 456, id);
+                Step(0.2f);
+                Step(0.2f);
+                if (firstRect.anchoredPosition.y <= firstY)
+                    throw new InvalidOperationException("Overlapping Sense did not move the previous slot up.");
+                copy.OnSenseScoreAdded(3, 789, id);
+                Step(0.3f);
+                Step(0.01f);
+                if (parents[0].GetComponent<CanvasGroup>().alpha > 0.01f)
+                    throw new InvalidOperationException("Second previous Sense did not fade out.");
+                copy.OnSenseScoreAdded(4, 1234, id);
+                Step(0.01f);
+                if (!content[0].GetCurrentAnimatorStateInfo(0).IsName("Init"))
+                    throw new InvalidOperationException("Third previous Sense was not reset.");
+                copy.ResetPanel();
+                Step(0f);
+                if (copy.HasVisibleCutInArtwork) throw new InvalidOperationException("Reset left Sense artwork visible.");
+                Debug.Log("OPENWDS_SENSE_QUEUE_VALIDATED invalidTypes=2 overlap=moveUp/fadeOut/reset icons=" + icons.Count);
+            }
+            finally
+            {
+                copy.gameObject.SetActive(false);
+                UnityEngine.Object.Destroy(copy.gameObject);
+            }
         }
 
         private static bool RunPauseSmoke(
@@ -2113,7 +2264,8 @@ namespace OpenWDS.Editor
             SessionState.SetString(ErrorKey, message);
             if (writeReport)
             {
-                var report = runtime != null && runtime.GameResultRuntime != null
+                var report = runtime != null && runtime.GameResultRuntime != null &&
+                             runtime.InputHandler != null && runtime.ResultSe != null
                     ? BuildReport(runtime, elapsed)
                     : new AutoplayReport
                     {

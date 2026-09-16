@@ -1195,7 +1195,8 @@ namespace OpenWDS.Runtime
                             persistedSettings.SoundVolumeSettings.SystemVoice),
                         gameVoiceVolume: GameSettings.CalculateCombinedVolume(
                             persistedSettings.SoundVolumeSettings.GameMaster,
-                            persistedSettings.SoundVolumeSettings.GameVoice)));
+                            persistedSettings.SoundVolumeSettings.GameVoice),
+                        sensePanel: _gameHud.AdditionalScoreCutInPanel));
                 }
             }
             CreateBoundaryPerformances();

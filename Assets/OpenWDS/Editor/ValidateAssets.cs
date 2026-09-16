@@ -129,6 +129,7 @@ namespace OpenWDS.Editor
             Debug.Log($"OPENWDS_BUILTIN_SPRITE_MATERIAL guid={defaultSpriteMaterialGuid} " +
                       $"fileID={defaultSpriteMaterialFileId}");
 
+            ValidateSenseMasks();
             ValidateAdditiveParticleMaterials();
             ValidatePlayerRateGradient.Run();
             ValidateHoldPulseTiming.Run();
@@ -231,6 +232,24 @@ namespace OpenWDS.Editor
                     "Core rhythm prefab or recovered script validation failed."
                 );
             }
+        }
+
+        private static void ValidateSenseMasks()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Resources/Prefabs/Features/Game/AdditionalScoreCutInPanel.prefab");
+            var masks = prefab.GetComponentsInChildren<UnityEngine.UI.RectMask2D>(true);
+            if (masks.Length != 4 || prefab.GetComponentsInChildren<UnityEngine.UI.Mask>(true).Length != 0)
+                throw new InvalidOperationException("Sense must have four original RectMask2D components, not stencil Masks.");
+            foreach (var mask in masks)
+            {
+                var icon = mask.transform.Find("Icon").GetComponent<UnityEngine.UI.Image>();
+                if (mask.rectTransform.sizeDelta != new Vector2(168f, 60f) ||
+                    icon.rectTransform.sizeDelta != new Vector2(168f, 168f) ||
+                    mask.padding != Vector4.zero || mask.softness != Vector2Int.zero || !icon.maskable)
+                    throw new InvalidOperationException("Sense icon must retain its original size inside the 168x60 clip rectangle.");
+            }
+            Debug.Log("OPENWDS_SENSE_MASKS_VALIDATED count=4 mask=168x60 icon=168x168");
         }
 
         private static bool ValidateLongNotesShader()
