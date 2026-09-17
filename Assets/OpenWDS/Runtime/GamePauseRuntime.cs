@@ -31,6 +31,8 @@ namespace OpenWDS.Runtime
         [SerializeField] private GameObject _gameSimulationNotePrefab;
         [SerializeField] private RenderTexture _gameSimulationRenderTexture;
 
+        private bool _selectionHost;
+        private Action _selectionSettingsClosed;
         private SettingsStore _store;
         private SettingsSession _session;
         private UiSeRuntime _uiSe;
@@ -110,8 +112,49 @@ namespace OpenWDS.Runtime
             _gameSimulationRenderTexture = gameSimulationRenderTexture;
         }
 
+        // Shared OptionDialog host: selection saves immediately; gameplay retains
+        // the original restart-confirmation transaction.
+        public void ConfigureSelectionHost(Transform parent, Action closed)
+        {
+            _selectionHost = true;
+            _canvasObject = parent.gameObject;
+            _selectionSettingsClosed = closed;
+            _store = new SettingsStore();
+            _uiSe = UiSeRuntime.Instance;
+        }
+
+        public void OpenSelectionSettings()
+        {
+            if (!_selectionHost || IsDialogOpen) return;
+            _session = new SettingsSession(_store.LoadOrDefault());
+            CreateTouchBlock();
+            OpenSettings();
+        }
+
+        private void CloseSelectionSettings(bool save)
+        {
+            if (save)
+            {
+                _store.Save(_session.Current);
+                _session.AcceptSavedValues();
+            }
+            else _session.Cancel();
+            DestroyGameSimulationPreview();
+            DestroyDialog();
+            DestroyTouchBlock();
+            _selectionSettingsClosed?.Invoke();
+        }
+
+        private void OnDestroy()
+        {
+            DestroyGameSimulationPreview();
+            DestroyDialog();
+            DestroyTouchBlock();
+        }
+
         private void Start()
         {
+            if (_selectionHost) return;
             if (_gameRuntime == null || _pausePrefab == null ||
                 _dialogPrefab == null || _pauseDialogBodyPrefab == null ||
                 _optionDialogPrefab == null || _textSideMenuButtonPrefab == null ||
@@ -244,7 +287,7 @@ namespace OpenWDS.Runtime
 
         public void OpenSettings()
         {
-            if (!_gameRuntime.IsPaused) return;
+            if (!_selectionHost && !_gameRuntime.IsPaused) return;
             DestroyDialog();
             // DialogHelper.OnSettingsAsync passes Height_960_Medium (120) and
             // YesNo (1), then initializes OptionDialogBody inside Dialog.Body.
@@ -1246,6 +1289,11 @@ namespace OpenWDS.Runtime
         {
             if (_settingsInstance == null || _isRestartConfirmationOpen)
                 return;
+            if (_selectionHost)
+            {
+                CloseSelectionSettings(true);
+                return;
+            }
             // PauseGameDialogBody enters OnRestartConfirmationAsync whenever
             // OnSettingsAsync returns OK. DialogHelper completes and closes the
             // settings dialog before the restart confirmation is presented.
@@ -1305,6 +1353,11 @@ namespace OpenWDS.Runtime
         public void Cancel()
         {
             if (_settingsInstance == null) return;
+            if (_selectionHost)
+            {
+                CloseSelectionSettings(false);
+                return;
+            }
             _session.Cancel();
             OpenPauseMenu();
         }

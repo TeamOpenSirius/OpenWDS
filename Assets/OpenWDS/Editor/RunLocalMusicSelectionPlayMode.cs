@@ -74,6 +74,7 @@ namespace OpenWDS.Editor
             public bool difficultyPreviewPreserved;
             public bool uncachedRatingJacketLoaded;
             public bool retainedResultsReloaded;
+            public bool retainedMenuRestored;
             public long screenshotBytes;
             public int screenshotNonBackgroundPixels;
         }
@@ -3001,7 +3002,41 @@ namespace OpenWDS.Editor
                         SessionState.GetBool(ResultCountKey, false), elapsed);
                     return;
                 }
-                Debug.Log("OPENWDS_PRESENTATION_PLAYMODE hudFade=True previewLeftExit=True resultCount=True returnFocus=True");
+                var menu = UnityEngine.Object.FindObjectOfType<OfflineMenuRuntime>();
+                if (menu == null || !menu.IsReady)
+                {
+                    Finish(false, "Retained menu was not restored.", elapsed);
+                    return;
+                }
+                menu.Open();
+                SessionState.SetString(PhaseKey, "return-menu-open");
+                return;
+            }
+            if (phase == "return-menu-open")
+            {
+                var menu = UnityEngine.Object.FindObjectOfType<OfflineMenuRuntime>();
+                if (menu == null || menu.IsTransitioning ||
+                    UnityEngine.Object.FindObjectOfType<GameRuntime>() != null) return;
+                if (!menu.IsOpen || menu.Popup.GetComponentsInChildren<Text>().Any(t => t.font == null))
+                {
+                    Finish(false, "Returning from result invalidated the menu font assets.", elapsed);
+                    return;
+                }
+                CaptureSelection(Path.Combine(Path.GetDirectoryName(ScreenshotPath()), "offline-menu-return.png"));
+                menu.Close();
+                SessionState.SetString(PhaseKey, "return-menu-closed");
+                return;
+            }
+            if (phase == "return-menu-closed")
+            {
+                var menu = UnityEngine.Object.FindObjectOfType<OfflineMenuRuntime>();
+                if (menu == null || menu.IsTransitioning) return;
+                if (menu.IsOpen)
+                {
+                    Finish(false, "Retained menu could not close after returning from result.", elapsed);
+                    return;
+                }
+                Debug.Log("OPENWDS_PRESENTATION_PLAYMODE hudFade=True previewLeftExit=True resultCount=True returnFocus=True retainedMenu=True");
                 Finish(true, null, elapsed);
             }
         }
@@ -3107,6 +3142,7 @@ namespace OpenWDS.Editor
                 difficultyPreviewPreserved = SessionState.GetBool("OpenWDS.SelectionBugChecks", false),
                 uncachedRatingJacketLoaded = SessionState.GetBool("OpenWDS.SelectionBugChecks", false),
                 retainedResultsReloaded = passed,
+                retainedMenuRestored = passed,
                 screenshotBytes = File.Exists(ScreenshotPath())
                     ? new FileInfo(ScreenshotPath()).Length
                     : 0,
@@ -3368,7 +3404,7 @@ namespace OpenWDS.Editor
                 "unity-music-selection-bookmark-empty.png");
         }
 
-        private static int CaptureSelection(string path)
+        internal static int CaptureSelection(string path)
         {
             var canvas = GameObject.Find("MainCanvas")?.GetComponent<Canvas>();
             var camera = GameObject.Find("UICamera")?.GetComponent<Camera>();
@@ -3389,6 +3425,8 @@ namespace OpenWDS.Editor
             var previousCameras = rootCanvases
                 .Select(item => item.worldCamera)
                 .ToArray();
+            var previousDistances = rootCanvases.Select(item => item.planeDistance).ToArray();
+            var previousAspect = camera.aspect;
             var previousTarget = camera.targetTexture;
             var previousActive = RenderTexture.active;
             var target = new RenderTexture(width, height, 24);
@@ -3428,8 +3466,10 @@ namespace OpenWDS.Editor
                     if (rootCanvases[index] == null) continue;
                     rootCanvases[index].renderMode = previousModes[index];
                     rootCanvases[index].worldCamera = previousCameras[index];
+                    rootCanvases[index].planeDistance = previousDistances[index];
                 }
                 camera.targetTexture = previousTarget;
+                camera.aspect = previousAspect;
                 RenderTexture.active = previousActive;
                 UnityEngine.Object.DestroyImmediate(image);
                 UnityEngine.Object.DestroyImmediate(target);

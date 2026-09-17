@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using TMPro;
+using OpenWDS.Runtime;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -24,7 +25,7 @@ namespace Sirius.GameResult
             new Dictionary<string, byte[]>(StringComparer.Ordinal);
         private static bool _prepareStarted;
         private static bool _prepareCompleted;
-        private readonly List<AssetBundle> _bundles = new List<AssetBundle>();
+        private readonly List<LocalAssetBundleLease> _bundles = new List<LocalAssetBundleLease>();
         private readonly Dictionary<string, TMP_FontAsset> _fonts =
             new Dictionary<string, TMP_FontAsset>(StringComparer.Ordinal);
         private readonly Dictionary<string, Texture2D> _atlases =
@@ -94,20 +95,21 @@ namespace Sirius.GameResult
                     root, "*.bundle", SearchOption.TopDirectoryOnly);
                 Array.Sort(paths, StringComparer.Ordinal);
                 foreach (var path in paths)
-                    AddBundle(AssetBundle.LoadFromFile(path));
+                    AddBundle(LocalAssetBundleLease.FromFile(Path.GetFileName(path), path));
             }
             else
             {
                 foreach (var fileName in BundleFileNames)
                     if (PreparedBundleBytes.TryGetValue(fileName, out var bytes))
-                        AddBundle(AssetBundle.LoadFromMemory(bytes));
+                        AddBundle(LocalAssetBundleLease.FromMemory(fileName, bytes));
             }
         }
 
-        private void AddBundle(AssetBundle bundle)
+        private void AddBundle(LocalAssetBundleLease lease)
         {
-            if (bundle == null) return;
-            _bundles.Add(bundle);
+            var bundle = lease.Bundle;
+            if (bundle == null) { lease.Dispose(); return; }
+            _bundles.Add(lease);
                 // AssetRipper emitted the original TMP SDF ScriptableObjects with
                 // an unresolved MonoScript. Loading every bundle entry as Object
                 // instantiates those broken objects and produces Unity's
@@ -173,7 +175,7 @@ namespace Sirius.GameResult
 
         public void Dispose()
         {
-            foreach (var bundle in _bundles) bundle.Unload(false);
+            foreach (var bundle in _bundles) bundle.Dispose();
             _bundles.Clear();
             _fonts.Clear();
             _atlases.Clear();

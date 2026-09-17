@@ -1,0 +1,5 @@
+{
+    "name": "EnhancedScroller",
+    "references": ["Unity.ugui"],
+    "autoReferenced": true
+}

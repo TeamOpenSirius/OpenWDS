@@ -498,6 +498,11 @@ namespace OpenWDS.Runtime
             _se = GetComponent<UiSeRuntime>();
             if (_se == null) _se = gameObject.AddComponent<UiSeRuntime>();
             BuildHud();
+            var menu = gameObject.AddComponent<OfflineMenuRuntime>();
+            menu.Configure(_view.transform.parent, CreateMenuSettings,
+                () => SetSpectrumVisibleForDialog(false),
+                () => SetSpectrumVisibleForDialog(true), CreateMenuTermsHost, _textSideMenuButtonPrefab);
+            yield return menu.Initialize();
             _catalog = LocalMusicCatalog.FromJson(_catalogJson.text);
             _allMusics = (LocalMusicEntry[])_catalog.Musics.Clone();
             SelectAllPermanentActors(_vocalFilters);
@@ -596,6 +601,40 @@ namespace OpenWDS.Runtime
             }
             _jacketBundleLoadActive = false;
             _loadingJackets.Clear();
+        }
+
+        private Transform CreateMenuTermsHost(Action closed)
+        {
+            var dialog = CreateCommonDialog("利用規約", new Vector2(1760f, 996f));
+            dialog.name = "OriginalTermsDialog";
+            var body = FindDescendant(dialog.transform, "Body");
+            GameObject buttons = null;
+            ConfigureCommonDialogButton(dialog, "FirstButtonParent", "FirstButton", "閉じる", () =>
+            {
+                dialog.SetActive(false); Destroy(dialog);
+                if (buttons != null) { buttons.SetActive(false); Destroy(buttons); }
+                closed();
+            }, false);
+            FindDescendant(dialog.transform, "SecondButtonParent").gameObject.SetActive(false);
+            FindDescendant(dialog.transform, "ThirdButtonParent").gameObject.SetActive(false);
+            buttons = LayoutSingleCommonDialogButton(dialog, "閉じる", false);
+            dialog.transform.SetAsLastSibling();
+            return body;
+        }
+
+        private GamePauseRuntime CreateMenuSettings(Action closed)
+        {
+            var settings = gameObject.AddComponent<GamePauseRuntime>();
+            settings.Configure(null, null, _dialogPrefab, null,
+                Resources.Load<GameObject>("Prefabs/Common/Dialog/Body/OptionDialogBody"),
+                Resources.Load<GameObject>("Prefabs/Common/Dialog/Body/OptionInformationDialogBody"),
+                _textSideMenuButtonPrefab, null,
+                _dialogNormalButtonSprite, _dialogPositiveButtonSprite,
+                _toggleOnSprite, _toggleOffSprite, _gameSimulationCameraPrefab,
+                _gameSimulationLaneGroupPrefab, _gameSimulationPreviewUiPrefab,
+                _gameSimulationNotePrefab, _gameSimulationRenderTexture);
+            settings.ConfigureSelectionHost(_view.transform.parent, closed);
+            return settings;
         }
 
         private void BuildHud()
