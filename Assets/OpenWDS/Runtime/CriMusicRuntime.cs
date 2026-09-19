@@ -90,7 +90,9 @@ namespace OpenWDS.Runtime
                     LocalMusicSelectionSession.MusicConfigAsset;
                 _acbRelativePath =
                     $"OpenWDS/StandardCharts/{musicId}/cri/music_{musicId}.acb.bundle";
-                _cueName = musicId.ToString();
+                var music = LocalMusicSelectionSession.Selection.Music;
+                if (!string.IsNullOrEmpty(music.MusicAcbPath)) _acbRelativePath = music.MusicAcbPath;
+                _cueName = string.IsNullOrEmpty(music.MusicCue) ? musicId.ToString() : music.MusicCue;
             }
             var configText = _musicConfigAsset != null
                 ? _musicConfigAsset.text

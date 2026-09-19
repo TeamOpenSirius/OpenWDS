@@ -31,6 +31,7 @@ namespace OpenWDS.Runtime
         private CriAtomExPlayback _playback;
         private CriAtomExOutputAnalyzer _analyzer;
         private long _musicId;
+        private string _previewPath;
         private Color _color = Color.white;
 
         public long MusicId => _musicId;
@@ -138,23 +139,25 @@ namespace OpenWDS.Runtime
             }
         }
 
-        public void Play(long musicId)
+        public void Play(long musicId, string previewPath = null, string cueName = null)
         {
             if (musicId <= 0) throw new ArgumentOutOfRangeException(nameof(musicId));
             // MusicCompositeStreamingPlayer.Play ignores the current music ID.
             // A difficulty/filter refresh must not restart the preview playback.
-            if (_player != null && _musicId == musicId) return;
+            if (_player != null && _musicId == musicId && _previewPath == previewPath) return;
             StopPlayer();
             _musicId = musicId;
+            _previewPath = previewPath;
             var relative =
                 $"OpenWDS/StandardCharts/{musicId}/cri/musicpreview_{musicId}.acb.bundle";
+            if (!string.IsNullOrEmpty(previewPath)) relative = previewPath;
             var path = Path.Combine(
                 CriWare.Common.streamingAssetsPath, relative);
             _acb = CriAtomExAcb.LoadAcbFile(null, path, null);
             if (_acb == null)
                 throw new InvalidOperationException(
                     $"CRI preview ACB failed to load: {relative}");
-            var cue = musicId.ToString();
+            var cue = string.IsNullOrEmpty(cueName) ? musicId.ToString() : cueName;
             if (!_acb.GetCueInfo(cue, out _))
                 throw new InvalidOperationException(
                     $"CRI preview cue '{cue}' is missing from music {musicId}.");

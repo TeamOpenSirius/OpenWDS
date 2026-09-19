@@ -26,23 +26,33 @@ namespace Sirius.GameResult
             if (_noRateText != null)
                 _noRateText.gameObject.SetActive(false);
 
+            var isSp = data.Difficulty == OpenWDS.Runtime.MusicDifficulty.Olivier;
+            if (isSp)
+            {
+                if (_notationRateText != null) _notationRateText.text = "星章";
+                if (_playerRateText != null)
+                {
+                    _playerRateText.text = "星章達成率";
+                    _playerRateText.fontSize = 30;
+                }
+            }
             BindRateBlock(
                 _notationRateText,
                 data.BestEverNotationRate,
                 data.ThisTimeNotationRate,
-                data.IsNewNotationRate);
+                data.IsNewNotationRate, isSp ? "0" : "0.00");
             BindRateBlock(
                 _playerRateText,
                 data.BeforePlayerRate,
                 data.AfterPlayerRate,
-                data.IsNewPlayerRate);
+                data.IsNewPlayerRate, isSp ? "0.00'%'" : "0.00");
         }
 
         private static void BindRateBlock(
             Text dataLabel,
             double previousRate,
             double currentRate,
-            bool isNewRecord)
+            bool isNewRecord, string format)
         {
             // DataLabel is nested below the label Image; its grandparent is the
             // NotationRate/PlayerRate block that owns the nested RatePanel.
@@ -59,7 +69,7 @@ namespace Sirius.GameResult
                 if (currentText != null)
                 {
                     currentText.text = currentRate.ToString(
-                        "0.00", CultureInfo.InvariantCulture);
+                        format, CultureInfo.InvariantCulture);
                     // Original GameResultRate applies ColorHelper.RateColor on
                     // every count-up update, including the final value.
                     currentText.color =
@@ -82,7 +92,7 @@ namespace Sirius.GameResult
                 if (previousText != null)
                 {
                     previousText.text = previousRate.ToString(
-                        "0.00", CultureInfo.InvariantCulture);
+                        format, CultureInfo.InvariantCulture);
                     previousText.color =
                         OpenWDS.Runtime.PlayerRating
                             .GetGameResultTextColor(previousRate);
@@ -101,20 +111,22 @@ namespace Sirius.GameResult
             // GameResultRatePanel joins the two independent rate sequences.
             return DOTween.Sequence()
                 .Join(CreateRateCountUp(_notationRateText, data.ThisTimeNotationRate,
-                    data.IsNewNotationRate, completion))
+                    data.IsNewNotationRate, completion,
+                    data.Difficulty == OpenWDS.Runtime.MusicDifficulty.Olivier ? "0" : "0.00"))
                 .Join(CreateRateCountUp(_playerRateText, data.AfterPlayerRate,
-                    data.IsNewPlayerRate, completion));
+                    data.IsNewPlayerRate, completion,
+                    data.Difficulty == OpenWDS.Runtime.MusicDifficulty.Olivier ? "0.00'%'" : "0.00"));
         }
 
         private static Sequence CreateRateCountUp(Text label, double target,
-            bool isNewRecord, System.Action completion)
+            bool isNewRecord, System.Action completion, string format)
         {
             var panel = label.transform.parent.parent.Find("RatePanel");
             var current = panel.Find("ThisTimeRate").GetComponent<Text>();
             var previous = panel.Find("PreviousRate");
             var previousGroup = previous.GetComponent<CanvasGroup>();
             var value = 0d;
-            current.text = "0.00";
+            current.text = 0d.ToString(format, CultureInfo.InvariantCulture);
             current.color = OpenWDS.Runtime.PlayerRating.GetGameResultTextColor(0d);
             if (isNewRecord)
             {
@@ -126,7 +138,7 @@ namespace Sirius.GameResult
             sequence.Append(DOTween.To(() => value, updated =>
             {
                 value = updated;
-                current.text = updated.ToString("0.00", CultureInfo.InvariantCulture);
+                current.text = updated.ToString(format, CultureInfo.InvariantCulture);
                 current.color = OpenWDS.Runtime.PlayerRating.GetGameResultTextColor(updated);
             }, target, 0.3f).SetEase(Ease.Linear));
             sequence.AppendCallback(() => completion?.Invoke());

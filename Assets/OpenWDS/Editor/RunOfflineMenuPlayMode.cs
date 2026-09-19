@@ -76,6 +76,9 @@ namespace OpenWDS.Editor
                         Require(menu.IsOpen, "Menu did not open");
                         Require(menu.Popup.GetComponentsInChildren<Image>().All(i => i.sprite != null || i.name == "Background"), "Missing menu sprite");
                         Capture("offline-menu.png");
+                        var dots = UnityEngine.Object.FindObjectOfType<EllipsisIconGraphic>();
+                        var mesh = dots.canvasRenderer.GetMesh();
+                        Require(mesh != null && mesh.vertexCount > 0, "Custom chart menu icon has no rendered geometry");
                         ClickFeature(menu, "Option"); break;
                     case 2:
                         Require(settings.IsSettingsOpen, "Settings did not open");

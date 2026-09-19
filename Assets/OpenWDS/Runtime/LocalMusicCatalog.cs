@@ -52,12 +52,18 @@ namespace OpenWDS.Runtime
         public string PronounceName;
         // Nullable ReleasedAt and group-main ID projected by
         // tools/sync_music_sort_metadata.py from the original Master tables.
+        public bool HasReleasedAt;
+        public long ReleasedAtUtcTicks;
         public bool HasSortReleasedAt;
         public long SortReleasedAtUtcTicks;
         public long SortMusicId;
         public string LyricWriter;
         public string Composer;
         public string Arranger;
+        public int MusicCoverType;
+        public string MusicTypeName => MusicCoverType == 1 ? "ORIGINAL" :
+            MusicCoverType == 2 ? "COVER" :
+            throw new FormatException("Unknown MusicCoverType: " + MusicCoverType);
         public string Vocals;
         public long[] ActorIds;
         public bool IsLongVersion;
@@ -69,6 +75,9 @@ namespace OpenWDS.Runtime
         public int VocalVersion = 1;
         public MusicVideoType MusicVideoType;
         public string JacketAssetPath;
+        public string MusicAcbPath;
+        public string PreviewAcbPath;
+        public string MusicCue;
         public LocalLiveEntry[] Lives;
     }
 
@@ -84,6 +93,7 @@ namespace OpenWDS.Runtime
     [Serializable]
     public sealed class LocalLiveEntry
     {
+        public long AnotherNotationId;
         public long Id;
         public MusicDifficulty Difficulty;
         public int Level;
@@ -163,6 +173,8 @@ namespace OpenWDS.Runtime
                 {
                     throw new FormatException("Duplicate music Id: " + music.Id);
                 }
+                if (music.MusicCoverType != 1 && music.MusicCoverType != 2)
+                    throw new FormatException("Music requires a valid MusicCoverType: " + music.Id);
                 if (music.VocalVersion <= 0 ||
                     string.IsNullOrEmpty(music.Vocals) ||
                     music.ActorIds == null ||
@@ -241,6 +253,7 @@ namespace OpenWDS.Runtime
             return new GamePresenterParameter
             {
                 MusicId = Music.Id,
+                AnotherNotationId = Live.AnotherNotationId,
                 Difficulty = Live.Difficulty,
                 IsAuto = isAuto,
                 ProtoNotationUrl = string.Empty,
@@ -264,6 +277,7 @@ namespace OpenWDS.Runtime
     [Serializable]
     public sealed class GamePresenterParameter
     {
+        public long AnotherNotationId;
         public long MusicId;
         public MusicDifficulty Difficulty;
         public bool IsAuto;
@@ -282,6 +296,7 @@ namespace OpenWDS.Runtime
             return new GameParameter
             {
                 MusicId = MusicId,
+                AnotherNotationId = AnotherNotationId,
                 Difficulty = Difficulty,
                 LiveType = LiveType,
                 IsAuto = IsAuto,
@@ -299,6 +314,7 @@ namespace OpenWDS.Runtime
     [Serializable]
     public sealed class GameParameter
     {
+        public long AnotherNotationId;
         public long MusicId;
         public MusicDifficulty Difficulty;
         public LiveType LiveType;

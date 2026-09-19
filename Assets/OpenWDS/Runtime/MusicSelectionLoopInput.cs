@@ -12,21 +12,26 @@ namespace OpenWDS.Runtime
         IBeginDragHandler,
         IEndDragHandler
     {
-        private LocalMusicSelectionRuntime _runtime;
+        private System.Action _begin, _end;
 
         public void Configure(LocalMusicSelectionRuntime runtime)
         {
-            _runtime = runtime;
+            Configure(runtime.OnListBeginDrag, runtime.OnListEndDrag);
+        }
+
+        public void Configure(System.Action begin, System.Action end)
+        {
+            _begin = begin; _end = end;
         }
 
         public void OnBeginDrag(PointerEventData eventData)
         {
-            _runtime?.OnListBeginDrag();
+            _begin?.Invoke();
         }
 
         public void OnEndDrag(PointerEventData eventData)
         {
-            _runtime?.OnListEndDrag();
+            _end?.Invoke();
         }
     }
 }

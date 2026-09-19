@@ -20,6 +20,7 @@ namespace OpenWDS.Runtime
         private Transform _parent;
         private Func<Action, GamePauseRuntime> _createSettings;
         private Action _opened, _closed;
+        public Action OpenAnotherNotations { private get; set; }
         private OfflineMenuDocuments _documents;
         private Func<Action, Transform> _termsHost;
         private GameObject _sideMenuButton;
@@ -82,6 +83,33 @@ namespace OpenWDS.Runtime
                 button.onClick.RemoveAllListeners();
                 string feature = button.transform.parent.name;
                 if (button.name == "CloseButton") Bind(button, Close, UiSeRuntime.Cue.ButtonBack);
+                else if (feature == "Home")
+                {
+                    button.transform.parent.name = "AprilFool";
+                    foreach (var label in button.transform.parent.GetComponentsInChildren<Text>(true))
+                        label.text = "愚人节谱面";
+                    var icon = button.transform.Find("Icon").GetComponent<Image>();
+                    icon.enabled = false;
+                    var dots = new GameObject("ThreeDots", typeof(RectTransform), typeof(EllipsisIconGraphic));
+                    dots.layer = icon.gameObject.layer;
+                    dots.transform.SetParent(icon.transform, false);
+                    var dotsRect = (RectTransform)dots.transform;
+                    dotsRect.anchorMin = Vector2.zero; dotsRect.anchorMax = Vector2.one;
+                    dotsRect.offsetMin = dotsRect.offsetMax = Vector2.zero;
+                    var graphic = dots.GetComponent<EllipsisIconGraphic>();
+                    graphic.color = new Color32(86, 88, 103, 255);
+                    graphic.raycastTarget = false;
+                    Bind(button, () =>
+                    {
+                        if (_busy) return;
+                        StartCoroutine(HidePopup(() =>
+                        {
+                            Destroy(_block); _block = null;
+                            _closed?.Invoke();
+                            OpenAnotherNotations?.Invoke();
+                        }));
+                    });
+                }
                 else if (feature == "Option") Bind(button, OpenSettings);
                 else if (feature == "Notification") Bind(button, () => OpenDocument(false));
                 else if (feature == "TermOfService") Bind(button, () => OpenDocument(true));
@@ -103,6 +131,8 @@ namespace OpenWDS.Runtime
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() => { UiSeRuntime.Instance?.Play(cue); action(); });
         }
+
+        public void BringButtonToFront() => _view.transform.SetAsLastSibling();
 
         public void Open()
         {

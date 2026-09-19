@@ -7,7 +7,7 @@ namespace OpenWDS.Runtime
 {
     /// <summary>
     /// Confirmed server-side player Rating rules, reproduced for the offline
-    /// NORMAL..STELLA flow. Olivier/SP remains a separate server-owned system.
+    /// NORMAL..STELLA flow. Olivier/SP uses the separate OlivierStars calculator.
     /// </summary>
     public static class PlayerRating
     {

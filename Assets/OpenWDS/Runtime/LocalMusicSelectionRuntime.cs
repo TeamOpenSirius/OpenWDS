@@ -16,6 +16,7 @@ namespace OpenWDS.Runtime
     public static class LocalMusicSelectionSession
     {
         public static LocalMusicSelection Selection { get; private set; }
+        public static bool IsOfficialAuto { get; private set; }
         public static TextAsset ChartAsset { get; private set; }
         public static TextAsset MusicConfigAsset { get; private set; }
         public static Sprite JacketSprite { get; private set; }
@@ -33,8 +34,9 @@ namespace OpenWDS.Runtime
             TextAsset chartAsset,
             TextAsset musicConfigAsset,
             Sprite jacketSprite,
-            IReadOnlyList<LocalMusicEntry> musics)
+            IReadOnlyList<LocalMusicEntry> musics, bool isOfficialAuto = false)
         {
+            IsOfficialAuto = isOfficialAuto;
             Selection = selection ?? throw new ArgumentNullException(nameof(selection));
             ChartAsset = chartAsset != null
                 ? chartAsset
@@ -225,17 +227,14 @@ namespace OpenWDS.Runtime
         private const int LoopCopies = 3;
         private const int VisibleCellPoolPadding = 6;
         private const float OffsetCellWidth = 868.5f;
-        private const float OffsetCellHeight = 168f;
+        private const float OffsetCellHeight = MusicSelectionListGeometry.OffsetHeight;
         private const float TargetCellWidth = 960f;
-        private const float TargetCellHeight = 196f;
+        private const float TargetCellHeight = MusicSelectionListGeometry.TargetHeight;
         private const float OffsetJacketMaskWidth = 333f;
         private const float TargetJacketMaskWidth = 363.41f;
-        private const float CellSpacing = 20f;
+        private const float CellSpacing = MusicSelectionListGeometry.Spacing;
         private const float CellStride = OffsetCellHeight + CellSpacing;
         private const float ListLeftInset = 24f;
-        private const float CellCurveScalar = 0.1042f;
-        private const float CellCurveOffset = 20f;
-        private const float CellCurveLimit = 100f;
         private const float SnapVelocityThreshold = 400f;
         private const float CellFocusTweenTime = 0.2f;
         // EnhancedScroller contributes the OutCubic snap while the original
@@ -502,6 +501,7 @@ namespace OpenWDS.Runtime
             menu.Configure(_view.transform.parent, CreateMenuSettings,
                 () => SetSpectrumVisibleForDialog(false),
                 () => SetSpectrumVisibleForDialog(true), CreateMenuTermsHost, _textSideMenuButtonPrefab);
+            menu.OpenAnotherNotations = OpenAnotherNotationSelection;
             yield return menu.Initialize();
             _catalog = LocalMusicCatalog.FromJson(_catalogJson.text);
             _allMusics = (LocalMusicEntry[])_catalog.Musics.Clone();
@@ -564,8 +564,74 @@ namespace OpenWDS.Runtime
             IsInitialized = true;
         }
 
+        private AnotherNotationSelectionRuntime _anotherNotations;
+
+        public void OpenAnotherNotationSelection()
+        {
+            if (_anotherNotations != null) return;
+            _preview?.Stop();
+            _anotherNotations = gameObject.AddComponent<AnotherNotationSelectionRuntime>();
+            StartCoroutine(_anotherNotations.Initialize(this, _view.transform.parent, () =>
+            {
+                _view.SetActive(true);
+                _musicSelectionHeader.SetActive(true);
+                Destroy(_anotherNotations);
+                _anotherNotations = null;
+                _preview?.Play(_selection.Music.Id);
+            }));
+        }
+
+        public void HideStandardSelectionForAnother()
+        {
+            _view.SetActive(false);
+            _musicSelectionHeader.SetActive(false);
+        }
+
+        public GamePauseRuntime CreateAnotherSettings(Action closed) => CreateMenuSettings(closed);
+        public Sprite AnotherDifficultyMarker(MusicDifficulty difficulty) => _markerSprites[difficulty];
+        public Sprite AnotherRateGrade(double achievement)
+        {
+            var grade = Sirius.GameResult.GameResultPanel.GetAchievementGrade(achievement);
+            return grade > 0 && grade <= _rateGradeSprites.Length ? _rateGradeSprites[grade - 1] : null;
+        }
+        public Sprite AnotherClearLamp(ClearLamp lamp) => lamp == ClearLamp.None ? null : _clearLampSprites[(int)lamp - 1];
+        private readonly Dictionary<GameObject, ListCellBinding> _anotherCellLayouts = new Dictionary<GameObject, ListCellBinding>();
+        public void ApplyAnotherCellLayout(GameObject cell, bool focused, MusicDifficulty difficulty, bool animate = false)
+        {
+            if (!_anotherCellLayouts.TryGetValue(cell, out var binding))
+            {
+                binding = new ListCellBinding { gameObject = cell, rect = (RectTransform)cell.transform };
+                _anotherCellLayouts.Add(cell, binding);
+            }
+            if (!animate) binding.focusSequence?.Kill(false);
+            ApplyCellFocus(binding, focused, animate, difficulty, true);
+        }
+        public void ReleaseAnotherCellLayout(GameObject cell)
+        {
+            if (_anotherCellLayouts.TryGetValue(cell, out var binding)) binding.focusSequence?.Kill(false);
+            _anotherCellLayouts.Remove(cell);
+        }
+        private Action _anotherStartConfirmed;
+        public void ConfirmAnotherStart(Action confirmed)
+        {
+            if (!new SettingsStore().LoadOrDefault().SystemSettings.IsPreLiveOptionConfirmation)
+            {
+                confirmed();
+                return;
+            }
+            _anotherStartConfirmed = confirmed;
+            OpenNoteSpeedDialog();
+        }
+        public void LaunchAnotherGame(LocalMusicSelection selection, TextAsset chart, TextAsset config, Sprite jacket, bool isAuto)
+        {
+            LocalMusicSelectionSession.Set(selection, chart, config, jacket, _allMusics, isAuto);
+            if (!CurtainTransitionRuntime.Begin(_curtainSkeletonData, _curtainGraphicMaterial, _gameSceneName, true))
+                throw new InvalidOperationException("Another notation curtain transition could not start.");
+        }
+
         private void OnEnable()
         {
+            if (_anotherNotations != null && _anotherNotations.IsOpen) return;
             _gameStartPending = false;
             _stopJacketLoadingRequested = false;
             if (_view == null) return;
@@ -727,6 +793,19 @@ namespace OpenWDS.Runtime
             if (button != null) button.interactable = false;
         }
 
+        private AnotherNotationFilters _anotherFilter;
+        private GameObject _anotherFilterPrefab;
+        private readonly HashSet<int> _draftAnotherDifficulties = new HashSet<int>();
+        private readonly HashSet<int> _draftAnotherMusicTypes = new HashSet<int>();
+
+        public GameObject CreateAnotherHeader(Transform parent) => Instantiate(_musicSelectionHeaderPrefab, parent, false);
+        public void OpenAnotherFilterDialog(GameObject prefab, AnotherNotationFilters filter, bool showFilter)
+        {
+            if (_hudDialog != null || _noteSpeedDialog != null) return;
+            _anotherFilter = filter; _anotherFilterPrefab = prefab;
+            OpenMusicSortFilterDialog(showFilter);
+        }
+
         private void OpenMusicSortFilterDialog(bool showFilter)
         {
             if (_hudDialog != null || _noteSpeedDialog != null) return;
@@ -737,12 +816,22 @@ namespace OpenWDS.Runtime
             CopySet(_musicVideoFilters, _draftMusicVideoFilters);
             CopySet(_musicSizeFilters, _draftMusicSizeFilters);
             CopySet(_vocalFilters, _draftVocalFilters);
+            if (_anotherFilter != null)
+            {
+                _draftMusicSortMode = _anotherFilter.SortMode;
+                CopySet(_anotherFilter.ClearLamp, _draftClearLampFilters);
+                CopySet(_anotherFilter.MusicVideo, _draftMusicVideoFilters);
+                CopySet(_anotherFilter.Difficulty, _draftAnotherDifficulties);
+                CopySet(_anotherFilter.MusicType, _draftAnotherMusicTypes);
+                if (_anotherFilter.AllActors) SelectAllPermanentActors(_draftVocalFilters);
+                else CopySet(_anotherFilter.Actors, _draftVocalFilters);
+            }
             _hudDialog = CreateCommonDialog(
                 "ソート/フィルタ", new Vector2(1328f, 996f));
             _hudDialog.name = "MusicSortFilterDialog";
             var body = FindDescendant(_hudDialog.transform, "Body");
             _sortFilterDialogBody = Instantiate(
-                _musicSortFilterDialogBodyPrefab, body, false);
+                _anotherFilter != null ? _anotherFilterPrefab : _musicSortFilterDialogBodyPrefab, body, false);
             _sortFilterDialogBody.name = "MusicSortFilterDialogBody";
             BuildSortFilterSideMenu(showFilter);
             ConfigureCommonDialogButton(
@@ -867,7 +956,7 @@ namespace OpenWDS.Runtime
         private void BindLocalSortPanel(Transform panel)
         {
             if (panel == null) return;
-            var names = new[]
+            var names = _anotherFilter != null ? new[] { "LevelSortToggleButton", "NameSortToggleButton", "AchievementRateToggleButton", "ReleaseDateToggleButton" } : new[]
             {
                 "LevelSortToggleButton",
                 "NameSortToggleButton",
@@ -911,7 +1000,12 @@ namespace OpenWDS.Runtime
         {
             if (panel == null) return;
             var musicType = FindDescendant(panel, "MusicTypeFilterPanel");
-            if (musicType != null) musicType.gameObject.SetActive(false);
+            if (musicType != null) musicType.gameObject.SetActive(_anotherFilter != null);
+            if (_anotherFilter != null)
+            {
+                BindFilterCategory(musicType, _draftAnotherMusicTypes);
+                BindFilterCategory(FindDescendant(panel, "DifficultyFilterPanel"), _draftAnotherDifficulties);
+            }
             BindFilterCategory(
                 FindDescendant(panel, "ClearLampFilterPanel"),
                 _draftClearLampFilters);
@@ -930,6 +1024,7 @@ namespace OpenWDS.Runtime
                 _draftClearLampFilters.Clear();
                 _draftMusicVideoFilters.Clear();
                 _draftMusicSizeFilters.Clear();
+                _draftAnotherDifficulties.Clear(); _draftAnotherMusicTypes.Clear();
                 SelectAllPermanentActors(_draftVocalFilters);
                 RefreshAllFilterCategories(panel);
             });
@@ -938,6 +1033,11 @@ namespace OpenWDS.Runtime
 
         private void RefreshAllFilterCategories(Transform panel)
         {
+            if (_anotherFilter != null)
+            {
+                RefreshBoundFilterCategory(FindDescendant(panel, "DifficultyFilterPanel"), _draftAnotherDifficulties);
+                RefreshBoundFilterCategory(FindDescendant(panel, "MusicTypeFilterPanel"), _draftAnotherMusicTypes);
+            }
             RefreshBoundFilterCategory(
                 FindDescendant(panel, "ClearLampFilterPanel"),
                 _draftClearLampFilters);
@@ -1319,12 +1419,27 @@ namespace OpenWDS.Runtime
             _sortTabButton = null;
             _filterTabButton = null;
             SetSpectrumVisibleForDialog(true);
+            _anotherFilter = null; _anotherFilterPrefab = null;
         }
 
         private void ApplyHudSortFilter()
         {
             if (_hudDialog == null) return;
             _se.Play(UiSeRuntime.Cue.ButtonGo);
+            if (_anotherFilter != null)
+            {
+                var filter = _anotherFilter;
+                filter.SortMode = _draftMusicSortMode;
+                CopySet(_draftClearLampFilters, filter.ClearLamp);
+                CopySet(_draftMusicVideoFilters, filter.MusicVideo);
+                CopySet(_draftAnotherDifficulties, filter.Difficulty);
+                CopySet(_draftAnotherMusicTypes, filter.MusicType);
+                CopySet(_draftVocalFilters, filter.Actors);
+                filter.AllActors = AreAllPermanentActorsSelected(_draftVocalFilters);
+                CloseHudDialog();
+                filter.Applied?.Invoke();
+                return;
+            }
             _musicSortMode = _draftMusicSortMode;
             RefreshHudSortLabel();
             CopySet(_draftClearLampFilters, _clearLampFilters);
@@ -1864,8 +1979,8 @@ namespace OpenWDS.Runtime
                 music.Name);
             SetText("TicketMacine/MusicInformationPanel/ScrollCreator/ScrollCreatorText",
                 string.Format("作詞 {0} / 作曲 {1}", music.LyricWriter, music.Composer));
-            SetText("TicketMacine/MusicInformationPanel/MusicType/MusicTypeText", "ORIGINAL");
-            ApplyInformationPanelLayout();
+            SetText("TicketMacine/MusicInformationPanel/MusicType/MusicTypeText", music.MusicTypeName);
+            ApplyInformationPanelLayout(music);
             BindJacket(
                 _view.transform.Find(
                     "TicketMacine/MusicInformationPanel/MusicJackets/MusicJacketBack"));
@@ -2712,43 +2827,19 @@ namespace OpenWDS.Runtime
         private void BindLocalSpRatePanel(Transform panel)
         {
             if (panel == null) return;
-            var rateIcon = FindDescendant(panel, "RateIcon")
-                ?.GetComponent<Image>();
+            var obtained = OlivierStars.GetTotalPoint(_allMusics, _localResults);
+            var total = OlivierStars.GetTotalObtainablePoint(_allMusics, DateTime.UtcNow);
+            var percentage = OlivierStars.GetPercentage(obtained, total);
+            var rateIcon = FindDescendant(panel, "RateIcon")?.GetComponent<Image>();
             if (rateIcon != null)
             {
-                // PlayerRateDialogSPRatePanel.Initialize always assigns the
-                // SpRateNoteType sprite. AssetStudio recovered the authored
-                // note sprite; keep it visible while the offline numeric
-                // adapter remains a separate concern.
+                rateIcon.sprite = Resources.Load<Sprite>(
+                    "OlivierStarIcons/" + OlivierStars.GetIconName(percentage));
+                rateIcon.overrideSprite = null;
                 rateIcon.gameObject.SetActive(true);
-                rateIcon.enabled = true;
-                if (rateIcon.sprite != null)
-                    rateIcon.overrideSprite = rateIcon.sprite;
-                var color = rateIcon.color;
-                color.a = 1f;
-                rateIcon.color = color;
+                rateIcon.enabled = rateIcon.sprite != null;
+                rateIcon.color = Color.white;
             }
-            var olivierEntries = _allMusics
-                .Where(music => music?.Lives != null)
-                .SelectMany(music => music.Lives
-                    .Where(live => live != null &&
-                        live.Difficulty ==
-                        MusicDifficulty.Olivier)
-                    .Select(live => new LocalRateEntry
-                    {
-                        music = music,
-                        live = live,
-                        achievementRate = _localResults.GetBest(
-                            music.Id, live.Difficulty),
-                    }))
-                .Where(entry => entry.achievementRate > 0d)
-                .ToArray();
-            var obtained = olivierEntries.Count(entry =>
-                entry.achievementRate >= 100d);
-            var total = _allMusics.Sum(music =>
-                music.Lives.Count(live =>
-                    live.Difficulty == MusicDifficulty.Olivier));
-            var percentage = total > 0 ? obtained * 100d / total : 0d;
             SetDescendantText(
                 panel, "RatePercentageText",
                 percentage.ToString(
@@ -2897,6 +2988,10 @@ namespace OpenWDS.Runtime
             var root = binding.gameObject.transform;
             SetCellText(root, "PartsBase/PartsMask/MusicTitle/BodyText", music.Name);
             SetCellText(root, "PartsBase/PartsMask/Vocals/BodyText", music.Vocals);
+            var musicType = root.Find("PartsBase/PartsMask/MusicTypePanel");
+            SetCellText(musicType, "MusicTypeText", music.MusicTypeName);
+            musicType.Find("OriginalBackground").GetComponent<Image>().enabled = music.MusicCoverType == 1;
+            musicType.Find("CoverBackground").GetComponent<Image>().enabled = music.MusicCoverType != 1;
             RefreshCellBookmarkTags(root, music.Id);
             var difficulty = _selection != null
                 ? _selection.Live.Difficulty
@@ -2938,6 +3033,7 @@ namespace OpenWDS.Runtime
                 !TryGetLive(_selection.Music, difficulty, out _))
                 return;
             _selection = _catalog.Select(_selection.Music.Id, difficulty);
+            ApplyInformationPanelLayout(_selection.Music);
             var difficultyColor =
                 MusicSelectionPreviewRuntime.DifficultyFrameColor(difficulty);
             foreach (var pair in _difficultyButtons)
@@ -3107,28 +3203,14 @@ namespace OpenWDS.Runtime
                 "DefaultLivePanels/ScorePanel/RatePanel/" +
                 "MusicRateFrame/MusicRate",
                 isOlivier
-                    ? CalculateLocalOlivierStars(_selection.Live, best).ToString()
+                    ? _localResults.GetSpPoint(_selection.Music.Id).ToString()
                     : notationRate.ToString(
                         "0.00",
                         System.Globalization.CultureInfo.InvariantCulture));
             RefreshPlayerRateHeader();
         }
 
-        private static int CalculateLocalOlivierStars(
-            LocalLiveEntry live,
-            double achievementRate)
-        {
-            // The retail SetOlivierRate receives the server-calculated SP point
-            // rather than deriving it in the client. Keep that API boundary:
-            // the offline adapter maps its locally owned achievement result to
-            // the 0..75 display range used by the recovered Olivier charts.
-            return Mathf.Clamp(
-                Mathf.FloorToInt((float)(achievementRate * 0.75d)),
-                0,
-                75);
-        }
-
-        private static string FormatAchievementRate(double value)
+        public static string FormatAchievementRate(double value)
         {
             // FloatExtensions.ToStringForAchievementRate is called with the
             // retail default fontSize=26. The first two fractional digits use
@@ -3186,6 +3268,7 @@ namespace OpenWDS.Runtime
 
         private void Update()
         {
+            if (_anotherNotations != null && _anotherNotations.IsOpen) return;
             if (_listContent == null || _catalog == null ||
                 _catalog.Musics == null || _catalog.Musics.Length == 0)
                 return;
@@ -3301,9 +3384,7 @@ namespace OpenWDS.Runtime
                 var distance = Mathf.Abs(
                     _listScrollRect.viewport.InverseTransformPoint(cellCenter).y -
                     _listScrollRect.viewport.InverseTransformPoint(viewportCenter).y);
-                var x = Mathf.Min(
-                    CellCurveLimit,
-                    distance * CellCurveScalar - CellCurveOffset);
+                var x = MusicSelectionListGeometry.Curve(distance);
                 SetAnchoredPositionX(partsBase, x);
             }
         }
@@ -3452,16 +3533,13 @@ namespace OpenWDS.Runtime
             var focusIndex = _focusedCell != null
                 ? _focusedCell.physicalIndex
                 : -1;
-            var focusGrowth = (TargetCellHeight - OffsetCellHeight) * 0.5f;
             foreach (var binding in _physicalCells)
             {
                 if (binding == null || binding.rect == null) continue;
                 var y = -binding.physicalIndex * CellStride -
                     OffsetCellHeight * 0.5f;
-                if (focusIndex >= 0 && binding.physicalIndex < focusIndex)
-                    y += focusGrowth;
-                else if (focusIndex >= 0 && binding.physicalIndex > focusIndex)
-                    y -= focusGrowth;
+                if (focusIndex >= 0)
+                    y += MusicSelectionListGeometry.FocusDisplacement(binding.physicalIndex, focusIndex);
                 binding.rect.anchoredPosition = new Vector2(ListLeftInset, y);
             }
         }
@@ -3469,16 +3547,16 @@ namespace OpenWDS.Runtime
         private void ApplyCellFocus(
             ListCellBinding binding,
             bool focused,
-            bool animate = false)
+            bool animate = false, MusicDifficulty? explicitDifficulty = null, bool fixedSlot = false)
         {
             if (!animate)
             {
-                ApplyCellFocusImmediate(binding, focused, false);
+                ApplyCellFocusImmediate(binding, focused, false, explicitDifficulty);
                 return;
             }
             if (binding == null || binding.rect == null) return;
 
-            var animatedRects = FocusTweenRects(binding.gameObject.transform);
+            var animatedRects = FocusTweenRects(binding.gameObject.transform, !fixedSlot);
             var startSizes = new Vector2[animatedRects.Length];
             var startPositions = new Vector2[animatedRects.Length];
             for (var index = 0; index < animatedRects.Length; index++)
@@ -3487,7 +3565,7 @@ namespace OpenWDS.Runtime
                 startPositions[index] = animatedRects[index].anchoredPosition;
             }
 
-            ApplyCellFocusImmediate(binding, focused, focused);
+            ApplyCellFocusImmediate(binding, focused, focused, explicitDifficulty);
 
             binding.focusSequence?.Kill(false);
             var sequence = DOTween.Sequence().SetLink(binding.gameObject);
@@ -3531,10 +3609,10 @@ namespace OpenWDS.Runtime
             sequence.Play();
         }
 
-        private static RectTransform[] FocusTweenRects(Transform root)
+        private static RectTransform[] FocusTweenRects(Transform root, bool includeRoot = true)
         {
             var result = new List<RectTransform>();
-            AddFocusTweenRect(result, root as RectTransform);
+            if (includeRoot) AddFocusTweenRect(result, root as RectTransform);
             AddFocusTweenRect(result, root.Find("PartsBase") as RectTransform);
             AddFocusTweenRect(
                 result,
@@ -3558,6 +3636,9 @@ namespace OpenWDS.Runtime
                 result,
                 root.Find("PartsBase/PartsMask/RateGradeBadge")
                     as RectTransform);
+            AddFocusTweenRect(result, root.Find("PartsBase/PartsMask/PlayTypeBadge") as RectTransform);
+            AddFocusTweenRect(result, root.Find("PartsBase/PartsMask/NotationTypeBadge") as RectTransform);
+            AddFocusTweenRect(result, root.Find("PartsBase/PartsMask/NotationTypeBadge/NotationTypeIcon") as RectTransform);
             return result.ToArray();
         }
 
@@ -3571,7 +3652,7 @@ namespace OpenWDS.Runtime
         private void ApplyCellFocusImmediate(
             ListCellBinding binding,
             bool focused,
-            bool deferFocusedScroll)
+            bool deferFocusedScroll, MusicDifficulty? explicitDifficulty = null)
         {
             if (binding == null || binding.rect == null) return;
             binding.rect.sizeDelta = focused
@@ -3583,6 +3664,21 @@ namespace OpenWDS.Runtime
             {
                 layout.preferredWidth = focused ? TargetCellWidth : -1f;
                 layout.preferredHeight = focused ? TargetCellHeight : -1f;
+            }
+            // Native PlayTypeBadgeParts/NotationTypeParts target and offset constants.
+            var playBadge = root.Find("PartsBase/PartsMask/PlayTypeBadge") as RectTransform;
+            if (playBadge != null)
+            {
+                playBadge.anchoredPosition = focused ? new Vector2(568, -136) : new Vector2(520, -116);
+                playBadge.sizeDelta = focused ? new Vector2(136, 44) : new Vector2(124, 40);
+                playBadge.GetComponentInChildren<Text>(true).fontSize = focused ? 30 : 24;
+            }
+            var notationBadge = root.Find("PartsBase/PartsMask/NotationTypeBadge") as RectTransform;
+            if (notationBadge != null)
+            {
+                notationBadge.anchoredPosition = focused ? new Vector2(721, -136) : new Vector2(654, -116);
+                notationBadge.sizeDelta = focused ? new Vector2(86, 44) : new Vector2(80, 40);
+                ((RectTransform)notationBadge.Find("NotationTypeIcon")).sizeDelta = Vector2.one * (focused ? 28 : 26);
             }
             var partsBase = root.Find("PartsBase") as RectTransform;
             if (partsBase != null)
@@ -3608,9 +3704,9 @@ namespace OpenWDS.Runtime
                 root, "PartsBase/PartsMask/DropShadow", focused);
             ApplyCellDifficultyColor(
                 root,
-                _selection != null
+                explicitDifficulty ?? (_selection != null
                     ? _selection.Live.Difficulty
-                    : MusicDifficulty.Stella);
+                    : MusicDifficulty.Stella));
             var focusMaskImage = root.Find(
                 "PartsBase/PartsMask/FocusMask")?.GetComponent<Image>();
             if (focusMaskImage != null)
@@ -3731,12 +3827,14 @@ namespace OpenWDS.Runtime
                 bookmarkButton.gameObject.SetActive(focused);
         }
 
-        private void ApplyInformationPanelLayout()
+        private void ApplyInformationPanelLayout(LocalMusicEntry music)
         {
-            var informationPanel = _view.transform.Find(
-                "TicketMacine/MusicInformationPanel");
-            if (informationPanel == null) return;
+            ApplyInformationPanelLayout(_view.transform.Find("TicketMacine/MusicInformationPanel"), music, _selection.Live.Difficulty);
+        }
 
+        public static void ApplyInformationPanelLayout(Transform informationPanel, LocalMusicEntry music, MusicDifficulty difficulty)
+        {
+            if (informationPanel == null) return;
             // The two ScrollText children use HorizontalFit only. Stretching
             // their Text rects to the authored parent height keeps the retail
             // MiddleLeft alignment vertically centered after the local host
@@ -3760,9 +3858,12 @@ namespace OpenWDS.Runtime
                 musicType.Find("OriginalBackground")?.GetComponent<Image>();
             var musicTypeText =
                 musicType.Find("MusicTypeText")?.GetComponent<Text>();
-            if (cover != null) cover.enabled = false;
-            if (original != null) original.enabled = true;
-            if (musicTypeText != null) musicTypeText.color = Color.white;
+            var isOriginal = music.MusicCoverType == 1;
+            if (cover != null) cover.enabled = !isOriginal;
+            if (original != null) original.enabled = isOriginal;
+            if (musicTypeText != null) musicTypeText.color = isOriginal
+                ? Color.white
+                : (Color)MusicSelectionPreviewRuntime.DifficultyFrameColor(difficulty);
         }
 
         private static void CenterInformationText(Transform target)
@@ -3781,7 +3882,7 @@ namespace OpenWDS.Runtime
             text.alignment = TextAnchor.MiddleLeft;
         }
 
-        private static void ConfigureScrollText(
+        public static void ConfigureScrollText(
             Transform viewport,
             bool animate = false,
             bool contentChanged = false)
@@ -3824,6 +3925,7 @@ namespace OpenWDS.Runtime
                 "PartsBase/PartsMask/FocusMask/DifficultyFrameImage",
                 color);
             SetImageColor(root, "PartsBase/PartsMask/DropShadow", color);
+            SetImageColor(root, "PartsBase/PartsMask/MusicTypePanel/CoverBackground", color);
         }
 
         private static void SetImageColor(
@@ -4164,6 +4266,7 @@ namespace OpenWDS.Runtime
         private void CloseNoteSpeedDialog()
         {
             if (_noteSpeedDialog == null) return;
+            _anotherStartConfirmed = null;
             _se.Play(UiSeRuntime.Cue.ButtonBack);
             Destroy(_noteSpeedDialog);
             _noteSpeedDialog = null;
@@ -4193,6 +4296,13 @@ namespace OpenWDS.Runtime
             _performanceSettings.SystemSettings.IsPreLiveOptionConfirmation =
                 !_skipPreLiveConfirmation;
             new SettingsStore().Save(_performanceSettings);
+            if (_anotherStartConfirmed != null)
+            {
+                var confirmed = _anotherStartConfirmed;
+                CloseNoteSpeedDialog();
+                confirmed();
+                return;
+            }
             BeginSelectedGame();
         }
 
@@ -4404,6 +4514,8 @@ namespace OpenWDS.Runtime
 
         private void SetPreLiveUnderlyingControlsVisible(bool visible)
         {
+            if (_anotherNotations != null && _anotherNotations.IsOpen)
+                _anotherNotations.SetPreLiveControlsVisible(visible);
             var ok = _view.transform.Find("OkButton");
             if (ok != null) ok.gameObject.SetActive(visible);
             var difficulty = _view.transform.Find(
@@ -4746,6 +4858,8 @@ namespace OpenWDS.Runtime
 
         private void SetSpectrumVisibleForDialog(bool visible)
         {
+            if (_anotherNotations != null && _anotherNotations.IsOpen)
+                _anotherNotations.SetSpectrumVisible(visible);
             var spectrum = FindDescendant(
                 _view.transform, "UIParticleSpectrumViewer");
             if (spectrum == null) return;

@@ -1014,6 +1014,7 @@ namespace OpenWDS.Runtime
         public void Initialize()
         {
             if (_inputHandler != null) return;
+            if (LocalMusicSelectionSession.IsOfficialAuto) _enableAutoJudge = true;
             _gameSe?.Configure(_enableAutoJudge);
             if (_gameCamera == null || _laneGroup == null)
                 throw new InvalidOperationException("Game camera and LaneGroup are required.");
@@ -1180,10 +1181,15 @@ namespace OpenWDS.Runtime
             if (_gameHud != null && _testPlayerUnitAsset != null)
             {
                 var playerUnit = PlayerUnitFixture.Parse(_testPlayerUnitAsset);
-                var scoreNoteIds = _gameResultRuntime.GetScoreNoteIds(notation);
-                _gameHud.InitializeScore(playerUnit.CreateScoreContext(scoreNoteIds));
-                _gameHud.InitializeSenseScore(playerUnit);
-                _gameHud.ApplyStartEffects(playerUnit);
+                if ((_ratingLive?.AnotherNotationId ?? 0) > 0)
+                    _gameHud.InitializeAnotherNotationScore();
+                else
+                {
+                    var scoreNoteIds = _gameResultRuntime.GetScoreNoteIds(notation);
+                    _gameHud.InitializeScore(playerUnit.CreateScoreContext(scoreNoteIds));
+                    _gameHud.InitializeSenseScore(playerUnit);
+                    _gameHud.ApplyStartEffects(playerUnit);
+                }
                 if (Application.isPlaying)
                 {
                     _characterPresentation = gameObject.AddComponent<CharacterPresentationRuntime>();
@@ -1574,21 +1580,40 @@ namespace OpenWDS.Runtime
                 rootCanvasGroup.interactable = true;
                 rootCanvasGroup.blocksRaycasts = true;
             }
-            var localResults = new LocalResultStore();
-            var isRatingTarget = PlayerRating.IsEligible(
+            var anotherId = _ratingLive?.AnotherNotationId ?? 0;
+            var resultKey = anotherId > 0 ? anotherId : _musicId;
+            var localResults = new LocalResultStore(anotherNotation: anotherId > 0);
+            var isRatingTarget = anotherId == 0 && PlayerRating.IsEligible(
                 _ratingMusic, _ratingLive);
             var beforePlayerRate = _ratingMusics != null
                 ? PlayerRating.CalculatePlayerRate(
-                    _ratingMusics, localResults)
+                    _ratingMusics, anotherId > 0 ? new LocalResultStore() : localResults)
                 : 0d;
             var previousNotationRate = isRatingTarget
                 ? PlayerRating.CalculateNotationRate(
                     _ratingLive.Level,
-                    localResults.GetBest(_musicId, _musicDifficulty),
-                    localResults.HasClear(_musicId, _musicDifficulty))
+                    localResults.GetBest(resultKey, _musicDifficulty),
+                    localResults.HasClear(resultKey, _musicDifficulty))
                 : 0d;
-            var isNewAchievementRate = localResults.RecordResult(
-                _musicId,
+            var isSpTarget = OlivierStars.IsEligible(_ratingMusic, _ratingLive);
+            if (isSpTarget)
+            {
+                previousNotationRate = localResults.GetSpPoint(_musicId);
+                beforePlayerRate = _ratingMusics != null
+                    ? OlivierStars.GetTotalPoint(_ratingMusics, localResults) : previousNotationRate;
+            }
+            var thisLamp = _gameResultRuntime.IsAllPerfect ? ClearLamp.AllPerfect :
+                _gameResultRuntime.IsFullCombo ? ClearLamp.FullCombo : ClearLamp.Clear;
+            var nonPerfectStarCount = 0;
+            foreach (var pair in _gameResultRuntime.TimingCounts)
+                if (pair.Key != TimingType.PerfectStar) nonPerfectStarCount += pair.Value;
+            var thisTimeSpPoint = localResults.RecordOlivierResult(
+                _ratingMusic, _ratingLive, _gameResultRuntime.AchievementRate,
+                thisLamp, nonPerfectStarCount, _gameHud != null && _gameHud.Life.Value > 0,
+                LocalMusicSelectionSession.IsOfficialAuto);
+            var previousBestAchievementRate = localResults.GetBest(resultKey, _musicDifficulty);
+            var isNewAchievementRate = !LocalMusicSelectionSession.IsOfficialAuto && localResults.RecordResult(
+                resultKey,
                 _musicDifficulty,
                 _gameResultRuntime.AchievementRate,
                 _gameResultRuntime.IsAllPerfect
@@ -1596,7 +1621,7 @@ namespace OpenWDS.Runtime
                     : _gameResultRuntime.IsFullCombo
                         ? ClearLamp.FullCombo
                         : ClearLamp.Clear,
-                out var previousBestAchievementRate);
+                out previousBestAchievementRate);
             if (_characterPresentation != null)
             {
                 var clearLamp = _gameHud != null && _gameHud.Life.Value <= 0 ? 0 :
@@ -1612,15 +1637,30 @@ namespace OpenWDS.Runtime
             var bestEverNotationRate = isRatingTarget
                 ? PlayerRating.CalculateNotationRate(
                     _ratingLive.Level,
-                    localResults.GetBest(_musicId, _musicDifficulty),
-                    localResults.HasClear(_musicId, _musicDifficulty))
+                    localResults.GetBest(resultKey, _musicDifficulty),
+                    localResults.HasClear(resultKey, _musicDifficulty))
                 : 0d;
             var afterPlayerRate = _ratingMusics != null
                 ? PlayerRating.CalculatePlayerRate(
-                    _ratingMusics, localResults)
+                    _ratingMusics, anotherId > 0 ? new LocalResultStore() : localResults)
                 : 0d;
-            var isNewNotationRate =
-                bestEverNotationRate > previousNotationRate;
+            if (isSpTarget)
+            {
+                thisTimeNotationRate = thisTimeSpPoint;
+                bestEverNotationRate = localResults.GetSpPoint(_musicId);
+                afterPlayerRate = _ratingMusics != null
+                    ? OlivierStars.GetTotalPoint(_ratingMusics, localResults) : bestEverNotationRate;
+            }
+            var isNewNotationRate = isSpTarget
+                ? thisTimeNotationRate > previousNotationRate
+                : bestEverNotationRate > previousNotationRate;
+            if (isSpTarget)
+            {
+                var maximum = _ratingMusics != null
+                    ? OlivierStars.GetTotalObtainablePoint(_ratingMusics, DateTime.UtcNow) : 0;
+                beforePlayerRate = OlivierStars.GetPercentage((int)beforePlayerRate, maximum);
+                afterPlayerRate = OlivierStars.GetPercentage((int)afterPlayerRate, maximum);
+            }
             var isNewPlayerRate = afterPlayerRate > beforePlayerRate;
             BindMusicInfo(_gameResultInstance.transform, localResults);
             var panel = _gameResultInstance.GetComponentInChildren<
@@ -1629,8 +1669,8 @@ namespace OpenWDS.Runtime
                 throw new InvalidOperationException("GameResultPanel is missing.");
             // Only the product's pre-live Autoplay button may set IsAuto.
             // _enableAutoJudge is a debug input injector and must keep the
-            // ordinary HUD/result presentation. That button is not recovered yet.
-            const bool isOfficialAutoplay = false;
+            // ordinary HUD/result presentation.
+            var isOfficialAutoplay = LocalMusicSelectionSession.IsOfficialAuto;
             var viewData =
                 Sirius.GameResult.GameResultViewData.FromRuntime(
                     _gameResultRuntime,
@@ -1779,6 +1819,7 @@ namespace OpenWDS.Runtime
             if (jacket != null && _musicJacketSprite != null)
                 jacket.sprite = _musicJacketSprite;
 
+            var resultKey = (_ratingLive?.AnotherNotationId ?? 0) > 0 ? _ratingLive.AnotherNotationId : _musicId;
             var lamps = musicInfo.Find("ClearLamps");
             var lampEffects = musicInfo.Find("ClearLampEffects");
             if (lamps != null)
@@ -1795,9 +1836,9 @@ namespace OpenWDS.Runtime
                             true,
                             out MusicDifficulty lampDifficulty) &&
                         localResults != null &&
-                        localResults.HasClear(_musicId, lampDifficulty)
+                        localResults.HasClear(resultKey, lampDifficulty)
                             ? localResults.GetClearLamp(
-                                _musicId, lampDifficulty)
+                                resultKey, lampDifficulty)
                             : ClearLamp.None;
                     // The result header always presents the complete five-slot
                     // difficulty row: Normal, Hard, Extra, Stella and Olivier.

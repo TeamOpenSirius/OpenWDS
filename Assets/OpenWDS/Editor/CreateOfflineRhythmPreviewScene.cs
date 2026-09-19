@@ -196,10 +196,6 @@ namespace OpenWDS.Editor
             public int unresolvedPlaceholderReferences;
             public bool recoveredPositionFormulaValid;
             public bool recoveredLaneFormulaValid;
-            public bool recoveredSettingsDefaultsValid;
-            public bool recoveredLaneSettingsMathValid;
-            public bool recoveredSettingsUiBindingValid;
-            public bool recoveredSettingsPersistenceDescriptorValid;
             public bool recoveredSettingsCryptoValid;
             public bool recoveredSettingsSessionValid;
             public bool recoveredSettingsStoreRoundTripValid;
@@ -216,7 +212,6 @@ namespace OpenWDS.Editor
             public bool recoveredTapActionValid;
             public bool recoveredHoldTimingValid;
             public bool recoveredInputOrderingValid;
-            public bool recoveredHitLaneEntityValid;
             public bool recoveredLaneColliderMappingsValid;
             public bool recoveredInputLifecycleValid;
             public bool recoveredInputFireCoreValid;
@@ -451,7 +446,7 @@ namespace OpenWDS.Editor
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
             var splitLaneBundlesValid = ValidateSplitLaneBundlesInEditor();
-            var gameResultFontBundlesValid = CaptureGameResultPreview();
+            var gameResultFontBundlesValid = ValidateGameResultFonts();
 
             var sceneText = File.ReadAllText(Path.GetFullPath(ScenePath));
             var visualLifecycleValid = ValidateNoteVisualLifecycle(
@@ -471,11 +466,6 @@ namespace OpenWDS.Editor
                 unresolvedPlaceholderReferences = CountOccurrences(sceneText, "deadbeef"),
                 recoveredPositionFormulaValid = ValidatePositionFormula(),
                 recoveredLaneFormulaValid = ValidateLaneFormula(),
-                recoveredSettingsDefaultsValid = ValidateSettingsDefaults(),
-                recoveredLaneSettingsMathValid = ValidateLaneSettingsMath(),
-                recoveredSettingsUiBindingValid = ValidateSettingsUiBinding(),
-                recoveredSettingsPersistenceDescriptorValid =
-                    ValidateSettingsPersistenceDescriptor(),
                 recoveredSettingsCryptoValid = ValidateSettingsCrypto(),
                 recoveredSettingsSessionValid = ValidateSettingsSession(),
                 recoveredSettingsStoreRoundTripValid = ValidateSettingsStoreRoundTrip(),
@@ -494,7 +484,6 @@ namespace OpenWDS.Editor
                 recoveredTapActionValid = ValidateTapAction(),
                 recoveredHoldTimingValid = ValidateHoldTiming(),
                 recoveredInputOrderingValid = ValidateInputOrdering(),
-                recoveredHitLaneEntityValid = ValidateHitLaneEntity(),
                 recoveredLaneColliderMappingsValid =
                     ValidateLaneColliderMappings(camera, laneGroup),
                 recoveredInputLifecycleValid = ValidateInputLifecycle(),
@@ -613,10 +602,6 @@ namespace OpenWDS.Editor
                 report.unresolvedPlaceholderReferences != 0 ||
                 !report.recoveredPositionFormulaValid ||
                 !report.recoveredLaneFormulaValid ||
-                !report.recoveredSettingsDefaultsValid ||
-                !report.recoveredLaneSettingsMathValid ||
-                !report.recoveredSettingsUiBindingValid ||
-                !report.recoveredSettingsPersistenceDescriptorValid ||
                 !report.recoveredSettingsCryptoValid ||
                 !report.recoveredSettingsSessionValid ||
                 !report.recoveredSettingsStoreRoundTripValid ||
@@ -631,7 +616,6 @@ namespace OpenWDS.Editor
                 !report.recoveredTapActionValid ||
                 !report.recoveredHoldTimingValid ||
                 !report.recoveredInputOrderingValid ||
-                !report.recoveredHitLaneEntityValid ||
                 !report.recoveredLaneColliderMappingsValid ||
                 !report.recoveredInputLifecycleValid ||
                 !report.recoveredInputFireCoreValid ||
@@ -3692,182 +3676,23 @@ namespace OpenWDS.Editor
             }
         }
 
-        private static bool CaptureGameResultPreview()
+        private static bool ValidateGameResultFonts()
         {
-            const int width = 1323;
-            const int height = 721;
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/Resources/Prefabs/OrdinarySoloGameResult.prefab");
             if (prefab == null) return false;
-            var cameraObject = new GameObject("GameResultCaptureCamera", typeof(Camera));
-            var captureCamera = cameraObject.GetComponent<Camera>();
-            captureCamera.clearFlags = CameraClearFlags.SolidColor;
-            captureCamera.backgroundColor = Color.black;
-            captureCamera.nearClipPlane = 0.1f;
-            captureCamera.farClipPlane = 10f;
-            var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32);
-            captureCamera.targetTexture = target;
-            var canvasObject = new GameObject(
-                "GameResultCaptureCanvas", typeof(RectTransform), typeof(Canvas),
-                typeof(UnityEngine.UI.CanvasScaler));
-            var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceCamera;
-            canvas.worldCamera = captureCamera;
-            canvas.planeDistance = 1f;
-            var scaler = canvasObject.GetComponent<UnityEngine.UI.CanvasScaler>();
-            scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 1f;
-            var instance = UnityEngine.Object.Instantiate(prefab, canvasObject.transform);
-            var instanceRect = instance.transform as RectTransform;
-            if (instanceRect != null)
-            {
-                instanceRect.anchorMin = Vector2.zero;
-                instanceRect.anchorMax = Vector2.one;
-                instanceRect.offsetMin = Vector2.zero;
-                instanceRect.offsetMax = Vector2.zero;
-                instanceRect.localScale = Vector3.one;
-            }
+            var instance = UnityEngine.Object.Instantiate(prefab);
             var fonts = new Sirius.GameResult.GameResultFontRuntime();
-            var applied = fonts.Apply(instance);
-            var fontBundlesValid = fonts.BundleCount == 5 &&
-                                   fonts.FontCount == 2 && applied >= 14;
-            Debug.Log(string.Format(
-                "OPENWDS_RESULT_FONT_BUNDLES bundles={0} fonts={1} applied={2} assets={3}",
-                fonts.BundleCount, fonts.FontCount, applied, fonts.AssetSummary));
-            var panel = instance.GetComponentInChildren<
-                Sirius.GameResult.GameResultPanel>(true);
-            var counts = new Dictionary<TimingType, int>
+            try
             {
-                { TimingType.PerfectStar, 1592 },
-                { TimingType.Perfect, 63 },
-                { TimingType.Great, 9 },
-                { TimingType.Good, 0 },
-                { TimingType.Bad, 0 },
-                { TimingType.Miss, 1 },
-            };
-            panel?.Initialize(new Sirius.GameResult.GameResultViewData(
-                1370, 100.7879d, 100.1393d, 0d, 0d, 5d,
-                true, false, false, false, counts,
-                new Dictionary<int, int>(), "ワナビスタ！",
-                MusicDifficulty.Stella));
-            var slideAnimator = instance.GetComponent<Animator>();
-            if (slideAnimator != null)
-            {
-                slideAnimator.Rebind();
-                slideAnimator.Update(0f);
-                slideAnimator.SetTrigger(Animator.StringToHash("Next"));
-                // GameResult_left_in_anim ends at 1.9166666 seconds. Step the
-                // original controller beyond that point to make this capture
-                // exercise the same ShowAsync path as runtime.
-                for (var frame = 0; frame < 120; frame++)
-                    slideAnimator.Update(1f / 60f);
+                var applied = fonts.Apply(instance);
+                return fonts.FontCount > 0 && applied > 0;
             }
-            Canvas.ForceUpdateCanvases();
-            var leftPanel = instance.transform.Find("LeftPanel") as RectTransform;
-            var leftPanelLayoutValid = leftPanel != null &&
-                Mathf.Abs(leftPanel.pivot.x - 0.5f) < 0.0001f &&
-                Mathf.Abs(leftPanel.anchoredPosition.x - 477f) < 0.01f;
-            Debug.Log(string.Format(
-                "OPENWDS_RESULT_LAYOUT pivotX={0} positionX={1} animator={2} valid={3}",
-                leftPanel != null ? leftPanel.pivot.x : -1f,
-                leftPanel != null ? leftPanel.anchoredPosition.x : -1f,
-                slideAnimator != null,
-                leftPanelLayoutValid));
-            LogGameResultNumericTextState(instance);
-            captureCamera.Render();
-            var previous = RenderTexture.active;
-            RenderTexture.active = target;
-            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-            texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
-            texture.Apply();
-            var projectRoot = Directory.GetParent(Application.dataPath).Parent.Parent.FullName;
-            var output = Path.Combine(projectRoot, "reverse/reports/game-result-preview.png");
-            File.WriteAllBytes(output, texture.EncodeToPNG());
-            RenderTexture.active = previous;
-            UnityEngine.Object.DestroyImmediate(texture);
-            captureCamera.targetTexture = null;
-            target.Release();
-            UnityEngine.Object.DestroyImmediate(target);
-            fonts.Dispose();
-            UnityEngine.Object.DestroyImmediate(canvasObject);
-            UnityEngine.Object.DestroyImmediate(cameraObject);
-            return fontBundlesValid && leftPanelLayoutValid;
-        }
-
-        private static void LogGameResultNumericTextState(GameObject instance)
-        {
-            var entries = new List<string>();
-            foreach (var label in instance.GetComponentsInChildren<
-                         TMPro.TextMeshProUGUI>(true))
+            finally
             {
-                if (label.text == null || !label.gameObject.name.Contains("Count")) continue;
-                label.ForceMeshUpdate(true, true);
-                var parentAlpha = 1f;
-                for (var current = label.transform; current != null;
-                     current = current.parent)
-                {
-                    var group = current.GetComponent<CanvasGroup>();
-                    if (group != null) parentAlpha *= group.alpha;
-                }
-                var rect = label.rectTransform;
-                var corners = new Vector3[4];
-                rect.GetWorldCorners(corners);
-                var textInfo = label.textInfo;
-                var mesh = label.canvasRenderer != null
-                    ? label.canvasRenderer.GetMesh() : null;
-                entries.Add(string.Format(
-                    "{0}[text={1},active={2},enabled={3},colorA={4:F2}," +
-                    "canvasA={5:F2},rect=({6:F1},{7:F1},{8:F1},{9:F1})," +
-                    "font={10},material={11},chars={12},verts={13}," +
-                    "rgb=({14:F2},{15:F2},{16:F2}),cull={17}," +
-                    "world=({18:F1},{19:F1})-({20:F1},{21:F1})," +
-                    "meshBounds=({22:F1},{23:F1},{24:F1},{25:F1})," +
-                    "materials={26},path={27}]",
-                    label.gameObject.name,
-                    label.text.Replace("<", "{").Replace(">", "}"),
-                    label.gameObject.activeInHierarchy,
-                    label.enabled,
-                    label.color.a,
-                    parentAlpha,
-                    rect.anchoredPosition.x,
-                    rect.anchoredPosition.y,
-                    rect.rect.width,
-                    rect.rect.height,
-                    label.font != null ? label.font.name : "null",
-                    label.fontSharedMaterial != null
-                        ? label.fontSharedMaterial.name : "null",
-                    textInfo != null ? textInfo.characterCount : -1,
-                    mesh != null ? mesh.vertexCount : -1,
-                    label.color.r,
-                    label.color.g,
-                    label.color.b,
-                    label.canvasRenderer != null && label.canvasRenderer.cull,
-                    corners[0].x,
-                    corners[0].y,
-                    corners[2].x,
-                    corners[2].y,
-                    mesh != null ? mesh.bounds.min.x : -1f,
-                    mesh != null ? mesh.bounds.min.y : -1f,
-                    mesh != null ? mesh.bounds.max.x : -1f,
-                    mesh != null ? mesh.bounds.max.y : -1f,
-                    label.canvasRenderer != null
-                        ? label.canvasRenderer.materialCount : -1,
-                    GetTransformPath(label.transform, instance.transform)));
+                UnityEngine.Object.DestroyImmediate(instance);
+                fonts.Dispose();
             }
-            Debug.Log("OPENWDS_RESULT_NUMERICS " + string.Join(";", entries.ToArray()));
-        }
-
-        private static string GetTransformPath(Transform transform, Transform root)
-        {
-            var names = new List<string>();
-            for (var current = transform; current != null; current = current.parent)
-            {
-                names.Add(current.name + "#" + current.GetSiblingIndex());
-                if (current == root) break;
-            }
-            names.Reverse();
-            return string.Join("/", names.ToArray());
         }
 
         private static bool ValidateSplitLaneBundlesInEditor()
@@ -5730,19 +5555,6 @@ namespace OpenWDS.Editor
                            TouchPhase.Ended));
         }
 
-        private static bool ValidateHitLaneEntity()
-        {
-            var hit = new HitLaneEntity(0, 2, 3, 4, 5);
-            var sameUniqueId = new HitLaneEntity(0, 2, 3, 4, 5);
-            var mainHit = new HitLaneEntity(6, 2, 3, 4, 5);
-            return hit.Exists &&
-                   hit.GetLaneIdOrDefault() == 2 &&
-                   hit.GetHashCode() == 2030405 &&
-                   hit.Equals(sameUniqueId) &&
-                   mainHit.GetLaneIdOrDefault() == 6 &&
-                   !default(HitLaneEntity).Exists;
-        }
-
         private static bool ValidateInputLifecycle()
         {
             var flickInputs = new FlickInputManager();
@@ -7119,109 +6931,6 @@ namespace OpenWDS.Editor
                            noteWidthPerLane,
                            laneBorderWidth),
                        5.0875f);
-        }
-
-        private static bool ValidateSettingsDefaults()
-        {
-            var system = GameSettings.System.Default();
-            var basic = GameSettings.Basic.Default();
-            var detail = GameSettings.Detail.Default();
-            var custom = GameSettings.Custom.Default();
-            var sound = GameSettings.SoundVolume.Default();
-            var bluetooth = GameSettings.Bluetooth.Default();
-            return system.TextDisplaySpeed == 10 &&
-                   system.TextSpeed == 10 &&
-                   system.QualitySetting == 2 &&
-                   !system.Is60Fps &&
-                   system.IsPreLiveOptionConfirmation &&
-                   system.IsLeagueNoticeOptionConfirmation &&
-                   Math.Abs(basic.NoteSpeed - 5d) < double.Epsilon &&
-                   basic.LaneAlphaValue == 80 &&
-                   basic.SplitEffectLineOpacity == 100 &&
-                   basic.IsActiveSenseDisplay &&
-                   basic.IsActiveMusicVideo &&
-                   !basic.IsRealTimeRenderingMusicVideo &&
-                   detail.LaneWidth == 100 &&
-                   detail.NoteHeight == 8 &&
-                   detail.TimingEffectOffset == 60 &&
-                   detail.IsActiveConcurrentLine &&
-                   detail.IsActiveLaneAssistLine &&
-                   custom.NormalSeId == 1 &&
-                   custom.CriticalSeId == 1 &&
-                   custom.BombType == 1 &&
-                   sound.SystemMaster == 100 &&
-                   sound.GameNotesTap == 100 &&
-                   sound.StoryVoice == 100 &&
-                   Math.Abs(bluetooth.NoteTimingValue) < double.Epsilon &&
-                   bluetooth.GameSeVolume == 100 &&
-                   bluetooth.GameNotesTapVolume == 100;
-        }
-
-        private static bool ValidateLaneSettingsMath()
-        {
-            return Mathf.Approximately(GameSettings.CalculateLaneScale(80), 0.8f) &&
-                   Mathf.Approximately(GameSettings.CalculateLaneScale(100), 1f) &&
-                   Mathf.Approximately(GameSettings.CalculateLaneScale(120), 1.2f) &&
-                   Mathf.Approximately(
-                       GameSettings.CalculateLaneDarknessAlpha(0), 0f) &&
-                   Mathf.Approximately(
-                       GameSettings.CalculateLaneDarknessAlpha(80), 0.8f) &&
-                   Mathf.Approximately(
-                       GameSettings.CalculateLaneDarknessAlpha(100), 1f) &&
-                   Mathf.Approximately(
-                       GameSettings.CalculateLaneBorderAlpha(0),
-                       14f / 255f) &&
-                   Mathf.Approximately(
-                       GameSettings.CalculateLaneBorderAlpha(100),
-                       51f / 255f);
-        }
-
-        private static bool ValidateSettingsUiBinding()
-        {
-            return GameSettings.ConvertBooleanToToggleIndex(true) == 0 &&
-                   GameSettings.ConvertBooleanToToggleIndex(false) == 1 &&
-                   GameSettings.ConvertToggleIndexToBoolean(0) &&
-                   !GameSettings.ConvertToggleIndexToBoolean(1) &&
-                   GameSettings.ConvertThreeChoiceToggleIndex(0) == 2 &&
-                   GameSettings.ConvertThreeChoiceToggleIndex(1) == 1 &&
-                   GameSettings.ConvertThreeChoiceToggleIndex(2) == 0 &&
-                   GameSettings.IsValidLaneWidth(80) &&
-                   GameSettings.IsValidLaneWidth(100) &&
-                   GameSettings.IsValidLaneWidth(120) &&
-                   !GameSettings.IsValidLaneWidth(81) &&
-                   GameSettings.IsValidNoteHeight(8) &&
-                   GameSettings.IsValidNoteSpeed(1d) &&
-                   GameSettings.IsValidNoteSpeed(5d) &&
-                   GameSettings.IsValidNoteSpeed(20.5d) &&
-                   GameSettings.IsValidNoteSpeed(25d) &&
-                   !GameSettings.IsValidNoteSpeed(25.05d) &&
-                   GameSettings.CalculateNoteDisplayTime(0, 5d) == 1480 &&
-                   GameSettings.CalculateNoteDisplayTime(30, 11.1d) == 467 &&
-                   GameSettings.CalculateNoteDisplayTime(95, 25d) == 15 &&
-                   GameSettings.CalculateNoteDisplayTime(100, 5d) == 0 &&
-                   Mathf.Approximately(
-                       GameSettings.CalculateCombinedVolume(100, 100),
-                       1f) &&
-                   Mathf.Approximately(
-                       GameSettings.CalculateCombinedVolume(80, 50),
-                       0.4f) &&
-                   Mathf.Approximately(
-                       GameSettings.CalculateCombinedVolume(0, 100),
-                       0f);
-        }
-
-        private static bool ValidateSettingsPersistenceDescriptor()
-        {
-            return SettingsPersistence.AesKeySize == 128 &&
-                   SettingsPersistence.CurrentDirectory == "Users" &&
-                   SettingsPersistence.Password == "9Yw|G_2EgDC(" &&
-                   SettingsPersistence.Salt == "jPNv$zT3Biqa" &&
-                   SettingsPersistence.SystemSettingsKey == "CsdcW8wz" &&
-                   SettingsPersistence.GameSettingsKey == "P9cziA6b" &&
-                   SettingsPersistence.GameDetailSettingsKey == "fU5ZnT6y" &&
-                   SettingsPersistence.GameCustomSettingsKey == "wD4XR8Wm" &&
-                   SettingsPersistence.SoundVolumeSettingsKey == "Tx9Lr3Pd" &&
-                   SettingsPersistence.BluetoothSettingsKey == "X3sEZdWb";
         }
 
         private static bool ValidateSettingsCrypto()

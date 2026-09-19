@@ -316,6 +316,19 @@ namespace OpenWDS.Runtime
             _timingScale = GetTimingEffectScale(settings.TimingEffectScaleType);
         }
 
+        // AnotherNotation uses the ordinary HUD with constant zero counters.
+        // Do not attach Solo/Sense/StarAct scoring contexts to this live mode.
+        public void InitializeAnotherNotationScore()
+        {
+            if (!_initialized) Initialize();
+            _scorePanel.Show();
+            _scorePanel.Initialize(false, false, false);
+            _scorePanel.CompleteInitializationAnimations();
+            _scorePanel.SetScoreCount(0L, false);
+            _principalGauge.gameObject.SetActive(true);
+            _principalGauge.SetPrincipalValue(0, 0);
+        }
+
         public void InitializeScore(SoloScoreContext context)
         {
             if (context == null) throw new ArgumentNullException(nameof(context));

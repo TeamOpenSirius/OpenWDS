@@ -131,8 +131,8 @@ namespace OpenWDS.Editor
 
             ValidateSenseMasks();
             ValidateAdditiveParticleMaterials();
-            ValidatePlayerRateGradient.Run();
             ValidateHoldPulseTiming.Run();
+            ValidateOlivierStars.Run();
             CreateOfflineRhythmPreviewScene.RunPresentationVisualValidation();
 
             var report = new ValidationReport

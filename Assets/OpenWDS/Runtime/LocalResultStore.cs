@@ -28,20 +28,24 @@ namespace OpenWDS.Runtime
             public int Difficulty;
             public double BestAchievementRate;
             public int BestClearLamp;
+            // Zero on legacy saves: judgement counts and clear eligibility were not retained.
+            public int AchievementStar;
+            public int AccuracyStar;
+            public int LampStar;
         }
 
         private const string FileName = "OpenWDSLocalResults";
         private readonly string _path;
         private readonly List<Record> _records;
 
-        public LocalResultStore(string persistentDataPath = null)
+        public LocalResultStore(string persistentDataPath = null, bool anotherNotation = false)
         {
             var root = string.IsNullOrEmpty(persistentDataPath)
                 ? Application.persistentDataPath
                 : persistentDataPath;
             var directory = Path.Combine(
                 root, SettingsPersistence.CurrentDirectory);
-            _path = Path.Combine(directory, FileName);
+            _path = Path.Combine(directory, anotherNotation ? "OpenWDSAnotherNotationResults" : FileName);
             _records = Load();
         }
 
@@ -75,6 +79,35 @@ namespace OpenWDS.Runtime
             return record.BestAchievementRate > 0d
                 ? ClearLamp.Clear
                 : ClearLamp.None;
+        }
+
+        public int GetSpPoint(long musicId)
+        {
+            var record = Find(musicId, MusicDifficulty.Olivier);
+            return record == null ? 0 :
+                record.AchievementStar + record.AccuracyStar + record.LampStar;
+        }
+
+        public int RecordOlivierResult(LocalMusicEntry music, LocalLiveEntry live,
+            double achievementRate, ClearLamp lamp, int nonPerfectStarCount,
+            bool isCleared, bool isAuto, LiveType liveType = LiveType.Normal)
+        {
+            if (!OlivierStars.IsEligible(music, live) || !isCleared || isAuto ||
+                liveType != LiveType.Normal) return 0;
+            var a = OlivierStars.CalculateAchievementStar(live.Level, achievementRate);
+            var b = OlivierStars.CalculateAccuracyStar(nonPerfectStarCount);
+            var c = OlivierStars.CalculateLampStar(lamp);
+            var record = Find(music.Id, MusicDifficulty.Olivier);
+            if (record == null)
+            {
+                record = new Record { MusicId = music.Id, Difficulty = (int)MusicDifficulty.Olivier };
+                _records.Add(record);
+            }
+            record.AchievementStar = Math.Max(record.AchievementStar, a);
+            record.AccuracyStar = Math.Max(record.AccuracyStar, b);
+            record.LampStar = Math.Max(record.LampStar, c);
+            Save();
+            return a + b + c;
         }
 
         public bool RecordResult(

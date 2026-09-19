@@ -40,6 +40,7 @@ namespace OpenWDS.Editor
         private sealed class Report
         {
             public bool passed;
+            public bool olivier;
             public string failure;
             public List<Sample> samples;
         }
@@ -55,8 +56,12 @@ namespace OpenWDS.Editor
             };
         }
 
-        public static void Run()
+        public static void Run() => Start(false);
+        public static void RunOlivier() => Start(true);
+
+        private static void Start(bool olivier)
         {
+            SessionState.SetBool(Key + ".olivier", olivier);
             if (!Application.isBatchMode) throw new InvalidOperationException("Use a dedicated batch Editor.");
             SessionState.SetInt(Key, 1);
             SessionState.SetString(Key + ".error", "");
@@ -66,7 +71,8 @@ namespace OpenWDS.Editor
         }
 
         private static string Output(string name) => Path.GetFullPath(Path.Combine(
-            Application.dataPath, "../../../reverse/reports", name));
+            Application.dataPath, "../../../reverse/reports",
+            SessionState.GetBool(Key + ".olivier", false) ? name.Replace("result-presentation", "olivier-result-presentation") : name));
 
         private static void Poll()
         {
@@ -124,6 +130,14 @@ namespace OpenWDS.Editor
                     Vector3.Distance(Samples.First().curtainBoundsSize, Samples.Last().curtainBoundsSize) > 0.1f,
                     "Curtain did not animate through its real Mecanim/Spine path.");
                 Require(_stageObserved && sample.stageAlpha == 0f && sample.stageTime >= 1f, "Stage Success did not enter and fade out through its Animator.");
+                if (SessionState.GetBool(Key + ".olivier", false))
+                {
+                    var texts = _root.GetComponentInChildren<Sirius.GameResult.GameResultRatePanel>(true)
+                        .GetComponentsInChildren<UnityEngine.UI.Text>(true);
+                    Require(texts.Any(t => t.name == "ThisTimeRate" && t.text == "100.00%") &&
+                        texts.Any(t => t.name == "ThisTimeRate" && t.text == SessionState.GetInt(Key + ".spPoint", 0).ToString()),
+                        "Production Olivier result did not show the settled stars/percentage.");
+                }
                 Finish(true, "");
             }
             catch (Exception error) { Finish(false, error.ToString()); }
@@ -146,7 +160,27 @@ namespace OpenWDS.Editor
             var path = (string)typeof(LocalResultStore).GetField("_path", Private)
                 .GetValue(new LocalResultStore());
             var saved = File.Exists(path) ? File.ReadAllBytes(path) : null;
-            try { typeof(GameRuntime).GetMethod("ShowGameResult", Private).Invoke(game, null); }
+            try
+            {
+                if (SessionState.GetBool(Key + ".olivier", false))
+                {
+                    var catalog = LocalMusicCatalog.FromJson(File.ReadAllText(
+                        Path.Combine(Application.dataPath, "OpenWDS/OfflineData/LocalMusicCatalog.json")));
+                    var music = catalog.Musics.First(m => m.Id == (long)typeof(GameRuntime).GetField("_musicId", Private).GetValue(game));
+                    var live = music.Lives.First(l => l.Difficulty == MusicDifficulty.Olivier);
+                    typeof(GameRuntime).GetField("_ratingMusic", Private).SetValue(game, music);
+                    typeof(GameRuntime).GetField("_ratingLive", Private).SetValue(game, live);
+                    typeof(GameRuntime).GetField("_ratingMusics", Private).SetValue(game, new[] { music });
+                    typeof(GameRuntime).GetField("_musicDifficulty", Private).SetValue(game, MusicDifficulty.Olivier);
+                    Directory.CreateDirectory(Path.GetDirectoryName(path));
+                    File.WriteAllText(path, SettingsCrypto.EncryptUtf8("[]"));
+                    typeof(GameRuntime).GetMethod("ShowGameResult", Private).Invoke(game, null);
+                    Require(new LocalResultStore().GetSpPoint(music.Id) == OlivierStars.GetMaxPoint(live.Level),
+                        "Production Olivier settlement did not persist the maximum A+B+C.");
+                    SessionState.SetInt(Key + ".spPoint", OlivierStars.GetMaxPoint(live.Level));
+                }
+                else typeof(GameRuntime).GetMethod("ShowGameResult", Private).Invoke(game, null);
+            }
             finally
             {
                 if (saved != null) File.WriteAllBytes(path, saved);
@@ -239,7 +273,7 @@ namespace OpenWDS.Editor
             SessionState.SetBool(Key + ".passed", passed);
             SessionState.SetInt(Key, 2);
             File.WriteAllText(Output("result-presentation-validation.json"),
-                JsonUtility.ToJson(new Report { passed = passed, failure = failure, samples = Samples }, true));
+                JsonUtility.ToJson(new Report { passed = passed, olivier = SessionState.GetBool(Key + ".olivier", false), failure = failure, samples = Samples }, true));
             Debug.Log($"OPENWDS_RESULT_PRESENTATION passed={passed} {failure}");
             EditorApplication.isPlaying = false;
         }
