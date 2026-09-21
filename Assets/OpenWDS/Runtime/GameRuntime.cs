@@ -78,6 +78,11 @@ namespace OpenWDS.Runtime
                 new Dictionary<long, Queue<NotationNote>>();
         private readonly long _delayStartMilliseconds;
         private readonly bool _captureFlickDiagnostics;
+        private long _previousFrameGameMilliseconds = -1;
+        private long _frameGapMilliseconds;
+        public long MaxFrameGapMilliseconds { get; private set; }
+        private readonly List<string> _nonPerfectFlickDiagnostics = new List<string>();
+        public IReadOnlyList<string> NonPerfectFlickDiagnostics => _nonPerfectFlickDiagnostics;
         private int _nextMissIndex;
 
         public int ScheduledEventCount => _autoTouch.ScheduledEventCount;
@@ -173,6 +178,10 @@ namespace OpenWDS.Runtime
 
         private void BeginTick(long musicMilliseconds, long gameMilliseconds)
         {
+            _frameGapMilliseconds = _previousFrameGameMilliseconds < 0 ? 0 :
+                gameMilliseconds - _previousFrameGameMilliseconds;
+            MaxFrameGapMilliseconds = Math.Max(MaxFrameGapMilliseconds, _frameGapMilliseconds);
+            _previousFrameGameMilliseconds = gameMilliseconds;
             _holdEvents.Clear();
             _inputEffects.Clear();
             _inputResults.Clear();
@@ -262,7 +271,8 @@ namespace OpenWDS.Runtime
                         _laneHolds.TryGet(
                             input.TouchId, out var currentHold)
                             ? currentHold
-                            : null);
+                            : null,
+                        currentHold != null && _laneHolds.Exists(currentHold, input.TouchId));
                     var holdingTiming = new TimingDecision(
                         TimingType.PerfectStar,
                         TimingAssistType.None,
@@ -372,6 +382,10 @@ namespace OpenWDS.Runtime
         public void Reset()
         {
             _autoTouch.Reset();
+            _previousFrameGameMilliseconds = -1;
+            _frameGapMilliseconds = 0;
+            MaxFrameGapMilliseconds = 0;
+            _nonPerfectFlickDiagnostics.Clear();
             _laneHits.Reset();
             _beganHitLaneCache.Clear();
             _laneHolds.RemoveAll();
@@ -634,6 +648,12 @@ namespace OpenWDS.Runtime
                     deleteCandidate: false);
             }
             ConsumedFlickCount++;
+            if (flick.Timing.TimingType != TimingType.PerfectStar && NonPerfectFlickDiagnostics.Count < 64)
+                _nonPerfectFlickDiagnostics.Add(
+                    $"note={note.Id};touch={input.TouchId};reason={flick.CompletionReason};phase={input.Phase};" +
+                    $"frameGame={_clock.PassedGameMilliseconds};inputGame={input.Milliseconds};" +
+                    $"beganGame={flick.BeganMilliseconds};frameGap={_frameGapMilliseconds};" +
+                    $"noteMusic={note.StartMilliseconds};inputMusic={_clock.InputTimeToMusicMilliseconds(input.Milliseconds)}");
             _inputResults.Add(InputResultEntity.Create(
                 flick.Note, flick.Timing));
             PublishNoteEffects(flick.Note, flick.Timing.TimingType);
@@ -717,6 +737,9 @@ namespace OpenWDS.Runtime
         private LocalLiveEntry _ratingLive;
 
         private InputHandlerRuntime _inputHandler;
+        private Func<InputHandlerRuntime> _createInputHandler;
+        private NotationNote[] _notation;
+        public int RetryCount { get; private set; }
         private SplitLaneRuntime _splitLaneRuntime;
         private SplitLaneAssetRuntime _splitLaneAssets;
         private Sirius.GameResult.GameResultFontRuntime _gameResultFonts;
@@ -726,6 +749,7 @@ namespace OpenWDS.Runtime
         private GameHudRuntime _gameHud;
         private float _startedAt;
         private long _chartEndMilliseconds;
+        private long _lastChartMilliseconds;
         private long _delayStartMilliseconds;
         private GameObject _gameResultInstance;
         private GameObject _gameBackgroundInstance;
@@ -914,6 +938,54 @@ namespace OpenWDS.Runtime
             StartCoroutine(PrepareAndRestartPerformance());
         }
 
+        // GamePresenter.OnResetGame -> GameState.Reset(7) -> IGamePresenter.Reset.
+        // A normal pause retry resets the current live; applying settings takes the scene reload path.
+        public void RetryPerformance()
+        {
+            if (_restartPending || _resultShown || _isRetired || _inputHandler == null) return;
+            _restartPending = true;
+            StopAllCoroutines();
+            StartCoroutine(ResetCurrentPerformance());
+        }
+        private IEnumerator ResetCurrentPerformance()
+        {
+            while (_characterPresentation != null && !_characterPresentation.IsReady) yield return null;
+            _gameSe?.StopAllHolds();
+            _inputHandler.Dispose();
+            _inputHandler = _createInputHandler();
+            _noteVisuals.Reset();
+            _splitLaneRuntime.Reset();
+            _splitLaneAssets?.Reset();
+            _laneEffects?.Reset();
+            var settings = new SettingsStore().LoadOrDefault();
+            _laneGroup.InitializeSplitLaneVisual(_gameCamera, settings.GameSettings.LaneAlphaValue);
+            _gameResultRuntime = new GameResultRuntime(_notation);
+            _gameHud?.ResetForRetry();
+            if (_gameHud != null && _testPlayerUnitAsset != null)
+            {
+                var unit = PlayerUnitFixture.Parse(_testPlayerUnitAsset);
+                if ((_ratingLive?.AnotherNotationId ?? 0) > 0) _gameHud.InitializeAnotherNotationScore();
+                else
+                {
+                    _gameHud.InitializeScore(unit.CreateScoreContext(_gameResultRuntime.GetScoreNoteIds(_notation)));
+                    _gameHud.InitializeSenseScore(unit);
+                    _gameHud.ApplyStartEffects(unit);
+                }
+            }
+            _characterPresentation?.ResetGameplay();
+            _criMusic?.PrepareRetry();
+            _gameIntroduction?.StopForRetry();
+            _clearAnimation?.Hide();
+            _gameplayStarted = false; _gameplayIntroductionPending = false;
+            _clearPerformanceStarted = false; _isPaused = false;
+            GetComponent<DefaultTouchRuntime>()?.SetInputSuspended(false);
+            _pendingPlayerInputs.Clear();
+            RetryCount++;
+            _restartPending = false;
+            BeginGameplay();
+            Debug.Log("OPENWDS_GAME_RESET scene=" + gameObject.scene.handle + " retry=" + RetryCount);
+        }
+
         private IEnumerator PrepareAndRestartPerformance()
         {
             if (_chartAsset == null || string.IsNullOrEmpty(_chartAsset.text))
@@ -939,9 +1011,8 @@ namespace OpenWDS.Runtime
 
             Debug.Log("OPENWDS_GAME_RESTART_PREPARED scene=" +
                 SceneManager.GetActiveScene().name);
-            if (!CurtainTransitionRuntime
-                    .ReloadActiveSceneWithRetainedSource())
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            if (!SceneNavigationRuntime.EnsureExists().ReplayGame())
+                HandleRestartPreparationFailure(new InvalidOperationException("Game reload could not start."));
         }
 
         private void HandleRestartPreparationFailure(Exception error)
@@ -1058,15 +1129,6 @@ namespace OpenWDS.Runtime
             StartCoroutine(
                 Sirius.GameResult.GameResultFontRuntime
                     .PrepareStreamingAssets());
-            // The desktop recovery bundles are local files. Load them under the
-            // existing introduction/initialization boundary so ShowGameResult
-            // does not synchronously deserialize five bundles after the last note.
-            var resultFontRoot = Path.Combine(
-                Application.streamingAssetsPath,
-                Sirius.GameResult.GameResultFontRuntime.RelativeRoot);
-            if (Directory.Exists(resultFontRoot))
-                _gameResultFonts =
-                    new Sirius.GameResult.GameResultFontRuntime();
             _noteSpeed = persistedSettings.GameSettings.NoteSpeed;
             _currentRecommendationTiming =
                 persistedSettings.GameSettings.NoteOffsetValue;
@@ -1138,6 +1200,7 @@ namespace OpenWDS.Runtime
                 // suppression flags after the retail randomization pass.
                 NotationNoteProcessor.SetOuterCollider(notation);
             }
+            _notation = notation;
             var config = StandardNotation.ParseMusicConfig(
                 _musicConfigAsset != null
                     ? _musicConfigAsset.text
@@ -1219,7 +1282,7 @@ namespace OpenWDS.Runtime
                 managers.SubRightInnerColliders,
                 managers.SubLeftOuterColliders,
                 managers.SubRightOuterColliders);
-            _inputHandler = new InputHandlerRuntime(
+            _createInputHandler = () => new InputHandlerRuntime(
                 notation,
                 config.DelayStartSeconds,
                 note =>
@@ -1232,6 +1295,7 @@ namespace OpenWDS.Runtime
                 noteTimingValue: persistedSettings.GameSettings.NoteTimingValue,
                 captureFlickDiagnostics: false,
                 laneRaycaster: raycaster);
+            _inputHandler = _createInputHandler();
             if (!_enableAutoJudge)
             {
                 var defaultTouch = GetComponent<DefaultTouchRuntime>();
@@ -1350,6 +1414,7 @@ namespace OpenWDS.Runtime
             _gameplayStarted = true;
             _gameplayIntroductionPending = false;
             _startedAt = Time.realtimeSinceStartup;
+            _lastChartMilliseconds = -_delayStartMilliseconds;
             _pendingPlayerInputs.Clear();
             _gameHud?.Show();
             _criMusic?.BeginPlayback();
@@ -1411,9 +1476,14 @@ namespace OpenWDS.Runtime
             // Keep the original negative pre-roll so notes whose spawn threshold is
             // before chart zero (especially Hold endpoints initialized by Set) are
             // created at the same clock phase as the game.
-            var chartMilliseconds = _criMusic != null && _criMusic.IsPrepared
+            var musicEnded = _criMusic != null && _criMusic.IsPrepared &&
+                             _criMusic.HasPlaybackEnded;
+            var chartMilliseconds = musicEnded
+                ? _lastChartMilliseconds
+                : _criMusic != null && _criMusic.IsPrepared
                 ? _criMusic.GetChartMilliseconds()
                 : gameMilliseconds - _delayStartMilliseconds;
+            _lastChartMilliseconds = chartMilliseconds;
             _splitLaneRuntime.Tick(chartMilliseconds);
             foreach (var splitLaneEntry in _splitLaneRuntime.FrameEntries)
             {
@@ -1435,7 +1505,11 @@ namespace OpenWDS.Runtime
             // CompleteGame publishes the final HoldEnd events. Run it before the
             // event consumers so they are observed in this frame instead of being
             // cleared by the next Tick call.
-            if (chartMilliseconds > _chartEndMilliseconds + 1000)
+            // MusicTime.Tick (0xB9F5FAC) calls IGameState.OnClear when the
+            // raw player time becomes negative. Chart exhaustion is not a
+            // completion signal. The chart-based fallback is for silent fixtures.
+            if (musicEnded || ((_criMusic == null || !_criMusic.IsPrepared) &&
+                chartMilliseconds > _chartEndMilliseconds + 1000))
                 _inputHandler.CompleteGame();
             foreach (var holdEvent in _inputHandler.HoldEvents)
             {
@@ -1489,16 +1563,21 @@ namespace OpenWDS.Runtime
                 ShowGameResult();
                 return;
             }
-            var type = GetBoundaryClearType(_gameResultRuntime);
+            var type = GetBoundaryClearType(_gameResultRuntime,
+                _gameHud != null && _gameHud.Life.Value > 0);
             _clearSe?.Play(type);
-            _clearPerformanceEndsAt = Time.realtimeSinceStartup +
-                _clearAnimation.Show(type);
+            _clearAnimation.Show(type);
+            // OnClearAsync (0xB9C4024) waits for both 5 s and the optional
+            // game-end voice, capped at 10 s. This offline path has no game-end
+            // voice player, so it takes the original null-voice (5 s) branch.
+            // ClearAnimation clip length is not the navigation timer.
+            _clearPerformanceEndsAt = Time.realtimeSinceStartup + 5f;
         }
 
         public static Sirius.Game.BoundaryClearType
-            GetBoundaryClearType(GameResultRuntime result)
+            GetBoundaryClearType(GameResultRuntime result, bool isCleared = true)
         {
-            if (result == null)
+            if (!isCleared || result == null || result.CollectedCount == 0)
                 return Sirius.Game.BoundaryClearType.Failed;
             if (result.IsAllPerfect)
                 return Sirius.Game.BoundaryClearType.AllPerfect;
@@ -1510,277 +1589,39 @@ namespace OpenWDS.Runtime
         private void ShowGameResult()
         {
             if (_resultShown) return;
-            if (_gameResultPrefab == null)
-                throw new InvalidOperationException("Game result prefab is required.");
             _resultShown = true;
             _gameResultPresentationCount++;
             _gameSe?.StopAllHolds();
             _gameHud?.Hide();
-
-            if (_gameResultBackgroundPrefab != null)
+            var data = new GameResultSceneData
             {
-                _gameResultBackgroundInstance = Instantiate(_gameResultBackgroundPrefab);
-                // GameResultStandbyController.PlayStandbyMove explicitly enables
-                // CurtainClose. The extracted subtree preserves its authored
-                // inactive root, so reproduce that controller call here.
-                _gameResultBackgroundInstance.SetActive(true);
-            }
-            // GameResultStandbyController.PlayStandbyMove publishes
-            // BgmType.GameResult (enum value 2) at this scene boundary.
-            _resultBgm?.Play();
-
-            // Game and GameResult are separate original scenes. The curtain
-            // subtree contains the authored GameResult camera at depth -1;
-            // keeping this preview's depth-0 game camera enabled makes it clear
-            // after the curtain camera and erases the curtain frame. Preserve
-            // the original z=-14 placement and switch cameras at the scene
-            // boundary instead of moving the Spine object into the game camera.
-            if (_gameCamera != null)
-                _gameCamera.enabled = false;
-
-            var canvasObject = new GameObject(
-                "GameResultCanvas",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(UnityEngine.UI.CanvasScaler),
-                typeof(UnityEngine.UI.GraphicRaycaster));
-            var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 100;
-            var scaler = canvasObject.GetComponent<UnityEngine.UI.CanvasScaler>();
-            scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 1f;
-
-            // Prepare zero digits and inactive badges before any result effect
-            // receives OnEnable. Initialize also serves settled-state fixtures.
-            canvasObject.SetActive(false);
-            _gameResultInstance = Instantiate(_gameResultPrefab, canvasObject.transform);
-            var rect = _gameResultInstance.transform as RectTransform;
-            if (rect != null)
+                Result = _gameResultRuntime, Music = _ratingMusic, Live = _ratingLive, Musics = _ratingMusics,
+                MusicId = _musicId, MusicName = _musicName, Difficulty = _musicDifficulty, Jacket = _musicJacketSprite,
+                RecommendationTiming = _currentRecommendationTiming, NoteSpeed = _noteSpeed,
+                ShowPerfectStar = _shouldShowPerfectStar, IsOfficialAuto = LocalMusicSelectionSession.IsOfficialAuto,
+                IsCleared = _gameHud != null && _gameHud.Life.Value > 0,
+                CharacterId = _characterPresentation != null ? _characterPresentation.CharacterBaseId : 0,
+                Prefab = _gameResultPrefab, Background = _gameResultBackgroundPrefab
+            };
+            if (LocalMusicSelectionSession.HasSelection)
             {
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.offsetMin = Vector2.zero;
-                rect.offsetMax = Vector2.zero;
-                rect.localScale = Vector3.one;
+                var navigator = SceneNavigationRuntime.EnsureExists();
+                SceneNavigationRuntime.Result = data;
+                navigator.ResultPrefab = data.Prefab; navigator.ResultBackground = data.Background;
+                if (!navigator.Navigate(SceneNavigationRuntime.ResultScene))
+                    throw new InvalidOperationException("GameResult navigation could not start.");
+                return;
             }
-            // Font replacement invalidates TMP/layout data. Match the capture and
-            // original full-screen root order: establish the final canvas rect
-            // before any font-driven layout rebuild.
-            if (_gameResultFonts == null)
-                _gameResultFonts =
-                    new Sirius.GameResult.GameResultFontRuntime();
-            _gameResultFonts.Apply(_gameResultInstance);
-            var rootCanvasGroup = _gameResultInstance.GetComponent<CanvasGroup>();
-            if (rootCanvasGroup != null)
-            {
-                // Original GameResultView.ShowAsync calls ShowAlphaAsync here.
-                rootCanvasGroup.alpha = 1f;
-                rootCanvasGroup.interactable = true;
-                rootCanvasGroup.blocksRaycasts = true;
-            }
-            var anotherId = _ratingLive?.AnotherNotationId ?? 0;
-            var resultKey = anotherId > 0 ? anotherId : _musicId;
-            var localResults = new LocalResultStore(anotherNotation: anotherId > 0);
-            var isRatingTarget = anotherId == 0 && PlayerRating.IsEligible(
-                _ratingMusic, _ratingLive);
-            var beforePlayerRate = _ratingMusics != null
-                ? PlayerRating.CalculatePlayerRate(
-                    _ratingMusics, anotherId > 0 ? new LocalResultStore() : localResults)
-                : 0d;
-            var previousNotationRate = isRatingTarget
-                ? PlayerRating.CalculateNotationRate(
-                    _ratingLive.Level,
-                    localResults.GetBest(resultKey, _musicDifficulty),
-                    localResults.HasClear(resultKey, _musicDifficulty))
-                : 0d;
-            var isSpTarget = OlivierStars.IsEligible(_ratingMusic, _ratingLive);
-            if (isSpTarget)
-            {
-                previousNotationRate = localResults.GetSpPoint(_musicId);
-                beforePlayerRate = _ratingMusics != null
-                    ? OlivierStars.GetTotalPoint(_ratingMusics, localResults) : previousNotationRate;
-            }
-            var thisLamp = _gameResultRuntime.IsAllPerfect ? ClearLamp.AllPerfect :
-                _gameResultRuntime.IsFullCombo ? ClearLamp.FullCombo : ClearLamp.Clear;
-            var nonPerfectStarCount = 0;
-            foreach (var pair in _gameResultRuntime.TimingCounts)
-                if (pair.Key != TimingType.PerfectStar) nonPerfectStarCount += pair.Value;
-            var thisTimeSpPoint = localResults.RecordOlivierResult(
-                _ratingMusic, _ratingLive, _gameResultRuntime.AchievementRate,
-                thisLamp, nonPerfectStarCount, _gameHud != null && _gameHud.Life.Value > 0,
-                LocalMusicSelectionSession.IsOfficialAuto);
-            var previousBestAchievementRate = localResults.GetBest(resultKey, _musicDifficulty);
-            var isNewAchievementRate = !LocalMusicSelectionSession.IsOfficialAuto && localResults.RecordResult(
-                resultKey,
-                _musicDifficulty,
-                _gameResultRuntime.AchievementRate,
-                _gameResultRuntime.IsAllPerfect
-                    ? ClearLamp.AllPerfect
-                    : _gameResultRuntime.IsFullCombo
-                        ? ClearLamp.FullCombo
-                        : ClearLamp.Clear,
-                out previousBestAchievementRate);
-            if (_characterPresentation != null)
-            {
-                var clearLamp = _gameHud != null && _gameHud.Life.Value <= 0 ? 0 :
-                    _gameResultRuntime.IsAllPerfect ? 6 : _gameResultRuntime.IsFullCombo ? 2 : 1;
-                StartCoroutine(_characterPresentation.ShowResult(
-                    _gameResultBackgroundInstance, clearLamp, isNewAchievementRate));
-            }
-            var thisTimeNotationRate = isRatingTarget
-                ? PlayerRating.CalculateNotationRate(
-                    _ratingLive.Level,
-                    _gameResultRuntime.AchievementRate)
-                : 0d;
-            var bestEverNotationRate = isRatingTarget
-                ? PlayerRating.CalculateNotationRate(
-                    _ratingLive.Level,
-                    localResults.GetBest(resultKey, _musicDifficulty),
-                    localResults.HasClear(resultKey, _musicDifficulty))
-                : 0d;
-            var afterPlayerRate = _ratingMusics != null
-                ? PlayerRating.CalculatePlayerRate(
-                    _ratingMusics, anotherId > 0 ? new LocalResultStore() : localResults)
-                : 0d;
-            if (isSpTarget)
-            {
-                thisTimeNotationRate = thisTimeSpPoint;
-                bestEverNotationRate = localResults.GetSpPoint(_musicId);
-                afterPlayerRate = _ratingMusics != null
-                    ? OlivierStars.GetTotalPoint(_ratingMusics, localResults) : bestEverNotationRate;
-            }
-            var isNewNotationRate = isSpTarget
-                ? thisTimeNotationRate > previousNotationRate
-                : bestEverNotationRate > previousNotationRate;
-            if (isSpTarget)
-            {
-                var maximum = _ratingMusics != null
-                    ? OlivierStars.GetTotalObtainablePoint(_ratingMusics, DateTime.UtcNow) : 0;
-                beforePlayerRate = OlivierStars.GetPercentage((int)beforePlayerRate, maximum);
-                afterPlayerRate = OlivierStars.GetPercentage((int)afterPlayerRate, maximum);
-            }
-            var isNewPlayerRate = afterPlayerRate > beforePlayerRate;
-            BindMusicInfo(_gameResultInstance.transform, localResults);
-            var panel = _gameResultInstance.GetComponentInChildren<
-                Sirius.GameResult.GameResultPanel>(true);
-            if (panel == null)
-                throw new InvalidOperationException("GameResultPanel is missing.");
-            // Only the product's pre-live Autoplay button may set IsAuto.
-            // _enableAutoJudge is a debug input injector and must keep the
-            // ordinary HUD/result presentation.
-            var isOfficialAutoplay = LocalMusicSelectionSession.IsOfficialAuto;
-            var viewData =
-                Sirius.GameResult.GameResultViewData.FromRuntime(
-                    _gameResultRuntime,
-                    _currentRecommendationTiming,
-                    _noteSpeed,
-                    isOfficialAutoplay,
-                    _musicName,
-                    _musicDifficulty,
-                    _musicJacketSprite,
-                    previousBestAchievementRate,
-                    isNewAchievementRate,
-                    _shouldShowPerfectStar,
-                    // GameResultRate needs the value before this play on the
-                    // left of its old -> new presentation.  The store already
-                    // contains the new result at this point, so passing
-                    // bestEverNotationRate made both numbers identical.
-                    previousNotationRate,
-                    thisTimeNotationRate,
-                    beforePlayerRate,
-                    afterPlayerRate,
-                    isNewNotationRate,
-                    isNewPlayerRate);
-            panel.Initialize(viewData);
-            BindResultNavigation();
-            // GameResultView.ShowAsync starts from the serialized root alpha 0
-            // and calls AnimationUtility.ShowAlphaAsync (linear 0.2 seconds).
-            // Initialize also supports settled-state editor previews.
-            if (rootCanvasGroup != null) rootCanvasGroup.alpha = 0f;
-
-            // GameResultView.ShowAsync sets the original root Animator's "Next"
-            // trigger before awaiting its entrance state. Without the removed
-            // GameResultView component the controller remains in GameResult_in,
-            // whose final LeftPanel X is 52; GameResult_left_in ends at the prefab
-            // position X=477. Keep the original pivot and drive the missing call.
-            var slideAnimator = _gameResultInstance.GetComponent<Animator>();
-            StartCoroutine(CompleteResultPresentation(slideAnimator));
-
-            // GamePresenter stops the Game presentation before opening the
-            // separately-authored GameResult presentation.
+            // Standalone rendering/algorithm fixtures have no product navigation session.
+            if (_gameCamera != null) _gameCamera.enabled = false;
+            var presenter = new GameObject("GameResultPreview").AddComponent<GameResultSceneRuntime>();
+            presenter.PreviewReplay = ReplayFromResult; presenter.PreviewReturn = ReturnFromResult;
+            presenter.InitializePreview(data, _characterPresentation);
+            _gameResultInstance = presenter.View;
+            _gameResultBackgroundInstance = presenter.Background;
+            _resultSe = presenter.ResultSe; _resultBgm = presenter.ResultBgm;
             _laneGroup.gameObject.SetActive(false);
-            if (_gameBackgroundInstance != null)
-                _gameBackgroundInstance.SetActive(false);
-        }
-
-        private void BindResultNavigation()
-        {
-            var root = _gameResultInstance.transform.Find("RightBotton");
-            var next = root != null
-                ? root.Find("NextButton")?.GetComponent<Button>()
-                : null;
-            var replay = root != null
-                ? root.Find("InGameButton")?.GetComponent<Button>()
-                : null;
-            if (root == null || next == null || replay == null)
-                throw new InvalidOperationException(
-                    "Original GameResult NextButton/InGameButton are missing.");
-            // GameResultView.Initialize calls GameResultNextPanel.Inactivate.
-            // The Presenter activates the whole panel only after the entrance
-            // and its numeric result animation have completed.
-            next.gameObject.SetActive(true);
-            replay.gameObject.SetActive(true);
-            root.gameObject.SetActive(false);
-            next.onClick.RemoveAllListeners();
-            replay.onClick.RemoveAllListeners();
-            next.onClick.AddListener(ReturnFromResult);
-            replay.onClick.AddListener(ReplayFromResult);
-        }
-
-        private IEnumerator CompleteResultPresentation(
-            Animator slideAnimator)
-        {
-            var resultPanel = _gameResultInstance.GetComponentInChildren<
-                Sirius.GameResult.GameResultPanel>(true);
-            var counts = resultPanel.CreateCountUp(_resultSe);
-            _gameResultInstance.transform.parent.gameObject.SetActive(true);
-            var canvasGroup = _gameResultInstance.GetComponent<CanvasGroup>();
-            if (canvasGroup != null)
-                canvasGroup.DOFade(1f, 0.2f).SetEase(Ease.Linear)
-                    .SetLink(_gameResultInstance);
-            if (slideAnimator != null)
-            {
-                // The controller must be enabled before receiving Next. Sending
-                // it under the inactive preparation Canvas loses the trigger
-                // when the Animator initializes and leaves LeftPanel at X=52.
-                slideAnimator.SetTrigger(Animator.StringToHash("Next"));
-                // GameResultView.ShowAsync activates _StageSuccess (offset
-                // 0xA8) immediately after Next; its authored root is inactive.
-                var stageSuccess = _gameResultInstance.transform.Find(
-                    "SucceseTextImagePosition/GameResultStageSuccess");
-                if (stageSuccess == null)
-                    throw new InvalidOperationException("Stage Success presentation is missing.");
-                stageSuccess.gameObject.SetActive(true);
-                // Let the trigger transition be evaluated, then reproduce
-                // GameResultView.ShowAsync's normalized-time completion wait.
-                yield return null;
-                while (slideAnimator != null &&
-                       (slideAnimator.IsInTransition(0) ||
-                        slideAnimator.GetCurrentAnimatorStateInfo(0)
-                            .normalizedTime < 1f))
-                {
-                    yield return null;
-                }
-            }
-
-            yield return counts.Play().WaitForCompletion();
-
-            if (_gameResultInstance == null) yield break;
-            var navigation = _gameResultInstance.transform.Find("RightBotton");
-            if (navigation != null)
-                navigation.gameObject.SetActive(true);
+            if (_gameBackgroundInstance != null) _gameBackgroundInstance.SetActive(false);
         }
 
         private void OnDestroy()
@@ -1795,104 +1636,5 @@ namespace OpenWDS.Runtime
             _gameResultFonts = null;
         }
 
-        private void BindMusicInfo(
-            Transform root,
-            LocalResultStore localResults)
-        {
-            var musicInfo = root.Find("LeftPanel/MusicInfoPanel");
-            if (musicInfo == null) return;
-
-            var title = musicInfo.Find("MusicNamelText/BodyRoot/BodyText")
-                ?.GetComponent<UnityEngine.UI.Text>();
-            if (title != null) title.text = _musicName;
-            var difficulty = musicInfo.Find("Difficulty/Text")
-                ?.GetComponent<UnityEngine.UI.Text>();
-            if (difficulty != null)
-                difficulty.text = _musicDifficulty.ToString().ToUpperInvariant();
-            var difficultyImage = musicInfo.Find("Difficulty")
-                ?.GetComponent<UnityEngine.UI.Image>();
-            if (difficultyImage != null)
-                difficultyImage.color = GameResultDifficultyColor(
-                    _musicDifficulty);
-            var jacket = musicInfo.Find("FocusMask/JacketImage")
-                ?.GetComponent<UnityEngine.UI.Image>();
-            if (jacket != null && _musicJacketSprite != null)
-                jacket.sprite = _musicJacketSprite;
-
-            var resultKey = (_ratingLive?.AnotherNotationId ?? 0) > 0 ? _ratingLive.AnotherNotationId : _musicId;
-            var lamps = musicInfo.Find("ClearLamps");
-            var lampEffects = musicInfo.Find("ClearLampEffects");
-            if (lamps != null)
-            {
-                for (var index = 0; index < lamps.childCount; index++)
-                {
-                    var child = lamps.GetChild(index);
-                    var suffix = child.name.StartsWith("Lamp", StringComparison.Ordinal)
-                        ? child.name.Substring(4)
-                        : string.Empty;
-                    var lampStatus =
-                        Enum.TryParse(
-                            suffix,
-                            true,
-                            out MusicDifficulty lampDifficulty) &&
-                        localResults != null &&
-                        localResults.HasClear(resultKey, lampDifficulty)
-                            ? localResults.GetClearLamp(
-                                resultKey, lampDifficulty)
-                            : ClearLamp.None;
-                    // The result header always presents the complete five-slot
-                    // difficulty row: Normal, Hard, Extra, Stella and Olivier.
-                    // An uncleared slot keeps its authored empty lamp image.
-                    child.gameObject.SetActive(true);
-                    for (var childIndex = 0;
-                         childIndex < child.childCount;
-                         childIndex++)
-                    {
-                        var lamp = child.GetChild(childIndex);
-                        lamp.gameObject.SetActive(
-                            lamp.name == "ClearLampImage");
-                        var image = lamp.GetComponent<UnityEngine.UI.Image>();
-                        if (lampStatus != ClearLamp.None)
-                        {
-                            var source = FindResultLampSource(
-                                lampEffects, suffix, lampStatus);
-                            if (image != null && source != null)
-                                image.sprite = source.sprite;
-                        }
-                    }
-                }
-            }
-            if (lampEffects != null) lampEffects.gameObject.SetActive(false);
-        }
-
-        private static Color32 GameResultDifficultyColor(
-            MusicDifficulty difficulty)
-        {
-            // GameResultMusicInfoPanel.Initialize calls
-            // ColorPreset.get_Difficulty_* rather than the darker selection
-            // frame palette. Stella is packed as 0xFFE96786 in the original
-            // ARM64 method: RGBA (134, 103, 233, 255).
-            if (difficulty == MusicDifficulty.Stella)
-                return new Color32(134, 103, 233, 255);
-            return MusicSelectionPreviewRuntime.DifficultyFrameColor(
-                difficulty);
-        }
-
-        private static UnityEngine.UI.Image FindResultLampSource(
-            Transform effects,
-            string difficulty,
-            ClearLamp lamp)
-        {
-            if (effects == null) return null;
-            var state = lamp == ClearLamp.AllPerfect
-                ? "ClearLampAllParfect"
-                : lamp == ClearLamp.FullCombo
-                    ? "ClearLampFullCombo"
-                    : "ClearLampClear";
-            return effects.Find(
-                    "ClearLampEffect" + difficulty + "/" + state +
-                    "/ClearLampImage")
-                ?.GetComponent<UnityEngine.UI.Image>();
-        }
     }
 }

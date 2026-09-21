@@ -258,6 +258,15 @@ namespace OpenWDS.Runtime
             }
         }
 
+        public void Reset()
+        {
+            foreach (var beam in _beams) if (beam != null) Return(beam.gameObject, _beamPool);
+            foreach (var bomb in _bombs) if (bomb.Instance != null) Return(bomb.Instance, _bombPools[bomb.PoolIndex]);
+            foreach (var hold in _holds.Values) if (hold != null) Return(hold.EffectObject, _bombPools[2]);
+            foreach (var hold in _endingHolds) if (hold != null) Return(hold.EffectObject, _bombPools[2]);
+            _beams.Clear(); _bombs.Clear(); _holds.Clear(); _endingHolds.Clear();
+        }
+
         public void Tick()
         {
             for (var index = _beams.Count - 1; index >= 0; index--)

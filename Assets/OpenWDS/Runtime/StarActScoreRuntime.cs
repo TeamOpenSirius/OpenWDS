@@ -28,7 +28,9 @@ namespace OpenWDS.Runtime
             _fixture.Validate();
         }
 
-        public long OnSenseActivated(SenseEventFixture senseEvent)
+        public long OnSenseActivated(SenseEventFixture senseEvent,
+            Action<StarActEventFixture> beforeScore = null,
+            Action<StarActEventFixture> afterScore = null)
         {
             if (senseEvent == null) throw new ArgumentNullException(nameof(senseEvent));
             if (senseEvent.lightType < 1 || senseEvent.lightType > 4 ||
@@ -53,8 +55,10 @@ namespace OpenWDS.Runtime
                 starActEvent.storageLightCount)
                 throw new InvalidOperationException(
                     "StarAct storage-light branch count is inconsistent.");
+            beforeScore?.Invoke(starActEvent);
             var addedScore = CalculateScore(starActEvent);
             Count += addedScore;
+            afterScore?.Invoke(starActEvent);
             _nextEventIndex++;
             return addedScore;
         }

@@ -106,7 +106,8 @@ namespace Sirius.GameResult
             double beforePlayerRate = 0d,
             double afterPlayerRate = 0d,
             bool isNewNotationRate = false,
-            bool isNewPlayerRate = false)
+            bool isNewPlayerRate = false,
+            bool isCleared = true)
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
             var counts = new Dictionary<TimingType, int>();
@@ -123,9 +124,9 @@ namespace Sirius.GameResult
                     currentRecommendationTiming, noteSpeed),
                 noteSpeed,
                 isAuto,
-                runtime.IsFullCombo,
-                runtime.IsAllPerfect,
-                runtime.IsPerfectStar,
+                isCleared && runtime.IsFullCombo,
+                isCleared && runtime.IsAllPerfect,
+                isCleared && runtime.IsPerfectStar,
                 counts,
                 summary,
                 musicName,

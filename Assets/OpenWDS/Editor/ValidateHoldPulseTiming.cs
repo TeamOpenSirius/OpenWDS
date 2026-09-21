@@ -12,6 +12,7 @@ namespace OpenWDS.Editor
     {
         public static void Run()
         {
+            ValidateSharedHoldRelease();
             var path = Path.Combine(Application.streamingAssetsPath,
                 "OpenWDS/StandardCharts/61/1/4.csv");
             var notes = StandardNotation.Parse(File.ReadAllText(path));
@@ -126,6 +127,31 @@ namespace OpenWDS.Editor
                         $"Sustained contact delayed Music 61 pulse {pulse.Id} until tail.");
             }
             Debug.Log($"OPENWDS_HOLD_PULSES_VALIDATED music=61 difficulty=Stella pulses={pulses.Count} maxDelayMs={pulses.Values.Max()} staleEventClock=true autoMisses={string.Join(",", autoMisses)}");
+        }
+
+        public static void ValidateSharedHoldRelease()
+        {
+            // OnHoldEnd eligibility uses frame time; the result still uses
+            // the hardware event time. Removing one of two fingers early must
+            // not score the body while the second finger continues holding it.
+            foreach (var otherTouch in new[] { false, true })
+            foreach (var frame in new long[] { 1900, 2000 })
+            {
+                var note = new NotationNote { Id = 1, NoteType = 100, Lane = 6,
+                    Width = 1, StartTickCount = 1f, EndTickCount = 2f };
+                var action = new UnifiedHoldAction(new StandardHoldNoteManager(new[] { note }),
+                    new ScratchNoteManager(new[] { note }));
+                var position = new Vector2(6, 0);
+                var input = new InputEntity(1, 1900, position, position, Vector2.zero, TouchPhase.Ended);
+                var result = action.TryHold(input, new HitLaneEntity(6, 0, 0, 0, 0),
+                    1900, frame, note, otherTouch);
+                var shouldConsume = !otherTouch || frame >= 2000;
+                if (result.Consumed != shouldConsume ||
+                    (shouldConsume && result.Timing.TimingType != TimingType.Great) ||
+                    (!shouldConsume && !result.ReleaseCurrent))
+                    throw new InvalidOperationException($"Shared Hold release: other={otherTouch} frame={frame} consumed={result.Consumed} timing={result.Timing.TimingType}");
+            }
+            Debug.Log("OPENWDS_SHARED_HOLD_RELEASE_VALIDATED cases=4 frameClock=true eventTiming=true");
         }
     }
 }

@@ -6,7 +6,7 @@ namespace OpenWDS.Runtime
     /// <summary>
     /// Solo/default-life subset of Sirius.Game.Life and DefaultLifeCalculator.
     /// Decrement eligibility and values match ARM64 RVAs 0xB986318/0xB986324.
-    /// Party-specific guards and skill healing remain outside this boundary.
+    /// Skill mutations use the same single-unit LIFE context.
     /// </summary>
     public sealed class LifeRuntime
     {
@@ -50,16 +50,27 @@ namespace OpenWDS.Runtime
         }
 
         /// <summary>
-        /// Sirius.Game.Life.Add (ARM64 RVA 0xB986CF0): apply the delta and clamp
-        /// only the lower bound. Start effects may therefore exceed MaxValue.
+        /// Sirius.Game.Life.Add (2.31.2 RVA 0xB98F858): zero LIFE cannot revive;
+        /// a nonzero value stays at least 1 and may exceed MaxValue.
         /// </summary>
         public bool Add(int amount)
         {
-            if (amount == 0) return false;
-            var next = Math.Max(0, Value + amount);
+            if (Value == 0) return false;
+            var next = Math.Max(1, Value + amount);
             if (next == Value) return false;
             Value = next;
             return true;
+        }
+
+        // 2.31.2 ILife.Set does not revive zero LIFE or clamp to MaxValue.
+        public void Set(int value)
+        {
+            if (Value != 0) Value = value;
+        }
+
+        public void AddLifeGuardCount(int amount)
+        {
+            GuardCount = Math.Max(0, GuardCount + amount);
         }
 
         public static int CalculateDecrement(

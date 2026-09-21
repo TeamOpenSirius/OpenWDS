@@ -544,8 +544,23 @@ namespace OpenWDS.Runtime
             in InputEntity input,
             in HitLaneEntity hitLane,
             long inputMusicMilliseconds,
-            NotationNote currentHold = null)
+            NotationNote currentHold = null,
+            bool heldByAnotherTouch = false,
+            long? currentMusicMilliseconds = null)
         {
+            // Provider selection precedes cached ownership. A continuing
+            // contact can finish an overlapping due body even when its visual
+            // ownership has already advanced to the next segment.
+            if (!InputLifecycle.IsEnded(input.Phase) &&
+                (_noteManager.TryGetHoldForMain(hitLane, inputMusicMilliseconds,
+                     out var dueHold, out var dueLane) ||
+                 _noteManager.TryGetHoldForSub(hitLane, inputMusicMilliseconds,
+                     out dueHold, out dueLane)))
+                return CompleteHold(dueHold, dueLane,
+                    HoldTimingDecider.DecideEndMusicTime(inputMusicMilliseconds,
+                        dueHold.StartMilliseconds, dueHold.EndMilliseconds),
+                    hitLane, inputMusicMilliseconds);
+
             if (currentHold != null &&
                 _noteManager.ContainsHold(currentHold) &&
                 _noteManager.TryGetIncludedLane(
@@ -558,6 +573,12 @@ namespace OpenWDS.Runtime
                 // and PERFECT_STAR from End-60 ms.
                 var isEnded =
                     input.Phase == TouchPhase.Ended;
+                // OnHoldEnd uses OutOfRangeTarget when another touch still
+                // holds this body; only the last contact gets early-release timing.
+                // That eligibility check reads IClock, not the event timestamp.
+                if (isEnded && heldByAnotherTouch &&
+                    (currentMusicMilliseconds ?? inputMusicMilliseconds) < currentHold.EndMilliseconds)
+                    return HoldActionResult.OnRelease();
                 if (!isEnded &&
                     inputMusicMilliseconds < currentHold.EndMilliseconds)
                 {
@@ -701,7 +722,8 @@ namespace OpenWDS.Runtime
             in HitLaneEntity hitLane,
             long inputMusicMilliseconds,
             long? currentMusicMilliseconds = null,
-            NotationNote currentHold = null)
+            NotationNote currentHold = null,
+            bool heldByAnotherTouch = false)
         {
             _scratchResults.Clear();
             // TryHoldingCore calls IClock.get_PassedMilliseconds, not
@@ -710,6 +732,23 @@ namespace OpenWDS.Runtime
                 currentMusicMilliseconds ?? inputMusicMilliseconds);
             var consumedDirectScratch = ConsumeDirectScratchNotes(
                 input, hitLane, inputMusicMilliseconds, currentMusicMilliseconds);
+            // Retail TryHold (0xB949A30) checks the due ScratchHold provider
+            // before ordinary Holds. Cached visual ownership must not bypass
+            // that selection: a preceding short jump can be consumed early,
+            // and its finger can temporarily overlap a neighbouring long Hold.
+            var hasScratch = _scratchNotes.TryGetHoldIncludeJumpScratch(
+                hitLane, inputMusicMilliseconds, out var scratch, out var scratchLane);
+            if (hasScratch && scratch.EndMilliseconds <=
+                (currentMusicMilliseconds ?? inputMusicMilliseconds))
+            {
+                return TryScratchHold(
+                    input, hitLane, scratch, scratchLane, inputMusicMilliseconds,
+                    currentMusicMilliseconds);
+            }
+            if (!InputLifecycle.IsEnded(input.Phase) &&
+                (_holdNotes.TryGetHoldForMain(hitLane, inputMusicMilliseconds, out _, out _) ||
+                 _holdNotes.TryGetHoldForSub(hitLane, inputMusicMilliseconds, out _, out _)))
+                return _standardAction.TryHold(input, hitLane, inputMusicMilliseconds);
             if (currentHold != null &&
                 (currentHold.NoteType ==
                     (int)NoteType.ScratchHold ||
@@ -745,7 +784,8 @@ namespace OpenWDS.Runtime
                  currentHold.NoteType == (int)NoteType.CriticalHold))
             {
                 return _standardAction.TryHold(
-                    input, hitLane, inputMusicMilliseconds, currentHold);
+                    input, hitLane, inputMusicMilliseconds, currentHold, heldByAnotherTouch,
+                    currentMusicMilliseconds);
             }
 
             // TryHold's tuple marks a successful standalone type-40 Scratch as
@@ -753,18 +793,6 @@ namespace OpenWDS.Runtime
             // overlapping Hold/ScratchHold body.
             if (consumedDirectScratch)
                 return default;
-
-            var hasScratch = _scratchNotes.TryGetHoldIncludeJumpScratch(
-                hitLane, inputMusicMilliseconds, out var scratch, out var scratchLane);
-
-            // TryHold compares the pre-fetched ScratchHold EndMilliseconds with
-            // the current music time before querying ordinary main/sub Holds.
-            if (hasScratch && scratch.EndMilliseconds <= inputMusicMilliseconds)
-            {
-                return TryScratchHold(
-                    input, hitLane, scratch, scratchLane, inputMusicMilliseconds,
-                    currentMusicMilliseconds);
-            }
 
             if (_holdNotes.TryGetHoldForMain(
                     hitLane, inputMusicMilliseconds, out _, out _) ||
@@ -793,7 +821,8 @@ namespace OpenWDS.Runtime
                     activeScratchLane, activeScratch);
             }
             return _standardAction.TryHold(
-                input, hitLane, inputMusicMilliseconds, currentHold);
+                input, hitLane, inputMusicMilliseconds, currentHold, heldByAnotherTouch,
+                currentMusicMilliseconds);
         }
 
         private bool ConsumeDirectScratchNotes(

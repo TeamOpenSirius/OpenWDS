@@ -75,6 +75,13 @@ namespace Sirius.Game
             SetColorMaterial();
             _isInitialized = true;
         }
+        public void ResetPresentation()
+        {
+            _animator.Rebind();
+            foreach (var particle in _particleSystems) particle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            SetStandbyPosition();
+            SetColorMaterial();
+        }
         private void SetStandbyPosition() => transform.SetLocalPositionXY(10000, 10000);
         private void SetPlayPosition() => transform.SetPositionXY(_playPosition.x, _playPosition.y);
         private void SetColorMaterial(SenseLightTypes[] storageSenceLights = null)

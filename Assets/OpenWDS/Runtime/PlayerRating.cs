@@ -18,43 +18,34 @@ namespace OpenWDS.Runtime
             LocalLiveEntry live) =>
             music != null &&
             live != null &&
-            !music.IsLongVersion &&
+            !music.IsLongVersion && live.AnotherNotationId == 0 &&
             live.Difficulty >= MusicDifficulty.Normal &&
             live.Difficulty <= MusicDifficulty.Stella;
 
-        public static double CalculateNotationRate(
-            int level,
-            double achievementRate,
-            bool isCleared = true)
+        // SiriusServer LiveResultCalculators.LiveRateCalculator. Clear lamps are
+        // independent: failed manual plays may still improve achievement/rating.
+        private static readonly (double Rate, double Adjustment)[] Breakpoints =
         {
-            if (!isCleared || level <= 0 ||
-                double.IsNaN(achievementRate) ||
-                double.IsInfinity(achievementRate) ||
-                achievementRate < 80d)
+            (101, 6.05), (100.95, 6), (100.75, 4.5), (100.5, 3),
+            (100.25, 2.25), (100, 1.5), (99, .75), (98, 0), (97.5, -1)
+        };
+
+        public static double CalculateNotationRate(int level, double achievementRate)
+        {
+            if (level <= 0 || double.IsNaN(achievementRate) ||
+                double.IsInfinity(achievementRate) || achievementRate < 97.5d)
                 return 0d;
-
-            var rate = Math.Min(101d, achievementRate);
-            double raw;
-            if (rate >= 100.95d)
-                raw = level + 6d + (rate - 100.95d);
-            else if (rate >= 100.75d)
-                raw = level + 4.5d + 7.5d * (rate - 100.75d);
-            else if (rate >= 100.5d)
-                raw = level + 3d + 6d * (rate - 100.5d);
-            else if (rate >= 100d)
-                raw = level + 1.5d + 3d * (rate - 100d);
-            else if (rate >= 98d)
-                raw = level + 0.75d * (rate - 98d);
-            else if (rate >= 95d)
-                raw = level * (0.75d + (rate - 95d) / 12d);
-            else if (rate >= 90d)
-                raw = level * (0.5d + (rate - 90d) / 20d);
-            else
-                raw = level * rate / 180d;
-
-            // The server stores/display-sums the per-chart value after dropping
-            // digits below 0.01 (for example Lv29 at 100.80% is 33.87).
-            return Math.Floor(raw * 100d + 0.000000001d) / 100d;
+            if (achievementRate >= 101d) return Math.Round(level + 6.05d, 2);
+            for (var index = 0; index < Breakpoints.Length - 1; index++)
+            {
+                var high = Breakpoints[index];
+                var low = Breakpoints[index + 1];
+                if (achievementRate >= low.Rate)
+                    return Math.Round(level + (low.Adjustment +
+                        (achievementRate - low.Rate) / (high.Rate - low.Rate) *
+                        (high.Adjustment - low.Adjustment)), 2);
+            }
+            return 0d;
         }
 
         public static double CalculatePlayerRate(IEnumerable<double> chartRates)
@@ -80,8 +71,7 @@ namespace OpenWDS.Runtime
                         .Where(live => IsEligible(music, live))
                         .Select(live => CalculateNotationRate(
                             live.Level,
-                            results.GetBest(music.Id, live.Difficulty),
-                            results.HasClear(music.Id, live.Difficulty)))));
+                            results.GetBest(music.Id, live.Difficulty)))));
         }
 
         /// <summary>

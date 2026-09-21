@@ -298,6 +298,13 @@ namespace OpenWDS.Editor
                 curtainSkeleton,
                 curtainGraphicMaterial);
 
+            // The production Main host creates this page without replacing its camera/EventSystem/CRI.
+            var page = new GameObject("SelectionPage");
+            canvasObject.transform.SetParent(page.transform, false);
+            runtimeObject.transform.SetParent(page.transform, false);
+            const string pagePath = "Assets/Resources/Prefabs/SelectionPage.prefab";
+            PrefabUtility.SaveAsPrefabAsset(page, pagePath);
+
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             if (!EditorSceneManager.SaveScene(scene, ScenePath))
                 throw new InvalidOperationException(
@@ -307,7 +314,7 @@ namespace OpenWDS.Editor
             {
                 new EditorBuildSettingsScene(ScenePath, true),
                 new EditorBuildSettingsScene(GameScenePath, true),
-            };
+            }.Concat(EditorBuildSettings.scenes.Where(s => s.path != ScenePath && s.path != GameScenePath)).ToArray();
             AssetDatabase.SaveAssets();
 
             var missing = 0;
@@ -367,7 +374,7 @@ namespace OpenWDS.Editor
                         CurtainGraphicMaterialPath) != null,
                 ratingRulesValid = ValidateRatingRules(),
                 buildLoopValid =
-                    EditorBuildSettings.scenes.Length == 2 &&
+                    EditorBuildSettings.scenes.Length >= 2 &&
                     EditorBuildSettings.scenes[0].path == ScenePath &&
                     EditorBuildSettings.scenes[1].path == GameScenePath,
             };
@@ -407,7 +414,24 @@ namespace OpenWDS.Editor
                     "Local MusicSelection validation failed.");
         }
 
-        private static bool ValidateRatingRules()
+        private static bool ValidateResultPersistence()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "openwds-results-" + Guid.NewGuid());
+            try
+            {
+                var store = new LocalResultStore(root);
+                store.RecordResult(1, MusicDifficulty.Stella, 99, ClearLamp.FullCombo, out _);
+                store.RecordResult(2, MusicDifficulty.Stella, 101, ClearLamp.None, out _);
+                store.RecordResult(1, MusicDifficulty.Stella, 100, ClearLamp.None, out _);
+                store = new LocalResultStore(root);
+                return store.GetClearLamp(1, MusicDifficulty.Stella) == ClearLamp.FullCombo &&
+                    store.GetClearLamp(2, MusicDifficulty.Stella) == ClearLamp.None &&
+                    store.GetBest(2, MusicDifficulty.Stella) == 101;
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        internal static bool ValidateRatingRules()
         {
             const double tolerance = 0.0000001d;
             bool Rate(int level, double achievementRate, double expected) =>
@@ -442,16 +466,18 @@ namespace OpenWDS.Editor
                 : null;
 
             return
+                ValidateResultPersistence() &&
                 Rate(20, 79.9999d, 0d) &&
-                Rate(20, 80d, 8.88d) &&
-                Rate(20, 90d, 10d) &&
-                Rate(20, 95d, 15d) &&
+                Rate(20, 80d, 0d) &&
+                Rate(20, 90d, 0d) &&
+                Rate(20, 95d, 0d) &&
                 Rate(20, 98d, 20d) &&
                 Rate(20, 100d, 21.5d) &&
                 Rate(20, 100.5d, 23d) &&
                 Rate(20, 100.75d, 24.5d) &&
                 Rate(20, 100.95d, 26d) &&
                 Rate(20, 101d, 26.05d) &&
+                Rate(20, 97.5d, 19d) &&
                 Rate(29, 100.8d, 33.87d) &&
                 Math.Abs(topThirty - 495d) < tolerance &&
                 PlayerRating.IsEligible(normalMusic, stella) &&

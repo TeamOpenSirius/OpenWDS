@@ -28,7 +28,6 @@ namespace OpenWDS.Runtime
             public int Difficulty;
             public double BestAchievementRate;
             public int BestClearLamp;
-            // Zero on legacy saves: judgement counts and clear eligibility were not retained.
             public int AchievementStar;
             public int AccuracyStar;
             public int LampStar;
@@ -67,18 +66,7 @@ namespace OpenWDS.Runtime
             MusicDifficulty difficulty)
         {
             var record = Find(musicId, difficulty);
-            if (record == null) return ClearLamp.None;
-            if (Enum.IsDefined(typeof(ClearLamp), record.BestClearLamp) &&
-                record.BestClearLamp != (int)ClearLamp.None)
-            {
-                return (ClearLamp)record.BestClearLamp;
-            }
-
-            // Records written by the first recovered-store revision did not
-            // contain a lamp field. Preserve those completed plays as Clear.
-            return record.BestAchievementRate > 0d
-                ? ClearLamp.Clear
-                : ClearLamp.None;
+            return record == null ? ClearLamp.None : (ClearLamp)record.BestClearLamp;
         }
 
         public int GetSpPoint(long musicId)

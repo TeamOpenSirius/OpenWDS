@@ -20,8 +20,10 @@ namespace OpenWDS.Editor
         private static PointerEventData _drag;
         private static float _maxGapError;
         private static double _resultObservedAt;
-        private static bool _stageObserved;
+        private static bool _stageObserved, _completedNotes;
+        private static int _initialSelectionId;
         private static int _zeroHudSamples;
+        private static bool Direct => SessionState.GetBool(Key + "direct", false);
         private static bool UiOnly => SessionState.GetBool(Key + "uiOnly", false);
         private static double _next;
         private static string _error;
@@ -30,6 +32,7 @@ namespace OpenWDS.Editor
         public static void Run()
         {
             SessionState.SetBool(Key + "uiOnly", Environment.GetCommandLineArgs().Contains("-openwdsAnotherUiOnly"));
+            SessionState.SetBool(Key + "direct", Environment.GetCommandLineArgs().Contains("-openwdsAnotherDirect"));
             ValidateStoreIsolation();
             var files = new[] { "OpenWDSLocalResults", "OpenWDSAnotherNotationResults" }
                 .Select(n => Path.Combine(Application.persistentDataPath, SettingsPersistence.CurrentDirectory, n))
@@ -38,7 +41,8 @@ namespace OpenWDS.Editor
             SessionState.SetBool(Key + "active", true);
             SessionState.SetBool(Key + "exit", false);
             SessionState.SetString(Key + "start", DateTime.UtcNow.ToString("O"));
-            EditorSceneManager.OpenScene("Assets/OpenWDS/Scenes/LocalMusicSelection.unity");
+            if (Direct) CreateFrontendRecoveryScene.Run();
+            else EditorSceneManager.OpenScene("Assets/OpenWDS/Scenes/LocalMusicSelection.unity");
             EditorApplication.isPlaying = true;
         }
         private static void Log(string message, string stack, LogType type)
@@ -68,7 +72,27 @@ namespace OpenWDS.Editor
                 var host = UnityEngine.Object.FindObjectOfType<LocalMusicSelectionRuntime>();
                 var menu = UnityEngine.Object.FindObjectOfType<OfflineMenuRuntime>();
                 var another = UnityEngine.Object.FindObjectOfType<AnotherNotationSelectionRuntime>();
+                if (Direct && host == null && _phase == 0)
+                {
+                    var frontend = UnityEngine.Object.FindObjectOfType<FrontendRecoveryRuntime>();
+                    if (frontend == null || !frontend.IsReady) return;
+                    if (frontend.Page == "Title") { frontend.StartCoroutine(frontend.ShowHome()); return; }
+                    if (frontend.Page == "Home") { Click(frontend.AnotherButton); _phase = 1; return; }
+                }
+                if (Direct && host != null)
+                    Require(host.IsDirectAnotherEntry && host.StandardListInitializationCount == 0 && host.Selection == null,
+                        "Direct archive route initialized ordinary list");
+                if (_phase == 13)
+                {
+                    var frontend = UnityEngine.Object.FindObjectOfType<FrontendRecoveryRuntime>();
+                    if (frontend == null || !frontend.IsReady || frontend.Page != "Home" || !frontend.Bgm.IsPlaying) return;
+                    Require(another == null, "Direct archive remained after Home return");
+                    Finish(null); return;
+                }
+                if (SceneNavigationRuntime.IsLoading || CurtainTransitionRuntime.IsTransitioning) return;
+                if (MainPageNavigationRuntime.Instance != null && MainPageNavigationRuntime.Instance.IsTransitioning) return;
                 var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
+                var resultScene = GameResultSceneRuntime.Instance;
                 if ((_phase <= 8 || _phase >= 12) && (host == null || !host.IsInitialized || menu == null || menu.IsTransitioning)) return;
                 if (another != null && (!another.IsReady || another.IsPreparing)) return;
                 if (_phase == 2 && _scrollPhase < 7)
@@ -84,9 +108,9 @@ namespace OpenWDS.Editor
                 }
                 switch (_phase)
                 {
-                    case 0: Click(GameObject.Find("MenuView").GetComponentInChildren<Button>()); break;
+                    case 0: host.OpenAnotherNotationSelection(); break;
                     case 1:
-                        Click(menu.Popup.GetComponentsInChildren<Button>().First(b => b.transform.parent.name == "AprilFool")); break;
+                        Require(another != null, "Special presenter did not open"); _initialSelectionId = host.GetInstanceID(); break;
                     case 2:
                         Require(another != null && another.EntryCount == 112, "Expected all 112 special charts");
                         Capture("another-notation-selection.png"); another.SelectId(14); break;
@@ -96,14 +120,15 @@ namespace OpenWDS.Editor
                         Capture("another-notation-vocal.png"); another.SelectId(1); break;
                     case 4:
                         Require(another.SelectedId == 1, "Wrong return selection");
+                        if (Direct) { _phase = 6; break; }
                         Click(GameObject.Find("AnotherNotationBack").GetComponent<Button>()); break;
                     case 5:
                         Require(another == null, "Special view did not close");
                         var cachedLayouts = (System.Collections.IDictionary)typeof(LocalMusicSelectionRuntime).GetField("_anotherCellLayouts", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(host);
                         Require(cachedLayouts.Count == 0, "Closed special cells retained in shared focus cache");
                         Require(GameObject.Find("MusicSelectionView") != null, "Ordinary selection did not return");
-                        Click(GameObject.Find("MenuView").GetComponentInChildren<Button>()); break;
-                    case 6: Click(menu.Popup.GetComponentsInChildren<Button>().First(b => b.transform.parent.name == "AprilFool")); break;
+                        host.OpenAnotherNotationSelection(); break;
+                    case 6: Require(another != null, "Special presenter did not open"); break;
                     case 7:
                         Require(another != null && another.SelectedId == 1, "Second special entry failed");
                         Capture("another-notation-reopen.png");
@@ -128,17 +153,24 @@ namespace OpenWDS.Editor
                             _next = EditorApplication.timeSinceStartup + 1.5;
                             return;
                         }
+                        if (resultScene != null && resultScene.IsInitialized)
+                        {
+                            Require(game == null && SceneNavigationRuntime.SourceUnloadedBeforeLoad, "Game survived result navigation");
+                            Require(_completedNotes, "Unconsumed special notes");
+                            Require(LocalMusicSelectionSession.Selection.Live.AnotherNotationId == 1 && LocalMusicSelectionSession.IsOfficialAuto,
+                                "Lost special chart replay parameters");
+                            _resultObservedAt = EditorApplication.timeSinceStartup; _phase++; return;
+                        }
                         if (game == null || !game.IsInitialized) return;
+                        Require(!UnityEngine.SceneManagement.SceneManager.GetSceneByName(SceneNavigationRuntime.MainScene).isLoaded, "Main remained loaded during Game");
                         var hud = game.GetComponent<GameHudRuntime>();
                         Require(hud.ScorePanel.gameObject.activeSelf && hud.PrincipalGauge.gameObject.activeSelf, "Special zero HUD hidden");
                         Require(hud.TotalScore == 0 && hud.ScorePanel.Score == 0 && hud.Score == null && hud.SenseScore == null && hud.StarActScore == null, "Special chart accumulated score");
                         Require(hud.PrincipalGauge.CurrentPrincipalCount.text == "0" && hud.PrincipalGauge.MaxPrincipalCount.text == "0", "Special principal is not 0/0");
                         _zeroHudSamples++;
-                        if (!game.IsResultShown) return;
-                        Require(LocalMusicSelectionSession.Selection.Live.AnotherNotationId == 1, "Lost special chart identity");
-                        Require(LocalMusicSelectionSession.IsOfficialAuto && game.IsAutoJudgeEnabled, "Auto selection not passed to gameplay");
-                        Require(game.InputHandler.RemainingTapCount + game.InputHandler.RemainingFlickCount + game.InputHandler.RemainingHoldCount + game.InputHandler.RemainingScratchCount == 0, "Unconsumed special notes");
-                        _resultObservedAt = EditorApplication.timeSinceStartup; _phase++; return;
+                        _completedNotes |= game.InputHandler.IsGameCompleted && game.InputHandler.RemainingTapCount + game.InputHandler.RemainingFlickCount + game.InputHandler.RemainingHoldCount + game.InputHandler.RemainingScratchCount == 0;
+                        return;
+
                     case 10:
                         var stage = GameObject.Find("GameResultStageSuccess");
                         Require(stage != null, "Shared StageSuccess was not activated");
@@ -150,15 +182,16 @@ namespace OpenWDS.Editor
                         if (EditorApplication.timeSinceStartup - _resultObservedAt < 8) return;
                         Require(_stageObserved, "StageSuccess never became visible");
                         Require(_zeroHudSamples > 100, "Insufficient zero-score gameplay samples");
-                        Require(game.CharacterPresentation != null && game.CharacterPresentation.IsReady && game.CharacterPresentation.ResultPlayCount == 1, "Shared result character did not play");
+                        Require(resultScene.CharacterPresentation != null && resultScene.CharacterPresentation.IsReady && resultScene.CharacterPresentation.ResultPlayCount == 1, "Shared result character did not play");
                         Require(GameObject.Find("CharacterParent") != null, "Result character is inactive");
                         Capture("another-notation-result.png");
-                        game.ReplayFromResult(); break;
+                        resultScene.ReplayFromResult(); break;
                     case 11:
                         if (game == null || game.IsResultShown || game.InputHandler == null || game.IsRestartPending) return;
                         game.RetireGame(); break;
                     case 12:
-                        Require(another != null && another.SelectedId == 1, "Special selection not retained after result/replay/retire");
+                        Require(another != null && another.SelectedId == 1, "Special selection not rebuilt after result/replay/retire");
+                        Require(host.GetInstanceID() != _initialSelectionId && SceneNavigationRuntime.CompletedTransitions >= 4, "Source presenter was retained");
                         Capture("another-notation-return.png");
                         Click(GameObject.Find("AnotherNotationBack").GetComponent<Button>()); break;
                     case 13:
@@ -321,14 +354,14 @@ namespace OpenWDS.Editor
         {
             var path = Path.Combine(Path.GetDirectoryName(Report), name);
             var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
-            if (game != null && game.IsResultShown) CaptureResult(game, path);
+            if (GameResultSceneRuntime.Instance != null && GameResultSceneRuntime.Instance.IsInitialized) CaptureResult(GameResultSceneRuntime.Instance, path);
             else Require(RunLocalMusicSelectionPlayMode.CaptureSelection(path) > 100000, "Empty screenshot");
         }
-        private static void CaptureResult(GameRuntime game, string path)
+        private static void CaptureResult(GameResultSceneRuntime game, string path)
         {
             var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
-            var _background = (GameObject)typeof(GameRuntime).GetField("_gameResultBackgroundInstance", flags).GetValue(game);
-            var _root = (GameObject)typeof(GameRuntime).GetField("_gameResultInstance", flags).GetValue(game);
+            var _background = game.Background;
+            var _root = game.View;
             var camera = _background.GetComponentInChildren<Camera>();
             var canvas = _root.GetComponentInParent<Canvas>();
             var oldMode = canvas.renderMode;
@@ -388,7 +421,7 @@ namespace OpenWDS.Editor
             var before = JsonConvert.DeserializeObject<Dictionary<string, byte[]>>(SessionState.GetString(Key + "resultsBefore", "{}"));
             var resultsUnchanged = before.All(pair => pair.Value == null ? !File.Exists(pair.Key) : File.Exists(pair.Key) && File.ReadAllBytes(pair.Key).SequenceEqual(pair.Value));
             if (!resultsUnchanged && error == null) error = "Auto or selection wrote a score file";
-            File.WriteAllText(Report, JsonConvert.SerializeObject(new { passed = error == null, phase = _phase, filterPhase = _filterPhase, scrollPhase = _scrollPhase, maxGapError = _maxGapError, uiOnly = UiOnly, stageObserved = _stageObserved, zeroHudSamples = _zeroHudSamples, resultsUnchanged, storeIsolationValidated = true, error }, Formatting.Indented));
+            File.WriteAllText(Report, JsonConvert.SerializeObject(new { passed = error == null, directFromHome = Direct, sceneTransitions = SceneNavigationRuntime.CompletedTransitions, phase = _phase, filterPhase = _filterPhase, scrollPhase = _scrollPhase, maxGapError = _maxGapError, uiOnly = UiOnly, stageObserved = _stageObserved, zeroHudSamples = _zeroHudSamples, resultsUnchanged, storeIsolationValidated = true, error }, Formatting.Indented));
             SessionState.SetBool(Key + "passed", error == null);
             SessionState.SetBool(Key + "exit", true);
             EditorApplication.isPlaying = false;

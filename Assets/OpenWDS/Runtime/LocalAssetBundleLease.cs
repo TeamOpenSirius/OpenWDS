@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -33,6 +35,38 @@ namespace OpenWDS.Runtime
         {
             _entry = entry;
             entry.References++;
+        }
+
+        /// <summary>Acquire before I/O; native asynchronous file loading avoids a main-thread byte copy.</summary>
+        public static IEnumerator LoadStreaming(string sourceKey, string relativePath, Action<LocalAssetBundleLease> acquired)
+        {
+            if (Entries.TryGetValue(sourceKey, out var existing))
+            {
+                var reused = new LocalAssetBundleLease(existing);
+                acquired(reused);
+                if (reused.LoadOperation != null) yield return reused.LoadOperation;
+                yield break;
+            }
+            var root = Application.streamingAssetsPath;
+            if (!root.Contains("://"))
+            {
+                var path = Path.Combine(root, relativePath);
+                if (!File.Exists(path)) throw new FileNotFoundException("Missing bundle: " + relativePath, path);
+                var entry = new Entry { Key = sourceKey, Request = AssetBundle.LoadFromFileAsync(path) };
+                Entries.Add(sourceKey, entry);
+                var lease = new LocalAssetBundleLease(entry);
+                acquired(lease);
+                yield return lease.LoadOperation;
+            }
+            else
+            {
+                byte[] bytes = null;
+                yield return StreamingAssetsRuntime.ReadBytes(relativePath, value => bytes = value);
+                // Another caller may have acquired it while the Android read was pending.
+                var lease = FromMemory(sourceKey, bytes);
+                acquired(lease);
+                if (lease.LoadOperation != null) yield return lease.LoadOperation;
+            }
         }
 
         public static LocalAssetBundleLease FromMemory(string sourceKey, byte[] bytes)

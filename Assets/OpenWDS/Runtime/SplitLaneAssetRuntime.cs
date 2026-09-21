@@ -399,6 +399,14 @@ namespace OpenWDS.Runtime
             return replacements;
         }
 
+        public void Reset()
+        {
+            foreach (var active in _active.Values)
+                if (active != null) { active.gameObject.SetActive(false); UnityEngine.Object.Destroy(active.gameObject); }
+            _active.Clear();
+            _shownEffectIds.Clear();
+        }
+
         public void Dispose()
         {
             foreach (var active in _active.Values)

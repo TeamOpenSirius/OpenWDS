@@ -17,6 +17,7 @@ namespace OpenWDS.Runtime
     {
         public static LocalMusicSelection Selection { get; private set; }
         public static bool IsOfficialAuto { get; private set; }
+        private static bool _ownsTextAssets;
         public static TextAsset ChartAsset { get; private set; }
         public static TextAsset MusicConfigAsset { get; private set; }
         public static Sprite JacketSprite { get; private set; }
@@ -34,8 +35,12 @@ namespace OpenWDS.Runtime
             TextAsset chartAsset,
             TextAsset musicConfigAsset,
             Sprite jacketSprite,
-            IReadOnlyList<LocalMusicEntry> musics, bool isOfficialAuto = false)
+            IReadOnlyList<LocalMusicEntry> musics, bool isOfficialAuto = false, bool ownsTextAssets = false)
         {
+            if (selection == null || chartAsset == null || musicConfigAsset == null || musics == null)
+                throw new ArgumentException("A complete chart session is required.");
+            Clear();
+            _ownsTextAssets = ownsTextAssets;
             IsOfficialAuto = isOfficialAuto;
             Selection = selection ?? throw new ArgumentNullException(nameof(selection));
             ChartAsset = chartAsset != null
@@ -46,6 +51,21 @@ namespace OpenWDS.Runtime
                 : throw new ArgumentNullException(nameof(musicConfigAsset));
             JacketSprite = jacketSprite;
             Musics = musics ?? throw new ArgumentNullException(nameof(musics));
+        }
+        public static void Clear()
+        {
+            if (_ownsTextAssets)
+            {
+                if (ChartAsset != null) UnityEngine.Object.Destroy(ChartAsset);
+                if (MusicConfigAsset != null) UnityEngine.Object.Destroy(MusicConfigAsset);
+            }
+            _ownsTextAssets = false;
+            Selection = null;
+            ChartAsset = null;
+            MusicConfigAsset = null;
+            JacketSprite = null;
+            Musics = null;
+            IsOfficialAuto = false;
         }
     }
 
@@ -79,13 +99,6 @@ namespace OpenWDS.Runtime
             public Sequence focusSequence;
         }
 
-        private sealed class CachedMusicAssets
-        {
-            public readonly Dictionary<MusicDifficulty, TextAsset> Charts =
-                new Dictionary<MusicDifficulty, TextAsset>();
-            public TextAsset MusicConfig;
-        }
-
         private sealed class LocalRateEntry
         {
             public LocalMusicEntry music;
@@ -97,7 +110,6 @@ namespace OpenWDS.Runtime
         [SerializeField] private GameObject _view;
         [SerializeField] private GameObject _listCellPrefab;
         [SerializeField] private TextAsset _catalogJson;
-        private TextAsset _musicConfigAsset;
         [SerializeField] private Sprite _jacketSprite;
         [SerializeField] private MusicJacketAsset[] _musicJackets;
         [SerializeField] private DifficultyMarkerAsset[] _difficultyMarkers;
@@ -132,8 +144,11 @@ namespace OpenWDS.Runtime
         [SerializeField] private Spine.Unity.SkeletonDataAsset _curtainSkeletonData;
         [SerializeField] private Material _curtainGraphicMaterial;
 
-        private readonly Dictionary<MusicDifficulty, TextAsset> _charts =
-            new Dictionary<MusicDifficulty, TextAsset>();
+        private readonly HashSet<MusicDifficulty> _availableDifficulties =
+            new HashSet<MusicDifficulty>();
+        private TextAsset _pendingChartAsset;
+        private TextAsset _pendingConfigAsset;
+        public int ChartReadCount { get; private set; }
         private readonly Dictionary<MusicDifficulty, Button> _difficultyButtons =
             new Dictionary<MusicDifficulty, Button>();
         // The retail MusicSelectionOneTime loader owns one ResourceProvider keyed
@@ -142,8 +157,6 @@ namespace OpenWDS.Runtime
         private static readonly Dictionary<long, Sprite> JacketResourceProvider =
             new Dictionary<long, Sprite>();
         private static int SelectionStartInvocationCount;
-        private static readonly Dictionary<long, CachedMusicAssets> MusicAssetCache =
-            new Dictionary<long, CachedMusicAssets>();
         private readonly HashSet<long> _loadingJackets = new HashSet<long>();
         private bool _jacketBundleLoadActive;
         private bool _stopJacketLoadingRequested;
@@ -157,6 +170,11 @@ namespace OpenWDS.Runtime
         private readonly Dictionary<MusicDifficulty, Sprite> _markerSprites =
             new Dictionary<MusicDifficulty, Sprite>();
         private LocalMusicCatalog _catalog;
+        [Serializable] private sealed class CharacterFilterData
+        {
+            public LocalCharacterBaseEntry[] CharacterBases;
+        }
+        private LocalCharacterBaseEntry[] _filterCharacters;
         private LocalMusicEntry[] _allMusics;
         private LocalMusicSelection _selection;
         private LocalResultStore _localResults;
@@ -253,7 +271,7 @@ namespace OpenWDS.Runtime
                 BindingFlags.Instance | BindingFlags.NonPublic);
 
         public LocalMusicSelection Selection => _selection;
-        public int AvailableDifficultyCount => _charts.Count;
+        public int AvailableDifficultyCount => _availableDifficulties.Count;
         public int SerializedMusicAssetCount => 0;
         public int SerializedChartAssetCount => 0;
         public int BoundCellCount =>
@@ -476,6 +494,20 @@ namespace OpenWDS.Runtime
             }
         }
 
+        private FrontendViewLibrary _liveBackground;
+        private FrontendViewLibrary _titleHeader;
+        public Button BackButton { get; private set; }
+        private bool _anotherFromHome;
+        public bool IsDirectAnotherEntry => _anotherFromHome;
+        public int StandardListInitializationCount { get; private set; }
+        public double InitializationSeconds { get; private set; }
+
+        private void Awake()
+        {
+            _anotherFromHome = FrontendNavigation.ConsumeAnother();
+            if (_anotherFromHome && _view != null) _view.SetActive(false);
+        }
+
         public bool IsInitialized { get; private set; }
 
         private IEnumerator Start()
@@ -484,25 +516,53 @@ namespace OpenWDS.Runtime
             if (_view == null || _listCellPrefab == null || _catalogJson == null)
                 throw new InvalidOperationException(
                     "Local MusicSelection host is missing a required serialized asset.");
+            double started = Time.realtimeSinceStartupAsDouble;
+            _filterCharacters = JsonUtility.FromJson<CharacterFilterData>(_catalogJson.text).CharacterBases;
             RebuildCharacterBaseIconLookup();
-            var rootCanvasGroup = _view.GetComponent<CanvasGroup>();
-            if (rootCanvasGroup != null)
-            {
-                // The retail Presenter fades the Addressable view in from its
-                // authored alpha=0. The local host owns that Presenter boundary.
-                rootCanvasGroup.alpha = 1f;
-                rootCanvasGroup.interactable = true;
-                rootCanvasGroup.blocksRaycasts = true;
-            }
-            _se = GetComponent<UiSeRuntime>();
+            _se = UiSeRuntime.Instance;
+            if (_se == null) _se = GetComponent<UiSeRuntime>();
             if (_se == null) _se = gameObject.AddComponent<UiSeRuntime>();
-            BuildHud();
+            if (_difficultyMarkers != null)
+                foreach (var item in _difficultyMarkers)
+                    if (item != null && item.background != null) _markerSprites[item.difficulty] = item.background;
+            if (!_anotherFromHome)
+            {
+                _liveBackground = new FrontendViewLibrary(null, null);
+                yield return _liveBackground.Load("Background/LiveBackground", _view.transform.parent);
+                _liveBackground.Instance.SetActive(true);
+                _liveBackground.Instance.transform.SetAsFirstSibling();
+                foreach (var image in _liveBackground.Instance.GetComponentsInChildren<UnityEngine.UI.Graphic>(true)) image.raycastTarget = false;
+                var rootCanvasGroup = _view.GetComponent<CanvasGroup>();
+                if (rootCanvasGroup != null)
+                {
+                    rootCanvasGroup.alpha = 1f;
+                    rootCanvasGroup.interactable = true;
+                    rootCanvasGroup.blocksRaycasts = true;
+                }
+                BuildHud();
+                yield return PrepareTitleHeader();
+            }
             var menu = gameObject.AddComponent<OfflineMenuRuntime>();
             menu.Configure(_view.transform.parent, CreateMenuSettings,
                 () => SetSpectrumVisibleForDialog(false),
                 () => SetSpectrumVisibleForDialog(true), CreateMenuTermsHost, _textSideMenuButtonPrefab);
-            menu.OpenAnotherNotations = OpenAnotherNotationSelection;
+
+            menu.NavigateHome = ReturnHome;
             yield return menu.Initialize();
+            if (_anotherFromHome)
+            {
+                // Retail Home -> AnotherNotationEventPresenter: no ordinary catalog/view initialization.
+                _allMusics = Array.Empty<LocalMusicEntry>();
+                _anotherNotations = gameObject.AddComponent<AnotherNotationSelectionRuntime>();
+                yield return _anotherNotations.Initialize(this, _view.transform.parent, ReturnHome);
+                _allMusics = _anotherNotations.VisibleEntries.Select(e => e.Music).GroupBy(m => m.Id).Select(g => g.First()).ToArray();
+                LocalGameFlowRouter.EnsureExists();
+                IsInitialized = true;
+                InitializationSeconds = Time.realtimeSinceStartupAsDouble - started;
+                Debug.Log($"OPENWDS_SELECTION_ENTRY mode=another standardLists={StandardListInitializationCount} seconds={InitializationSeconds:F3}");
+                yield break;
+            }
+            StandardListInitializationCount++;
             _catalog = LocalMusicCatalog.FromJson(_catalogJson.text);
             _allMusics = (LocalMusicEntry[])_catalog.Musics.Clone();
             SelectAllPermanentActors(_vocalFilters);
@@ -518,22 +578,13 @@ namespace OpenWDS.Runtime
                         JacketResourceProvider[item.musicId] = item.jacket;
                 }
             }
-            if (_difficultyMarkers != null)
-            {
-                foreach (var item in _difficultyMarkers)
-                {
-                    if (item != null && item.background != null)
-                        _markerSprites[item.difficulty] = item.background;
-                }
-            }
             _preview = gameObject.AddComponent<MusicSelectionPreviewRuntime>();
             _preview.Configure(_view.transform);
             var initialMusic = _catalog.Musics[0];
             var initialDifficulty = MusicDifficulty.Stella;
-            if (LocalMusicSelectionSession.HasSelection)
+            if (FrontendNavigation.ReturnedSelection != null)
             {
-                var returnedSelection =
-                    LocalMusicSelectionSession.Selection;
+                var returnedSelection = FrontendNavigation.ReturnedSelection;
                 var returnedMusic = _catalog.Musics.FirstOrDefault(
                     item => item.Id == returnedSelection.Music.Id);
                 if (returnedMusic != null)
@@ -542,12 +593,12 @@ namespace OpenWDS.Runtime
                     initialDifficulty = returnedSelection.Live.Difficulty;
                 }
             }
-            yield return LoadMusicAssets(initialMusic);
+            yield return PrepareMusicSelection(initialMusic);
             BindView(initialMusic);
-            if (!_charts.ContainsKey(initialDifficulty) ||
+            if (!_availableDifficulties.Contains(initialDifficulty) ||
                 !TryGetLive(initialMusic, initialDifficulty, out _))
             {
-                foreach (var difficulty in _charts.Keys)
+                foreach (var difficulty in _availableDifficulties)
                 {
                     initialDifficulty = difficulty;
                     break;
@@ -562,9 +613,65 @@ namespace OpenWDS.Runtime
             _preview.Play(initialMusic.Id);
             LocalGameFlowRouter.EnsureExists();
             IsInitialized = true;
+            InitializationSeconds = Time.realtimeSinceStartupAsDouble - started;
+            Debug.Log($"OPENWDS_SELECTION_ENTRY mode=standard standardLists={StandardListInitializationCount} seconds={InitializationSeconds:F3}");
         }
 
         private AnotherNotationSelectionRuntime _anotherNotations;
+
+        private IEnumerator PrepareTitleHeader()
+        {
+            _titleHeader = new FrontendViewLibrary(null, null);
+            yield return _titleHeader.Load("Feature/Headers/TitleHeaderView", _view.transform.parent);
+            // InitializeHeaderAsync 0xADCCFB0: SetPageName("楽曲選択", true).
+            _titleHeader.Field("TitleHeaderView", "_pageNameText").GetComponent<Text>().text = "楽曲選択";
+            _titleHeader.Field("TitleHeaderView", "_pageNameParent").gameObject.SetActive(true);
+            var pageName = (RectTransform)_titleHeader.Field("TitleHeaderView", "_pageNameRectTransform");
+            var position = pageName.anchoredPosition; position.x = 122;
+            pageName.anchoredPosition = position;
+            // Solo selection has no multiplayer help/timer presenter.
+            _titleHeader.Field("TitleHeaderView", "_helpButton").gameObject.SetActive(false);
+            _titleHeader.Instance.transform.Find("Timer").gameObject.SetActive(false);
+            BackButton = _titleHeader.Field("TitleHeaderView", "_backButton").GetComponent<Button>();
+            BackButton.transform.parent.gameObject.SetActive(true);
+            BackButton.gameObject.SetActive(true);
+            BackButton.interactable = true;
+            BackButton.onClick.RemoveAllListeners();
+            BackButton.onClick.AddListener(() =>
+            {
+                if (!IsInitialized || _returningHome || _gameStartPending) return;
+                _se.Play(UiSeRuntime.Cue.ButtonBack);
+                ReturnHome();
+            });
+            // TitleHeaderView.ShowAsync uses ColorPreset.Header_Other (0xA5A376C).
+            var color = new Color32(238, 95, 95, 255);
+            _titleHeader.Field("TitleHeaderView", "_starImage").GetComponent<Image>().color = color;
+            _titleHeader.Field("TitleHeaderView", "_decorationFrameImage").GetComponent<Image>().color = color;
+            var group = _titleHeader.Instance.GetComponent<CanvasGroup>();
+            group.interactable = true; group.blocksRaycasts = true;
+            _titleHeader.Instance.SetActive(true);
+            // ShowTitleHeaderAsync 0xAB1B878: y=-12, OutCubic 0.3 s; fade Linear 0.2 s.
+            yield return DOTween.Sequence()
+                .Append(((RectTransform)_titleHeader.Instance.transform).DOAnchorPosY(-12, .3f).SetEase(Ease.OutCubic))
+                .Join(group.DOFade(1, .2f).SetEase(Ease.Linear))
+                .SetLink(_titleHeader.Instance).WaitForCompletion();
+        }
+
+        private bool _returningHome;
+        public void ReturnHome()
+        {
+            if (_returningHome) return;
+            _returningHome = true;
+            if (BackButton != null) BackButton.interactable = false;
+            StartCoroutine(ReturnHomeWhenReady());
+        }
+        private IEnumerator ReturnHomeWhenReady()
+        {
+            _preview?.Stop();
+            if (_anotherNotations != null) yield return _anotherNotations.PrepareForSceneUnload();
+            yield return StopJacketLoading();
+            FrontendNavigation.Home();
+        }
 
         public void OpenAnotherNotationSelection()
         {
@@ -573,8 +680,10 @@ namespace OpenWDS.Runtime
             _anotherNotations = gameObject.AddComponent<AnotherNotationSelectionRuntime>();
             StartCoroutine(_anotherNotations.Initialize(this, _view.transform.parent, () =>
             {
+                if (_anotherFromHome) { ReturnHome(); return; }
                 _view.SetActive(true);
                 _musicSelectionHeader.SetActive(true);
+                _titleHeader.Instance.SetActive(true);
                 Destroy(_anotherNotations);
                 _anotherNotations = null;
                 _preview?.Play(_selection.Music.Id);
@@ -584,7 +693,8 @@ namespace OpenWDS.Runtime
         public void HideStandardSelectionForAnother()
         {
             _view.SetActive(false);
-            _musicSelectionHeader.SetActive(false);
+            if (_musicSelectionHeader != null) _musicSelectionHeader.SetActive(false);
+            if (_titleHeader != null) _titleHeader.Instance.SetActive(false);
         }
 
         public GamePauseRuntime CreateAnotherSettings(Action closed) => CreateMenuSettings(closed);
@@ -624,8 +734,8 @@ namespace OpenWDS.Runtime
         }
         public void LaunchAnotherGame(LocalMusicSelection selection, TextAsset chart, TextAsset config, Sprite jacket, bool isAuto)
         {
-            LocalMusicSelectionSession.Set(selection, chart, config, jacket, _allMusics, isAuto);
-            if (!CurtainTransitionRuntime.Begin(_curtainSkeletonData, _curtainGraphicMaterial, _gameSceneName, true))
+            LocalMusicSelectionSession.Set(selection, new TextAsset(chart.text), new TextAsset(config.text), jacket, _allMusics, isAuto, ownsTextAssets: true);
+            if (!CurtainTransitionRuntime.Begin(_curtainSkeletonData, _curtainGraphicMaterial, _gameSceneName))
                 throw new InvalidOperationException("Another notation curtain transition could not start.");
         }
 
@@ -635,14 +745,14 @@ namespace OpenWDS.Runtime
             _gameStartPending = false;
             _stopJacketLoadingRequested = false;
             if (_view == null) return;
-            // The retained scene still owns the snapshot read before the live.
-            // Reload the durable result before rebinding any score/lamp/rating UI.
+            // Re-enabled pages refresh persisted results before rebinding UI.
+            // Formal live returns create a new page through Main initialization.
             _localResults = new LocalResultStore();
             SetPreLiveUnderlyingControlsVisible(true);
             SetSpectrumVisibleForDialog(true);
             if (_listContent != null)
             {
-                // RebindListCell clears _focusedCell, even when the retained
+                // RebindListCell clears _focusedCell, even when the recycled
                 // cell is rebound to the same song. Restore the focus from the
                 // selection entity after refreshing the recycled cells.
                 UpdateVisibleCellBindings(true);
@@ -660,9 +770,13 @@ namespace OpenWDS.Runtime
         {
             _preview?.Stop();
             StopAllCoroutines();
+            if (_pendingChartAsset != null) Destroy(_pendingChartAsset);
+            if (_pendingConfigAsset != null) Destroy(_pendingConfigAsset);
+            _pendingChartAsset = null;
+            _pendingConfigAsset = null;
             if (_activeJacketBundle != null)
             {
-                _activeJacketBundle.Unload(true);
+                _activeJacketBundle.Unload(LocalMusicSelectionSession.JacketSprite != _jacketSprite);
                 _activeJacketBundle = null;
             }
             _jacketBundleLoadActive = false;
@@ -1095,7 +1209,7 @@ namespace OpenWDS.Runtime
                 throw new InvalidOperationException(
                     "Original ActorCell title must remain 歌唱アクター.");
             var checkboxGroup = FindDescendant(category, "FilterCheckBoxGroup");
-            if (checkboxGroup == null || _catalog.CharacterBases == null)
+            if (checkboxGroup == null || _filterCharacters == null)
                 throw new InvalidOperationException(
                     "Original ActorFilterCategoryCell is incomplete.");
 
@@ -1133,7 +1247,7 @@ namespace OpenWDS.Runtime
                  companyIndex++)
             {
                 var company = companies[companyIndex];
-                var characters = _catalog.CharacterBases
+                var characters = _filterCharacters
                     .Where(character => character.Company == company)
                     .OrderBy(character => character.Id)
                     .ToArray();
@@ -1241,7 +1355,7 @@ namespace OpenWDS.Runtime
 
         private void RefreshVocalFilterCategory(Transform category)
         {
-            if (category == null || _catalog.CharacterBases == null) return;
+            if (category == null || _filterCharacters == null) return;
             var checkboxGroup = FindDescendant(category, "FilterCheckBoxGroup");
             if (checkboxGroup == null) return;
             var all = FindDescendant(
@@ -1261,7 +1375,7 @@ namespace OpenWDS.Runtime
                  companyIndex < companies.Length;
                  companyIndex++)
             {
-                var characters = _catalog.CharacterBases
+                var characters = _filterCharacters
                     .Where(character =>
                         character.Company == companies[companyIndex])
                     .OrderBy(character => character.Id)
@@ -1388,8 +1502,8 @@ namespace OpenWDS.Runtime
         private void SelectAllPermanentActors(HashSet<long> destination)
         {
             destination.Clear();
-            if (_catalog?.CharacterBases == null) return;
-            destination.UnionWith(_catalog.CharacterBases
+            if (_filterCharacters == null) return;
+            destination.UnionWith(_filterCharacters
                 .Where(character =>
                     character.Company >= 1 && character.Company <= 4)
                 .Select(character => character.Id));
@@ -1397,8 +1511,8 @@ namespace OpenWDS.Runtime
 
         private bool AreAllPermanentActorsSelected(HashSet<long> selected)
         {
-            if (_catalog?.CharacterBases == null) return false;
-            var permanentActors = _catalog.CharacterBases
+            if (_filterCharacters == null) return false;
+            var permanentActors = _filterCharacters
                 .Where(character =>
                     character.Company >= 1 && character.Company <= 4)
                 .Select(character => character.Id)
@@ -1557,7 +1671,7 @@ namespace OpenWDS.Runtime
             SetSelectionControlsInteractable(true);
             var selected = filtered.FirstOrDefault(music => music.Id == selectedId)
                 ?? filtered[0];
-            yield return LoadMusicAssets(selected);
+            yield return PrepareMusicSelection(selected);
             BindView(selected);
             BindMusicList();
             if (!TryGetLive(selected, selectedDifficulty, out _))
@@ -1689,8 +1803,7 @@ namespace OpenWDS.Runtime
             // Same explicit offline ILive.NotationRate adapter as the score HUD.
             return PlayerRating.IsEligible(music, live)
                 ? PlayerRating.CalculateNotationRate(live.Level,
-                    _localResults.GetBest(music.Id, live.Difficulty),
-                    _localResults.HasClear(music.Id, live.Difficulty))
+                    _localResults.GetBest(music.Id, live.Difficulty))
                 : 0d;
         }
 
@@ -2047,7 +2160,7 @@ namespace OpenWDS.Runtime
                 var captured = difficulty;
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(() => SelectDifficulty(captured, true));
-                button.interactable = _charts.ContainsKey(difficulty) &&
+                button.interactable = _availableDifficulties.Contains(difficulty) &&
                     HasLive(music, difficulty);
                 var level = panel.Find("DifficultyLevel")?.GetComponent<Text>();
                 if (level != null)
@@ -2473,9 +2586,7 @@ namespace OpenWDS.Runtime
                     var notationRate =
                         PlayerRating.CalculateNotationRate(
                             live.Level,
-                            achievement,
-                            _localResults.HasClear(
-                                music.Id, live.Difficulty));
+                            achievement);
                     if (notationRate <= 0d) continue;
                     yield return new LocalRateEntry
                     {
@@ -2520,9 +2631,7 @@ namespace OpenWDS.Runtime
                     achievementRate = achievement,
                     notationRate = PlayerRating.CalculateNotationRate(
                         live.Level,
-                        achievement,
-                        _localResults.HasClear(
-                            music.Id, live.Difficulty)),
+                        achievement),
                 };
                 if (bestEntry == null ||
                     entry.notationRate > bestEntry.notationRate)
@@ -3028,7 +3137,7 @@ namespace OpenWDS.Runtime
             MusicDifficulty difficulty,
             bool playSound)
         {
-            if (!_charts.ContainsKey(difficulty) ||
+            if (!_availableDifficulties.Contains(difficulty) ||
                 _selection == null ||
                 !TryGetLive(_selection.Music, difficulty, out _))
                 return;
@@ -3173,10 +3282,7 @@ namespace OpenWDS.Runtime
                     _selection.Music, _selection.Live)
                 ? PlayerRating.CalculateNotationRate(
                     _selection.Live.Level,
-                    best,
-                    _localResults.HasClear(
-                        _selection.Music.Id,
-                        _selection.Live.Difficulty))
+                    best)
                 : 0d;
             var isRateTarget = notationRate > 0d;
             if (rateTarget != null)
@@ -3988,9 +4094,9 @@ namespace OpenWDS.Runtime
             var previousDifficulty = _selection != null
                 ? _selection.Live.Difficulty
                 : MusicDifficulty.Stella;
-            yield return LoadMusicAssets(music);
+            yield return PrepareMusicSelection(music);
             BindView(music);
-            if (!_charts.ContainsKey(previousDifficulty) ||
+            if (!_availableDifficulties.Contains(previousDifficulty) ||
                 !TryGetLive(music, previousDifficulty, out _))
                 previousDifficulty = MusicDifficulty.Stella;
             _selection = _catalog.Select(music.Id, previousDifficulty);
@@ -3999,51 +4105,17 @@ namespace OpenWDS.Runtime
             if (playSound) _se.Play(UiSeRuntime.Cue.ButtonGo);
         }
 
-        private IEnumerator LoadMusicAssets(LocalMusicEntry music)
+        private IEnumerator PrepareMusicSelection(LocalMusicEntry music)
         {
             if (music == null || music.Lives == null)
                 throw new ArgumentNullException(nameof(music));
-            var hasCompleteCache =
-                MusicAssetCache.TryGetValue(music.Id, out var cached) &&
-                cached.MusicConfig != null &&
-                music.Lives.All(live =>
-                    cached.Charts.TryGetValue(live.Difficulty, out var chart) &&
-                    chart != null);
-            if (!hasCompleteCache)
-            {
-                var loaded = new CachedMusicAssets();
-                foreach (var live in music.Lives)
-                {
-                    byte[] bytes = null;
-                    yield return StreamingAssetsRuntime.ReadBytes(
-                        live.DebugNotationAssetPath, value => bytes = value);
-                    loaded.Charts[live.Difficulty] = new TextAsset(
-                        Encoding.UTF8.GetString(bytes))
-                    {
-                        name = $"Music{music.Id}{live.Difficulty}",
-                    };
-                }
-                byte[] configBytes = null;
-                yield return StreamingAssetsRuntime.ReadBytes(
-                    music.Lives[0].DebugMusicConfigAssetPath,
-                    value => configBytes = value);
-                loaded.MusicConfig = new TextAsset(
-                    Encoding.UTF8.GetString(configBytes))
-                {
-                    name = $"Music{music.Id}Config",
-                };
-                cached = loaded;
-                MusicAssetCache[music.Id] = loaded;
-            }
-
-            // Commit the complete music snapshot atomically. A superseded snap
-            // coroutine may be stopped during an Android UnityWebRequest, but it
-            // must never expose a half-filled chart dictionary to the start path.
-            _charts.Clear();
-            foreach (var pair in cached.Charts) _charts[pair.Key] = pair.Value;
-            _musicConfigAsset = cached.MusicConfig;
+            // Selection only consumes catalog metadata. The original game loader
+            // receives one selected notation/config pair at the scene boundary.
+            _availableDifficulties.Clear();
+            foreach (var live in music.Lives) _availableDifficulties.Add(live.Difficulty);
             SetLoadedMusicSelection(music);
             EnsureJacketLoaded(music);
+            yield break;
         }
 
         private IEnumerator BindPlayerRateJacket(LocalMusicEntry music, Image jacket)
@@ -4152,7 +4224,7 @@ namespace OpenWDS.Runtime
 
         private void SetLoadedMusicSelection(LocalMusicEntry music)
         {
-            var initial = _charts.ContainsKey(MusicDifficulty.Stella)
+            var initial = _availableDifficulties.Contains(MusicDifficulty.Stella)
                 ? MusicDifficulty.Stella
                 : music.Lives[0].Difficulty;
             _selection = _catalog.Select(music.Id, initial);
@@ -4310,13 +4382,45 @@ namespace OpenWDS.Runtime
         {
             if (_gameStartPending) return;
             _gameStartPending = true;
-            StartCoroutine(BeginSelectedGameAfterAssetPreparation());
+            StartCoroutine(PrepareSelectedGame());
+        }
+
+        // Drive nested enumerators here so a failed file request also unwinds
+        // the owner, disposes web requests and leaves the start action retryable.
+        private IEnumerator PrepareSelectedGame()
+        {
+            var stack = new Stack<IEnumerator>();
+            stack.Push(BeginSelectedGameAfterAssetPreparation());
+            var completed = false;
+            try
+            {
+                while (stack.Count > 0)
+                {
+                    var current = stack.Peek();
+                    if (!current.MoveNext())
+                    {
+                        (stack.Pop() as IDisposable)?.Dispose();
+                        continue;
+                    }
+                    if (current.Current is IEnumerator nested) stack.Push(nested);
+                    else yield return current.Current;
+                }
+                completed = true;
+            }
+            finally
+            {
+                while (stack.Count > 0) (stack.Pop() as IDisposable)?.Dispose();
+                if (_pendingChartAsset != null) Destroy(_pendingChartAsset);
+                if (_pendingConfigAsset != null) Destroy(_pendingConfigAsset);
+                _pendingChartAsset = null;
+                _pendingConfigAsset = null;
+                if (!completed) _gameStartPending = false;
+            }
         }
 
         private IEnumerator BeginSelectedGameAfterAssetPreparation()
         {
-            if (_selection == null ||
-                !_charts.TryGetValue(_selection.Live.Difficulty, out var chart))
+            if (_selection == null)
             {
                 _gameStartPending = false;
                 yield break;
@@ -4326,8 +4430,20 @@ namespace OpenWDS.Runtime
                 yield return HidePreLiveDialog();
                 yield return HideNoteSpeedPreview();
             }
+            var selected = _selection;
+            byte[] chartBytes = null;
+            byte[] configBytes = null;
+            ChartReadCount++;
+            yield return StreamingAssetsRuntime.ReadBytes(selected.Live.DebugNotationAssetPath, b => chartBytes = b);
+            yield return StreamingAssetsRuntime.ReadBytes(selected.Live.DebugMusicConfigAssetPath, b => configBytes = b);
+            // Publish only after both reads succeed. No partial native TextAsset
+            // survives a cancelled/failed second request.
+            _pendingChartAsset = new TextAsset(Encoding.UTF8.GetString(chartBytes))
+                { name = $"Music{selected.Music.Id}{selected.Live.Difficulty}" };
+            _pendingConfigAsset = new TextAsset(Encoding.UTF8.GetString(configBytes))
+                { name = $"Music{selected.Music.Id}Config" };
             yield return SplitLaneAssetRuntime
-                .PrepareStreamingAssets(chart.text);
+                .PrepareStreamingAssets(_pendingChartAsset.text);
             try
             {
                 SplitLaneAssetRuntime
@@ -4335,6 +4451,10 @@ namespace OpenWDS.Runtime
             }
             catch
             {
+                Destroy(_pendingChartAsset);
+                Destroy(_pendingConfigAsset);
+                _pendingChartAsset = null;
+                _pendingConfigAsset = null;
                 _gameStartPending = false;
                 throw;
             }
@@ -4342,11 +4462,13 @@ namespace OpenWDS.Runtime
             _preview?.Stop();
             _se.Play(UiSeRuntime.Cue.ButtonGo);
             LocalMusicSelectionSession.Set(
-                _selection,
-                chart,
-                _musicConfigAsset,
+                selected,
+                _pendingChartAsset,
+                _pendingConfigAsset,
                 _jacketSprite,
-                _allMusics);
+                _allMusics, ownsTextAssets: true);
+            _pendingChartAsset = null;
+            _pendingConfigAsset = null;
             if (_noteSpeedDialog != null)
             {
                 Destroy(_noteSpeedDialog);
@@ -4362,8 +4484,7 @@ namespace OpenWDS.Runtime
             if (!CurtainTransitionRuntime.Begin(
                     _curtainSkeletonData,
                     _curtainGraphicMaterial,
-                    _gameSceneName,
-                    true))
+                    _gameSceneName))
             {
                 throw new InvalidOperationException(
                     "Curtain transition could not start.");
@@ -4956,9 +5077,11 @@ namespace OpenWDS.Runtime
 
         private void OnDestroy()
         {
+            _titleHeader?.Dispose();
+            _liveBackground?.Dispose();
             if (_activeJacketBundle != null)
             {
-                _activeJacketBundle.Unload(true);
+                _activeJacketBundle.Unload(LocalMusicSelectionSession.JacketSprite != _jacketSprite);
                 _activeJacketBundle = null;
             }
         }
@@ -5024,8 +5147,8 @@ namespace OpenWDS.Runtime
                         ? UiSeRuntime.Cue.ButtonGo
                         : UiSeRuntime.Cue.ButtonBack);
             yield return new WaitForSecondsRealtime(0.12f);
-            if (!CurtainTransitionRuntime.ReturnToRetainedScene())
-                SceneManager.LoadScene("LocalMusicSelection");
+            if (!SceneNavigationRuntime.ReturnToMain(positiveAction))
+                throw new InvalidOperationException("Main return could not start.");
         }
 
         private void OnDestroy()

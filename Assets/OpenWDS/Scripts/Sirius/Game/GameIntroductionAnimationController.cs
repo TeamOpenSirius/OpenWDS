@@ -132,6 +132,11 @@ namespace Sirius.Game
                     : 1f;
         }
 
+        public void StopForRetry()
+        {
+            OnAnimationExit();
+        }
+
         private void OnAnimationExit()
         {
             IsPlaying = false;

@@ -51,7 +51,7 @@ namespace OpenWDS.Runtime
         private Entry[] _entries;
         private Entry _selected;
         private float _cellSize;
-        private bool _busy, _launching, _auto;
+        private bool _busy, _launching, _auto, _closing;
         private TextAsset _chart, _config;
         private LocalResultStore _results;
         public bool IsOpen => _view != null;
@@ -98,10 +98,13 @@ namespace OpenWDS.Runtime
             var index = JsonUtility.FromJson<Index>(Encoding.UTF8.GetString(bytes));
             foreach (var row in index.bundles)
             {
-                yield return StreamingAssetsRuntime.ReadBytes(row.path, b => bytes = b);
-                var lease = LocalAssetBundleLease.FromMemory(row.key, bytes);
-                _bundles.Add(row.id, lease);
-                if (lease.LoadOperation != null) yield return lease.LoadOperation;
+                LocalAssetBundleLease lease = null;
+                yield return LocalAssetBundleLease.LoadStreaming(row.key, row.path, value =>
+                {
+                    lease = value;
+                    if (this == null) value.Dispose(); else _bundles.Add(row.id, value);
+                });
+                if (this == null) yield break;
                 if (lease.Bundle == null) throw new InvalidOperationException("AnotherNotation bundle missing: " + row.path);
             }
             foreach (var row in index.sprites)
@@ -362,7 +365,7 @@ namespace OpenWDS.Runtime
         private IEnumerator LoadJacket(Entry entry)
         {
             while (_loadingJackets.Contains(entry.MusicId)) yield return null;
-            if (_jackets.ContainsKey(entry.MusicId)) yield break;
+            if (_closing || _jackets.ContainsKey(entry.MusicId)) yield break;
             _loadingJackets.Add(entry.MusicId);
             byte[] bytes = null;
             yield return StreamingAssetsRuntime.ReadBytes(entry.Music.JacketAssetPath, b => bytes = b);
@@ -533,8 +536,20 @@ namespace OpenWDS.Runtime
         }
         public void Close()
         {
-            if (_busy || _launching) return;
-            _preview.Stop(); IsReady = false;
+            if (_busy || _launching || _closing) return;
+            _closing = true;
+            StartCoroutine(CloseWhenReady());
+        }
+        public IEnumerator PrepareForSceneUnload()
+        {
+            _closing = true;
+            _preview?.Stop(); IsReady = false;
+            // Finish native requests before releasing their bundles or destroying the owning scene.
+            while (_loadingJackets.Count > 0) yield return null;
+        }
+        private IEnumerator CloseWhenReady()
+        {
+            yield return PrepareForSceneUnload();
             foreach (var cell in _cells.Keys) if (cell != null) _host.ReleaseAnotherCellLayout(cell.gameObject);
             Destroy(_view); _view = null;
             _closed?.Invoke();
@@ -550,7 +565,8 @@ namespace OpenWDS.Runtime
             if (_chart != null) Destroy(_chart);
             if (_config != null) Destroy(_config);
             foreach (var material in _backgroundMaterials) Destroy(material);
-            foreach (var bundle in _jacketBundles.Values) bundle.Unload(true);
+            foreach (var pair in _jacketBundles)
+                pair.Value.Unload(!_jackets.TryGetValue(pair.Key, out var jacket) || jacket != LocalMusicSelectionSession.JacketSprite);
             foreach (var sprite in _sprites.Values) Destroy(sprite);
             foreach (var bundle in _bundles.Values) bundle.Dispose();
         }

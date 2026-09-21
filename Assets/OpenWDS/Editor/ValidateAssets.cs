@@ -43,6 +43,8 @@ namespace OpenWDS.Editor
             public bool defaultSceneGameHudInitialized;
             public bool curtainPremultipliedAlphaSettingsValid;
             public bool lifeAndPrincipalGaugeValid;
+            public bool principalBranchesValid;
+            public bool principalMasterValid;
             public bool laneSpriteTexturesValid;
             public bool timingEffectAnimationEventValid;
             public bool comboHiddenDigitsTransparent;
@@ -132,12 +134,17 @@ namespace OpenWDS.Editor
             ValidateSenseMasks();
             ValidateAdditiveParticleMaterials();
             ValidateHoldPulseTiming.Run();
+            ValidateFlickTiming.Run();
+            ValidatePrincipalBranches.Run();
+            ValidatePrincipalMaster.Run();
             ValidateOlivierStars.Run();
             CreateOfflineRhythmPreviewScene.RunPresentationVisualValidation();
 
             var report = new ValidationReport
             {
                 unityVersion = Application.unityVersion,
+                principalBranchesValid = true,
+                principalMasterValid = true,
                 prefabCount = CorePrefabs.Length,
                 curtainPremultipliedAlphaSettingsValid =
                     ValidateCurtainPremultipliedAlphaSettings(),

@@ -20,6 +20,7 @@ namespace OpenWDS.Runtime
         public readonly NotationNote Note;
         public readonly TimingDecision Timing;
         public readonly FlickCompletionReason CompletionReason;
+        public readonly long BeganMilliseconds;
 
         public FlickActionResult(
             bool handled,
@@ -27,7 +28,7 @@ namespace OpenWDS.Runtime
             bool deletedNote,
             NotationNote note,
             TimingDecision timing,
-            FlickCompletionReason completionReason)
+            FlickCompletionReason completionReason, long beganMilliseconds = 0)
         {
             Handled = handled;
             Consumed = consumed;
@@ -35,6 +36,7 @@ namespace OpenWDS.Runtime
             Note = note;
             Timing = timing;
             CompletionReason = completionReason;
+            BeganMilliseconds = beganMilliseconds;
         }
     }
 
@@ -188,7 +190,7 @@ namespace OpenWDS.Runtime
                     return HandledWithoutCompletion(note);
                 }
                 timing = FlickTimingDecider.Decide(
-                    _clock, input.Milliseconds, note);
+                    _clock, beganInputMilliseconds, note);
                 if (timing.TimingType == TimingType.None)
                 {
                     return HandledWithoutCompletion(note);
@@ -212,7 +214,7 @@ namespace OpenWDS.Runtime
             var deleted = _noteManager.DeleteFlickNote(note);
             _inputManager.Remove(input.TouchId);
             return new FlickActionResult(
-                true, true, deleted, note, timing, reason);
+                true, true, deleted, note, timing, reason, beganInputMilliseconds);
         }
 
         private static FlickActionResult HandledWithoutCompletion(

@@ -11,4 +11,10 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/OpenWDS/Scenes/OfflineRhythmPreview.unity
     guid: 8e835408f3e527646a139afa8b8f68bd
+  - enabled: 1
+    path: Assets/OpenWDS/Scenes/FrontendRecovery.unity
+    guid: 7654a6d5ab3b15e44ba4d8a24942bfc8
+  - enabled: 1
+    path: Assets/OpenWDS/Scenes/GameResult.unity
+    guid: bdf0221b0f7796f40a087a213ddddcd0
   m_configObjects: {}

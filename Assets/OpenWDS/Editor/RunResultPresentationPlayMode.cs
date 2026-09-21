@@ -41,6 +41,7 @@ namespace OpenWDS.Editor
         {
             public bool passed;
             public bool olivier;
+            public bool failedLive;
             public string failure;
             public List<Sample> samples;
         }
@@ -58,10 +59,12 @@ namespace OpenWDS.Editor
 
         public static void Run() => Start(false);
         public static void RunOlivier() => Start(true);
+        public static void RunFailed() => Start(false, true);
 
-        private static void Start(bool olivier)
+        private static void Start(bool olivier, bool failed = false)
         {
             SessionState.SetBool(Key + ".olivier", olivier);
+            SessionState.SetBool(Key + ".failed", failed);
             if (!Application.isBatchMode) throw new InvalidOperationException("Use a dedicated batch Editor.");
             SessionState.SetInt(Key, 1);
             SessionState.SetString(Key + ".error", "");
@@ -72,6 +75,7 @@ namespace OpenWDS.Editor
 
         private static string Output(string name) => Path.GetFullPath(Path.Combine(
             Application.dataPath, "../../../reverse/reports",
+            SessionState.GetBool(Key + ".failed", false) ? name.Replace("result-presentation", "failed-result-presentation") :
             SessionState.GetBool(Key + ".olivier", false) ? name.Replace("result-presentation", "olivier-result-presentation") : name));
 
         private static void Poll()
@@ -179,7 +183,38 @@ namespace OpenWDS.Editor
                         "Production Olivier settlement did not persist the maximum A+B+C.");
                     SessionState.SetInt(Key + ".spPoint", OlivierStars.GetMaxPoint(live.Level));
                 }
-                else typeof(GameRuntime).GetMethod("ShowGameResult", Private).Invoke(game, null);
+                else
+                {
+                    var failed = SessionState.GetBool(Key + ".failed", false);
+                    if (failed)
+                    {
+                        game.GameHud.Life.Set(0);
+                        typeof(GameRuntime).GetMethod("BeginClearPerformance", Private).Invoke(game, null);
+                        var boundary = (Sirius.Game.GameResultPanel)typeof(GameRuntime)
+                            .GetField("_clearAnimation", Private).GetValue(game);
+                        Require(boundary.ClearType == Sirius.Game.BoundaryClearType.Failed &&
+                            game.ClearSe.LastCueName == "Finish", "Failed live selected a successful clear performance.");
+                        boundary.Hide();
+                        typeof(GameRuntime).GetField("_clearPerformanceStarted", Private).SetValue(game, false);
+                        Directory.CreateDirectory(Path.GetDirectoryName(path));
+                        File.WriteAllText(path, SettingsCrypto.EncryptUtf8("[]"));
+                    }
+                    typeof(GameRuntime).GetMethod("ShowGameResult", Private).Invoke(game, null);
+                    if (failed)
+                    {
+                        var musicId = (long)typeof(GameRuntime).GetField("_musicId", Private).GetValue(game);
+                        var store = new LocalResultStore();
+                        Require(store.GetBest(musicId, game.MusicDifficulty) == 101d &&
+                            store.GetClearLamp(musicId, game.MusicDifficulty) == ClearLamp.None,
+                            "Failed manual result must persist achievement without a clear lamp.");
+                        Require(PlayerRating.CalculateNotationRate(20, store.GetBest(musicId, game.MusicDifficulty)) == 26.05d,
+                            "Failed result achievement must still contribute rating.");
+                        store.RecordResult(musicId, game.MusicDifficulty, 99d, ClearLamp.FullCombo, out _);
+                        store.RecordResult(musicId, game.MusicDifficulty, 100d, ClearLamp.None, out _);
+                        Require(new LocalResultStore().GetClearLamp(musicId, game.MusicDifficulty) == ClearLamp.FullCombo,
+                            "A failed retry erased the historical clear lamp.");
+                    }
+                }
             }
             finally
             {
@@ -273,7 +308,7 @@ namespace OpenWDS.Editor
             SessionState.SetBool(Key + ".passed", passed);
             SessionState.SetInt(Key, 2);
             File.WriteAllText(Output("result-presentation-validation.json"),
-                JsonUtility.ToJson(new Report { passed = passed, olivier = SessionState.GetBool(Key + ".olivier", false), failure = failure, samples = Samples }, true));
+                JsonUtility.ToJson(new Report { passed = passed, failedLive = SessionState.GetBool(Key + ".failed", false), olivier = SessionState.GetBool(Key + ".olivier", false), failure = failure, samples = Samples }, true));
             Debug.Log($"OPENWDS_RESULT_PRESENTATION passed={passed} {failure}");
             EditorApplication.isPlaying = false;
         }

@@ -7,8 +7,8 @@ namespace OpenWDS.Runtime
 {
     /// <summary>
     /// Exact per-frame cache used by CriMusicPlayer.GetMillisecondsSyncedWithAudio.
-    /// A negative CRI sample keeps the last valid value; samples are deliberately
-    /// not clamped because the original method stores every non-negative result.
+    /// Stores the raw CRI sample, including its negative playback-end sentinel.
+    /// MusicTime.Tick uses that sentinel to enter the Clear state.
     /// </summary>
     public sealed class FrameCachedAudioClock
     {
@@ -24,9 +24,14 @@ namespace OpenWDS.Runtime
             if (_lastFrame == frame) return _lastMilliseconds;
             var value = readSource();
             SourceReadCount++;
-            if (value >= 0) _lastMilliseconds = value;
+            _lastMilliseconds = value;
             _lastFrame = frame;
             return _lastMilliseconds;
+        }
+
+        public void Reset()
+        {
+            _lastFrame = -1; _lastMilliseconds = 0; SourceReadCount = 0;
         }
 
         public void InvalidateFrame()
@@ -72,6 +77,8 @@ namespace OpenWDS.Runtime
         public bool IsApplicationSuspended =>
             _applicationPaused || _applicationUnfocused;
         public int AudioClockSourceReadCount => _audioClock.SourceReadCount;
+        public bool HasPlaybackEnded => _resumed && !_paused &&
+            _audioClock.Read(Time.frameCount, _playback.GetTimeSyncedWithAudio) < 0;
 
         public void Configure(
             TextAsset musicConfigAsset, bool resumeImmediately = true)
@@ -125,6 +132,17 @@ namespace OpenWDS.Runtime
             // MusicConfig.DelayStartSeconds belongs to MusicTime's clock offset;
             // using it here as a second playback delay shifts audio by 3.019 s.
             if (_resumeImmediately) BeginPlayback();
+        }
+
+        public void PrepareRetry()
+        {
+            if (!_prepared) throw new InvalidOperationException("Music was not prepared.");
+            _playback.Stop();
+            _player.Stop();
+            _player.SetCue(_acb, _cueName);
+            _playback = _player.Prepare();
+            _resumed = false; _paused = false; _gamePaused = false;
+            _audioClock.Reset();
         }
 
         public void BeginPlayback()

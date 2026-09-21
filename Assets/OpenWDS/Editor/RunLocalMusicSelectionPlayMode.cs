@@ -37,6 +37,7 @@ namespace OpenWDS.Editor
         private const string ExitPhase = "exit";
         private static string _lastLoggedPhase;
         private static LocalResultStore _storeBeforeLive;
+        private static TextAsset _sessionChart, _sessionConfig;
 
         [Serializable]
         private sealed class Report
@@ -53,12 +54,14 @@ namespace OpenWDS.Editor
             public string selectedDifficulty;
             public bool introductionFocusResumeValid;
             public bool gameLoaded;
+            public bool pauseRetryContinued;
+            public bool settingsRestartReloaded;
             public bool retireReturned;
             public bool resultReturned;
             public bool difficultyPreviewPreserved;
             public bool uncachedRatingJacketLoaded;
-            public bool retainedResultsReloaded;
-            public bool retainedMenuRestored;
+            public bool resultsReloaded;
+            public bool menuRebuilt;
             public long screenshotBytes;
             public int screenshotNonBackgroundPixels;
         }
@@ -82,6 +85,8 @@ namespace OpenWDS.Editor
             if (!File.Exists(ScenePath))
                 throw new FileNotFoundException(
                     "LocalMusicSelection scene is missing.", ScenePath);
+            if (!CreateLocalMusicSelectionScene.ValidateRatingRules())
+                throw new InvalidOperationException("Rating or failed-result persistence rules failed.");
             SessionState.SetBool("OpenWDS.MusicCoverTypesValidated", false);
             SessionState.SetBool(ActiveKey, true);
             SessionState.SetBool(HudFadeKey, false);
@@ -120,7 +125,7 @@ namespace OpenWDS.Editor
                 return;
             }
             var elapsed = Elapsed();
-            if (elapsed > 240d)
+            if (elapsed > 360d)
             {
                 Finish(false, "MusicSelection Play Mode timed out.", elapsed);
                 return;
@@ -147,6 +152,7 @@ namespace OpenWDS.Editor
                 return;
             }
 
+            if (SceneNavigationRuntime.IsLoading || CurtainTransitionRuntime.IsTransitioning) return;
             var phase = SessionState.GetString(PhaseKey, "");
             if (_lastLoggedPhase != phase)
             {
@@ -224,6 +230,11 @@ namespace OpenWDS.Editor
                 persisted.GameDetailSettings.IsActiveSplitRandom = false;
                 persisted.SystemSettings.IsPreLiveOptionConfirmation = true;
                 new SettingsStore().Save(persisted);
+                if (runtime.ChartReadCount != 0)
+                {
+                    Finish(false, "Selection browsing read gameplay charts.", elapsed);
+                    return;
+                }
                 SessionState.SetString(PhaseKey, "selection-speed");
                 SessionState.SetFloat(
                     ScrollStartedKey,
@@ -433,6 +444,8 @@ namespace OpenWDS.Editor
                     Finish(false, "Selected game parameters were not consumed.", elapsed);
                     return;
                 }
+                _sessionChart = LocalMusicSelectionSession.ChartAsset;
+                _sessionConfig = LocalMusicSelectionSession.MusicConfigAsset;
                 if (Resources.FindObjectsOfTypeAll<
                         MusicSelectionPreviewRuntime>()
                     .Any(preview => preview != null && preview.IsPlaying))
@@ -558,7 +571,55 @@ namespace OpenWDS.Editor
                 if (!game.IsGameplayStarted || game.IsPaused ||
                     game.GameHud == null || !game.GameHud.IsVisible)
                     return;
+                if (game.GameResultRuntime.CollectedCount == 0) return;
                 SessionState.SetBool(IntroductionFocusValidKey, true);
+                SessionState.SetInt("OpenWDS.RetryScene", game.gameObject.scene.handle);
+                SessionState.SetInt("OpenWDS.RetryGame", game.GetInstanceID());
+                SessionState.SetInt("OpenWDS.RetryTransitions", SceneNavigationRuntime.CompletedTransitions);
+                SessionState.SetString(PhaseKey, "game-retried");
+                game.SetPaused(true);
+                game.RetryPerformance();
+                return;
+            }
+            if (phase == "game-retried")
+            {
+                var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
+                if (game == null || !game.IsGameplayStarted || game.IsRestartPending) return;
+                if (game.RetryCount != 1 || game.GetInstanceID() != SessionState.GetInt("OpenWDS.RetryGame", 0) ||
+                    game.gameObject.scene.handle != SessionState.GetInt("OpenWDS.RetryScene", 0) ||
+                    SceneNavigationRuntime.CompletedTransitions != SessionState.GetInt("OpenWDS.RetryTransitions", -1) ||
+                    game.GameResultRuntime.CollectedCount != 0 || game.GameHud.TotalScore != 0 || game.IsPaused)
+                {
+                    Finish(false, "Pause retry failed to reset the same Game instance/scene.", elapsed); return;
+                }
+                SessionState.SetString(PhaseKey, "retry-playing");
+                return;
+            }
+            if (phase == "retry-playing")
+            {
+                var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
+                if (game == null || game.GameResultRuntime.CollectedCount == 0) return;
+                if (game.GetInstanceID() != SessionState.GetInt("OpenWDS.RetryGame", 0) || game.IsPaused)
+                {
+                    Finish(false, "Retry did not continue judging in the same Game.", elapsed); return;
+                }
+                SessionState.SetString(PhaseKey, "settings-restarted");
+                game.SetPaused(true);
+                game.RestartPerformance();
+                return;
+            }
+            if (phase == "settings-restarted")
+            {
+                var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
+                if (game == null || !game.IsGameplayStarted || game.IsRestartPending) return;
+                if (game.GetInstanceID() == SessionState.GetInt("OpenWDS.RetryGame", 0) ||
+                    game.gameObject.scene.handle == SessionState.GetInt("OpenWDS.RetryScene", 0) ||
+                    SceneNavigationRuntime.CompletedTransitions != SessionState.GetInt("OpenWDS.RetryTransitions", -1) + 1 ||
+                    !SceneNavigationRuntime.SourceUnloadedBeforeLoad || SceneNavigationRuntime.TransitionType != 3 ||
+                    game.RetryCount != 0 || game.IsPaused)
+                {
+                    Finish(false, "Settings restart did not replace Game through Curtain.", elapsed); return;
+                }
                 SessionState.SetString(PhaseKey, "return-retire");
                 game.RetireGame();
                 return;
@@ -566,17 +627,17 @@ namespace OpenWDS.Editor
 
             if (phase == "return-retire")
             {
-                if (SceneManager.GetActiveScene().name != "LocalMusicSelection")
+                if (SceneManager.GetActiveScene().name != SceneNavigationRuntime.MainScene)
                     return;
                 var runtime = UnityEngine.Object.FindObjectOfType<
                     LocalMusicSelectionRuntime>();
-                if (runtime == null || runtime.Selection == null) return;
-                if (runtime.StartInvocationCount != SessionState.GetInt(
+                if (runtime == null || !runtime.IsInitialized || runtime.Selection == null) return;
+                if (runtime.StartInvocationCount <= SessionState.GetInt(
                         SelectionStartCountKey, -1))
                 {
                     Finish(
                         false,
-                        "Retire return recreated the selection runtime.",
+                        "Retire return failed to rebuild the selection runtime.",
                         elapsed);
                     return;
                 }
@@ -593,6 +654,12 @@ namespace OpenWDS.Editor
                 if (ok == null)
                 {
                     Finish(false, "Selection did not recover after retire.", elapsed);
+                    return;
+                }
+                if (_sessionChart != null || _sessionConfig != null || LocalMusicSelectionSession.HasSelection)
+                {
+                    if (SceneManager.GetSceneByName("OfflineRhythmPreview").isLoaded) return;
+                    Finish(false, "Retire retained dynamically allocated chart objects.", elapsed);
                     return;
                 }
                 SessionState.SetString(PhaseKey, "retire-speed");
@@ -632,7 +699,10 @@ namespace OpenWDS.Editor
                     Finish(false, "Game result presenter method is unavailable.", elapsed);
                     return;
                 }
+                SessionState.SetInt(ResultGameInstanceKey, game.GetInstanceID());
                 showResult.Invoke(game, null);
+                _sessionChart = LocalMusicSelectionSession.ChartAsset;
+                _sessionConfig = LocalMusicSelectionSession.MusicConfigAsset;
                 SessionState.SetString(PhaseKey, "result-replay-button");
                 return;
             }
@@ -688,13 +758,12 @@ namespace OpenWDS.Editor
                 }
                 var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
                 var uiSe = UiSeRuntime.Instance;
-                if (game == null || uiSe == null)
+                if (game != null || GameResultSceneRuntime.Instance == null || uiSe == null)
                 {
                     Finish(false, "Result replay SE runtime is unavailable.", elapsed);
                     return;
                 }
                 var seCount = uiSe.CueNamePlayCount;
-                SessionState.SetInt(ResultGameInstanceKey, game.GetInstanceID());
                 SessionState.SetString(PhaseKey, "result-replayed");
                 replay.onClick.Invoke();
                 if (uiSe.CueNamePlayCount != seCount + 1 ||
@@ -719,6 +788,13 @@ namespace OpenWDS.Editor
                 if (showResult == null)
                 {
                     Finish(false, "Replayed game result method is unavailable.", elapsed);
+                    return;
+                }
+                if (_sessionChart == null || _sessionConfig == null ||
+                    !ReferenceEquals(_sessionChart, LocalMusicSelectionSession.ChartAsset) ||
+                    !ReferenceEquals(_sessionConfig, LocalMusicSelectionSession.MusicConfigAsset))
+                {
+                    Finish(false, "Replay discarded or replaced its chart session.", elapsed);
                     return;
                 }
                 showResult.Invoke(game, null);
@@ -749,21 +825,29 @@ namespace OpenWDS.Editor
 
             if (phase == "return-result")
             {
-                if (SceneManager.GetActiveScene().name != "LocalMusicSelection")
+                if (SceneManager.GetActiveScene().name != SceneNavigationRuntime.MainScene)
                     return;
                 var runtime = UnityEngine.Object.FindObjectOfType<
                     LocalMusicSelectionRuntime>();
-                if (runtime == null || runtime.Selection == null) return;
-                if (runtime.StartInvocationCount != SessionState.GetInt(
+                if (runtime == null || !runtime.IsInitialized || runtime.Selection == null) return;
+                if (runtime.StartInvocationCount <= SessionState.GetInt(
                         SelectionStartCountKey, -1))
                 {
                     Finish(
                         false,
-                        "Result return recreated the selection runtime.",
+                        "Result return failed to rebuild the selection runtime.",
                         elapsed);
                     return;
                 }
-                var returned = LocalMusicSelectionSession.Selection;
+                if (SceneManager.GetSceneByName("OfflineRhythmPreview").isLoaded) return;
+                var returned = FrontendNavigation.ReturnedSelection;
+                if (LocalMusicSelectionSession.HasSelection || LocalMusicSelectionSession.ChartAsset != null ||
+                    LocalMusicSelectionSession.MusicConfigAsset != null || runtime.ChartReadCount != 0 ||
+                    _sessionChart != null || _sessionConfig != null)
+                {
+                    Finish(false, "Returned session retained chart assets or read unexpected charts.", elapsed);
+                    return;
+                }
                 if (returned == null ||
                     runtime.Selection.Music.Id != returned.Music.Id ||
                     runtime.Selection.Live.Difficulty !=
@@ -783,10 +867,9 @@ namespace OpenWDS.Editor
                     displayedStore.GetBest(returned.Music.Id, returned.Live.Difficulty) !=
                     durableStore.GetBest(returned.Music.Id, returned.Live.Difficulty) ||
                     displayedStore.GetClearLamp(returned.Music.Id, returned.Live.Difficulty) !=
-                    durableStore.GetClearLamp(returned.Music.Id, returned.Live.Difficulty) ||
-                    !durableStore.HasClear(returned.Music.Id, returned.Live.Difficulty))
+                    durableStore.GetClearLamp(returned.Music.Id, returned.Live.Difficulty))
                 {
-                    Finish(false, "Retained selection is not displaying the saved live result.", elapsed);
+                    Finish(false, "Rebuilt selection is not displaying the saved live result.", elapsed);
                     return;
                 }
                 if (UnityEngine.Object.FindObjectsOfType<EventSystem>().Length != 1)
@@ -810,7 +893,7 @@ namespace OpenWDS.Editor
                 var menu = UnityEngine.Object.FindObjectOfType<OfflineMenuRuntime>();
                 if (menu == null || !menu.IsReady)
                 {
-                    Finish(false, "Retained menu was not restored.", elapsed);
+                    Finish(false, "Rebuilt menu was not restored.", elapsed);
                     return;
                 }
                 menu.Open();
@@ -838,10 +921,10 @@ namespace OpenWDS.Editor
                 if (menu == null || menu.IsTransitioning) return;
                 if (menu.IsOpen)
                 {
-                    Finish(false, "Retained menu could not close after returning from result.", elapsed);
+                    Finish(false, "Rebuilt menu could not close after returning from result.", elapsed);
                     return;
                 }
-                Debug.Log("OPENWDS_PRESENTATION_PLAYMODE hudFade=True previewLeftExit=True resultCount=True returnFocus=True retainedMenu=True");
+                Debug.Log("OPENWDS_PRESENTATION_PLAYMODE hudFade=True previewLeftExit=True resultCount=True returnFocus=True rebuiltMenu=True");
                 Finish(true, null, elapsed);
             }
         }
@@ -1005,13 +1088,15 @@ namespace OpenWDS.Editor
                 introductionFocusResumeValid =
                     SessionState.GetBool(IntroductionFocusValidKey, false),
                 gameLoaded = passed,
+                pauseRetryContinued = passed,
+                settingsRestartReloaded = passed,
                 retireReturned = passed,
                 resultReturned = passed,
                 difficultyPreviewPreserved = SessionState.GetBool("OpenWDS.SelectionBugChecks", false),
                 uncachedRatingJacketLoaded = SessionState.GetBool("OpenWDS.SelectionBugChecks", false),
                 olivierStarsValidated = SessionState.GetBool("OpenWDS.OlivierStarsValidated", false),
-                retainedResultsReloaded = passed,
-                retainedMenuRestored = passed,
+                resultsReloaded = passed,
+                menuRebuilt = passed,
                 screenshotBytes = File.Exists(ScreenshotPath())
                     ? new FileInfo(ScreenshotPath()).Length
                     : 0,
@@ -1167,6 +1252,7 @@ namespace OpenWDS.Editor
                 }
                 camera.targetTexture = previousTarget;
                 camera.aspect = previousAspect;
+                Canvas.ForceUpdateCanvases();
                 RenderTexture.active = previousActive;
                 UnityEngine.Object.DestroyImmediate(image);
                 UnityEngine.Object.DestroyImmediate(target);

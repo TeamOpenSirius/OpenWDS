@@ -19,10 +19,6 @@ namespace OpenWDS.Runtime
         private string _destination;
         private bool _animationComplete;
         private bool _transitionFailed;
-        private bool _retainSourceScene;
-
-        private static Scene _retainedScene;
-        private static GameObject[] _retainedRoots;
 
         public static bool IsTransitioning { get; private set; }
         public static string CurrentAnimation { get; private set; }
@@ -36,13 +32,14 @@ namespace OpenWDS.Runtime
         public static bool Begin(
             SkeletonDataAsset skeletonData,
             Material graphicMaterial,
-            string destination,
-            bool retainSourceScene = false)
+            string destination)
         {
             if (IsTransitioning || skeletonData == null ||
                 graphicMaterial == null || string.IsNullOrEmpty(destination))
                 return false;
 
+            var navigator = SceneNavigationRuntime.EnsureExists();
+            navigator.CurtainData = skeletonData; navigator.CurtainMaterial = graphicMaterial;
             var root = new GameObject(
                 "CurtainTransition",
                 typeof(RectTransform),
@@ -62,7 +59,6 @@ namespace OpenWDS.Runtime
 
             var runtime = root.GetComponent<CurtainTransitionRuntime>();
             runtime._destination = destination;
-            runtime._retainSourceScene = retainSourceScene;
             runtime._skeleton = SkeletonGraphic.NewSkeletonGraphicGameObject(
                 skeletonData, root.transform, graphicMaterial);
             runtime._skeleton.name = "Curtain";
@@ -101,34 +97,6 @@ namespace OpenWDS.Runtime
                 : ((float)width / height) / 1.7777778f + 0.03f;
         }
 
-        public static bool ReturnToRetainedScene()
-        {
-            if (!_retainedScene.IsValid() || !_retainedScene.isLoaded ||
-                _retainedRoots == null)
-                return false;
-            var host = new GameObject(
-                "RetainedSceneReturn",
-                typeof(CurtainTransitionRuntime));
-            DontDestroyOnLoad(host);
-            host.GetComponent<CurtainTransitionRuntime>()
-                .StartCoroutine(RestoreRetainedScene(host));
-            return true;
-        }
-
-        public static bool ReloadActiveSceneWithRetainedSource()
-        {
-            if (!_retainedScene.IsValid() || !_retainedScene.isLoaded) return false;
-            var active = SceneManager.GetActiveScene();
-            if (!active.IsValid() || active == _retainedScene) return false;
-            var host = new GameObject(
-                "RetainedSceneReload",
-                typeof(CurtainTransitionRuntime));
-            DontDestroyOnLoad(host);
-            host.GetComponent<CurtainTransitionRuntime>()
-                .StartCoroutine(ReloadAdditiveScene(host, active));
-            return true;
-        }
-
         private IEnumerator Run()
         {
             yield return Play("close");
@@ -137,32 +105,7 @@ namespace OpenWDS.Runtime
                 FinishFailedTransition();
                 yield break;
             }
-            if (_retainSourceScene)
-            {
-                _retainedScene = SceneManager.GetActiveScene();
-                _retainedRoots = _retainedScene.GetRootGameObjects();
-                foreach (var retainedRoot in _retainedRoots)
-                    if (retainedRoot != null) retainedRoot.SetActive(false);
-                var load = SceneManager.LoadSceneAsync(
-                    _destination, LoadSceneMode.Additive);
-                if (load == null)
-                {
-                    FinishFailedTransition();
-                    yield break;
-                }
-                yield return load;
-                var destinationScene = SceneManager.GetSceneByName(_destination);
-                if (!destinationScene.IsValid() || !destinationScene.isLoaded ||
-                    !SceneManager.SetActiveScene(destinationScene))
-                {
-                    FinishFailedTransition();
-                    yield break;
-                }
-            }
-            else
-            {
-                SceneManager.LoadScene(_destination);
-            }
+            yield return SceneNavigationRuntime.EnsureExists().ReplaceScenes(_destination);
             // GlobalNavigator keeps the curtain closed until the destination
             // presenter has completed its own initialization. Starting "open"
             // on the first scene-loaded frame makes the reveal run behind the
@@ -203,48 +146,6 @@ namespace OpenWDS.Runtime
             IsTransitioning = false;
             CurrentAnimation = null;
             Destroy(gameObject);
-        }
-
-        private static IEnumerator RestoreRetainedScene(GameObject host)
-        {
-            var outgoing = SceneManager.GetActiveScene();
-            if (outgoing.IsValid() && outgoing != _retainedScene)
-            {
-                foreach (var outgoingRoot in outgoing.GetRootGameObjects())
-                    if (outgoingRoot != null) outgoingRoot.SetActive(false);
-            }
-            foreach (var retainedRoot in _retainedRoots)
-                if (retainedRoot != null) retainedRoot.SetActive(true);
-            if (SceneManager.GetActiveScene() != _retainedScene &&
-                !SceneManager.SetActiveScene(_retainedScene))
-                throw new InvalidOperationException(
-                    "Retained MusicSelection scene could not become active.");
-            if (outgoing.IsValid() && outgoing != _retainedScene)
-            {
-                var unload = SceneManager.UnloadSceneAsync(outgoing);
-                if (unload != null) yield return unload;
-            }
-            Destroy(host);
-        }
-
-        private static IEnumerator ReloadAdditiveScene(
-            GameObject host,
-            Scene outgoing)
-        {
-            var sceneName = outgoing.name;
-            var unload = SceneManager.UnloadSceneAsync(outgoing);
-            if (unload != null) yield return unload;
-            var load = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
-            if (load == null)
-                throw new InvalidOperationException(
-                    "Gameplay scene reload could not start: " + sceneName);
-            yield return load;
-            var reloaded = SceneManager.GetSceneByName(sceneName);
-            if (!reloaded.IsValid() || !reloaded.isLoaded ||
-                !SceneManager.SetActiveScene(reloaded))
-                throw new InvalidOperationException(
-                    "Reloaded gameplay scene could not become active: " + sceneName);
-            Destroy(host);
         }
 
         private IEnumerator Play(string animationName)
@@ -289,8 +190,6 @@ namespace OpenWDS.Runtime
         {
             IsTransitioning = false;
             CurrentAnimation = null;
-            if (_retainSourceScene)
-                ReturnToRetainedScene();
             Destroy(gameObject);
         }
 

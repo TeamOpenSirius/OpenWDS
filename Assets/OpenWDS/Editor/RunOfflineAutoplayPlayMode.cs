@@ -21,6 +21,9 @@ namespace OpenWDS.Editor
         private const string ErrorKey = "OpenWDS.AutoplayPlayMode.FirstError";
         private const string StarActPixelsKey = "OpenWDS.AutoplayPlayMode.StarActPixels";
         private const string CharacterPixelsKey = "OpenWDS.AutoplayPlayMode.CharacterPixels";
+        private const string PercentageFixtureKey = "OpenWDS.AutoplayPlayMode.PercentageFixture";
+        private const string GuardFixtureKey = "OpenWDS.AutoplayPlayMode.GuardFixture";
+        private const string PrincipalFixtureKey = "OpenWDS.AutoplayPlayMode.PrincipalFixture";
         private const string StorageFixtureKey = "OpenWDS.AutoplayPlayMode.StorageFixture";
         private const string PauseSmokeKey =
             "OpenWDS.AutoplayPlayMode.PauseSmokePassed";
@@ -79,6 +82,8 @@ namespace OpenWDS.Editor
             public int bad;
             public int miss;
             public string nonPerfectResults;
+            public string[] nonPerfectFlickDiagnostics;
+            public long maxInputFrameGapMilliseconds;
             public int remainingTap;
             public int remainingFlick;
             public string remainingFlickNotes;
@@ -111,6 +116,9 @@ namespace OpenWDS.Editor
             public bool resultVoiceFinished, senseDisplayExpected;
             public string resultCharacterKey;
             public bool storageFixture;
+            public bool principalFixture;
+            public bool guardFixture;
+            public bool percentageFixture;
             public bool starActVoiceObserved;
             public int starActVoicePlayCount;
             public int starActColorCount;
@@ -139,6 +147,9 @@ namespace OpenWDS.Editor
             SessionState.SetInt(StarActPixelsKey, 0);
             SessionState.SetBool(ActiveKey + ".starVoice", false);
             SessionState.SetInt(CharacterPixelsKey, 0);
+            SessionState.SetBool(PercentageFixtureKey, Environment.GetEnvironmentVariable("OPENWDS_PRINCIPAL_PERCENTAGE_FIXTURE") == "1");
+            SessionState.SetBool(GuardFixtureKey, Environment.GetEnvironmentVariable("OPENWDS_PRINCIPAL_GUARD_FIXTURE") == "1");
+            SessionState.SetBool(PrincipalFixtureKey, Environment.GetEnvironmentVariable("OPENWDS_PRINCIPAL_EFFECT_FIXTURE") == "1");
             SessionState.SetBool(StorageFixtureKey, Environment.GetEnvironmentVariable("OPENWDS_STARACT_STORAGE_FIXTURE") == "1");
             SessionState.SetBool(PauseSmokeKey, false);
             SessionState.SetBool(SenseCutInVisualKey, false);
@@ -348,6 +359,28 @@ namespace OpenWDS.Editor
                             Math.Abs(runtime.GameResultRuntime
                                 .GetDisplayedAchievementRate(2) - 101d) <
                                 0.000001d;
+            if (report.principalFixture)
+                report.passed = inputPassed && report.perfectStar == 656 &&
+                    report.baseScore == 5638 && report.senseScore == 1654 &&
+                    report.starActScore == 5208 && report.senseActivationCount == 8 &&
+                    report.principal == 601 && report.maxPrincipal == 1080 &&
+                    report.starActActivationCount == 1 && report.starActPixels > 1000 &&
+                    report.resultCharacterPlayCount == 1 && report.characterPixels > 1000 &&
+                    report.resultVoicePlayCount == 1 && report.resultVoiceFinished && report.pauseSmokePassed;
+            if (report.percentageFixture)
+                report.passed = inputPassed && report.perfectStar == 656 &&
+                    report.senseActivationCount == 8 && report.principal == 1000 && report.maxPrincipal == 1000 &&
+                    report.starActActivationCount == 1 && report.starActPixels > 1000 &&
+                    report.resultCharacterPlayCount == 1 && report.characterPixels > 1000 &&
+                    report.resultVoicePlayCount == 1 && report.resultVoiceFinished && report.pauseSmokePassed;
+            if (report.guardFixture)
+                report.passed = inputPassed && report.perfectStar == 656 &&
+                    report.senseScore == 1578 && report.starActScore == 5373 &&
+                    report.senseActivationCount == 8 && report.principal == 560 && report.maxPrincipal == 1080 &&
+                    runtime.GameHud.Life.GuardCount == 4 &&
+                    report.starActActivationCount == 1 && report.starActPixels > 1000 &&
+                    report.resultCharacterPlayCount == 1 && report.characterPixels > 1000 &&
+                    report.resultVoicePlayCount == 1 && report.resultVoiceFinished && report.pauseSmokePassed;
             if (report.storageFixture)
                 report.passed = inputPassed && report.perfectStar == 656 &&
                     report.starActScore == 8901 && report.starActActivationCount == 1 &&
@@ -432,6 +465,9 @@ namespace OpenWDS.Editor
                 resultVoicePlayCount = runtime.CharacterPresentation?.VoicePlayCount ?? 0,
                 resultVoiceFinished = runtime.CharacterPresentation?.VoiceFinished ?? false,
                 resultCharacterKey = runtime.CharacterPresentation?.CharacterKey,
+                percentageFixture = SessionState.GetBool(PercentageFixtureKey, false),
+                guardFixture = SessionState.GetBool(GuardFixtureKey, false),
+                principalFixture = SessionState.GetBool(PrincipalFixtureKey, false),
                 storageFixture = SessionState.GetBool(StorageFixtureKey, false),
                 starActColorCount = runtime.CharacterPresentation?.LastStarActLights?.Length ?? 0,
                 senseDisplayExpected = new SettingsStore().LoadOrDefault().GameSettings.IsActiveSenseDisplay,
@@ -450,6 +486,8 @@ namespace OpenWDS.Editor
                 bad = GetCount(result, TimingType.Bad),
                 miss = GetCount(result, TimingType.Miss),
                 nonPerfectResults = FormatNonPerfectResults(result),
+                nonPerfectFlickDiagnostics = input.NonPerfectFlickDiagnostics.ToArray(),
+                maxInputFrameGapMilliseconds = input.MaxFrameGapMilliseconds,
                 remainingTap = input.RemainingTapCount,
                 remainingFlick = input.RemainingFlickCount,
                 remainingFlickNotes = FormatRemainingFlickNotes(input),
@@ -725,11 +763,11 @@ namespace OpenWDS.Editor
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void ConfigureStorageUnit()
         {
-            if (!SessionState.GetBool(ActiveKey, false) || !SessionState.GetBool(StorageFixtureKey, false)) return;
+            if (!SessionState.GetBool(ActiveKey, false) || (!SessionState.GetBool(StorageFixtureKey, false) && !SessionState.GetBool(PrincipalFixtureKey, false) && !SessionState.GetBool(GuardFixtureKey, false) && !SessionState.GetBool(PercentageFixtureKey, false))) return;
             var runtime = UnityEngine.Object.FindObjectOfType<GameRuntime>();
             var serialized = new SerializedObject(runtime);
             serialized.FindProperty("_testPlayerUnitAsset").objectReferenceValue = new TextAsset(File.ReadAllText(
-                Path.Combine(Application.streamingAssetsPath, "OpenWDS/TestPlayer/stella-high-star-storage-unit.json")));
+                Path.Combine(Application.streamingAssetsPath, SessionState.GetBool(PercentageFixtureKey, false) ? "OpenWDS/TestPlayer/stella-principal-percentages-unit.json" : SessionState.GetBool(GuardFixtureKey, false) ? "OpenWDS/TestPlayer/stella-principal-guards-unit.json" : SessionState.GetBool(PrincipalFixtureKey, false) ? "OpenWDS/TestPlayer/stella-principal-effects-unit.json" : "OpenWDS/TestPlayer/stella-high-star-storage-unit.json")));
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -2302,6 +2340,9 @@ namespace OpenWDS.Editor
                             MusicDifficulty.Stella.ToString())
                         .ToLowerInvariant())
                 : "unity-playmode-auto-judge-validation.json";
+            if (SessionState.GetBool(PercentageFixtureKey, false)) reportName = "unity-playmode-principal-percentages-validation.json";
+            if (SessionState.GetBool(GuardFixtureKey, false)) reportName = "unity-playmode-principal-guards-validation.json";
+            if (SessionState.GetBool(PrincipalFixtureKey, false)) reportName = "unity-playmode-principal-effects-validation.json";
             if (SessionState.GetBool(StorageFixtureKey, false)) reportName = "unity-playmode-staract-storage-validation.json";
             var reportPath = Path.Combine(
                 repositoryRoot, "reverse", "reports",

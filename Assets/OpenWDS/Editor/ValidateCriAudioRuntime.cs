@@ -259,7 +259,7 @@ namespace OpenWDS.Editor
             var nextFrame = cache.Read(101, () => { sourceReads++; return 1275; });
             var invalid = cache.Read(102, () => { sourceReads++; return -1; });
             if (first != 1234 || sameFrame != first || nextFrame != 1275 ||
-                invalid != nextFrame || sourceReads != 3 ||
+                invalid != -1 || sourceReads != 3 ||
                 cache.SourceReadCount != 3)
                 throw new InvalidOperationException(
                     "Recovered same-frame clock cache semantics are invalid.");

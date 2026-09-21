@@ -55,6 +55,7 @@ namespace OpenWDS.Runtime
         private int _totalSenseLightCount;
         private LifeRuntime _life;
         private PrincipalRuntime _principal;
+        private long _principalClockMilliseconds;
         private SoloScoreContext _scoreContext;
         private SoloScoreRuntime _score;
         private SenseScoreRuntime _senseScore;
@@ -318,6 +319,24 @@ namespace OpenWDS.Runtime
 
         // AnotherNotation uses the ordinary HUD with constant zero counters.
         // Do not attach Solo/Sense/StarAct scoring contexts to this live mode.
+        public void ResetForRetry()
+        {
+            Hide();
+            _introductionCanvasGroup.DOKill();
+            _life = new LifeRuntime();
+            _lifeGauge.SetLifeValue(_life.Value, _life.MaxValue, _life.GuardCount);
+            _principal.DefaultValueChanged -= OnDefaultPrincipalChanged;
+            _principal = new PrincipalRuntime();
+            _principal.DefaultValueChanged += OnDefaultPrincipalChanged;
+            _principalClockMilliseconds = 0;
+            _score = null; _senseScore = null; _starActScore = null;
+            _comboPanel.SetComboCount(0, Sirius.Game.UI.ComboType.None);
+            _comboPanel.Initialize(new[] { _normalComboCounts, _fullComboCounts, _allPerfectComboCounts }, _comboLabels);
+            _achievementRatePanel.OnReset();
+            _additionalScoreCutInPanel.ResetPanel();
+            RefreshSenseLights(null);
+        }
+
         public void InitializeAnotherNotationScore()
         {
             if (!_initialized) Initialize();
@@ -349,7 +368,8 @@ namespace OpenWDS.Runtime
         {
             if (fixture == null) throw new ArgumentNullException(nameof(fixture));
             if (!_initialized) Initialize();
-            if (_life.Add(fixture.GetInitialLifeAddition()))
+            fixture.ApplyStartEffects(_principal, _life);
+            if (_lifeGauge != null)
                 _lifeGauge.SetLifeValue(
                     _life.Value, _life.MaxValue, _life.GuardCount);
         }
@@ -375,6 +395,7 @@ namespace OpenWDS.Runtime
                     senseEvent.acquirableGauge;
             }
             _principalOrder = fixture.order;
+            _principalClockMilliseconds = 0;
             InitializePrincipal(new[]
             {
                 new PrincipalUnit(
@@ -397,19 +418,42 @@ namespace OpenWDS.Runtime
                     if (card != null)
                         _additionalScoreCutInPanel?.OnSenseScoreAdded(
                             card.senseType, addedScore, card.characterMasterId);
+                    AdvancePrincipalClock(senseEvent.timingSeconds * 1000L);
+                    // SenseEffectActivator: score -> base Principal -> branch
+                    // effects, then the scheduler may activate StarAct.
+                    _principal.ActivateSense(
+                        senseEvent.senseMasterId,
+                        _principalAddingMap,
+                        _principalOrder);
+                    SensePrincipalEffects.Fire(senseEvent, _principal, _life, _principalOrder);
                     var activationBefore = _starActScore.ActivationCount;
-                    var starActAdded = _starActScore.OnSenseActivated(senseEvent);
+                    var starActAdded = _starActScore.OnSenseActivated(senseEvent,
+                        starAct => SensePrincipalEffects.FireEffects(
+                            starAct.principalPreEffects, _principal, _life, _principalOrder),
+                        starAct => SensePrincipalEffects.Fire(starAct, _principal, _life, _principalOrder));
+                    _lifeGauge.SetLifeValue(_life.Value, _life.MaxValue, _life.GuardCount);
                     RefreshSenseLights(_starActScore.HoldingLights);
                     if (_starActScore.ActivationCount != activationBefore)
                         StarActActivated?.Invoke(_starActScore.Events[activationBefore]);
                     if (starActAdded > 0L)
                         _scorePanel.SetStarActScoreCount(starActAdded);
-                    _principal.ActivateSense(
-                        senseEvent.senseMasterId,
-                        _principalAddingMap,
-                        _principalOrder);
+
+                },
+                senseEvent =>
+                {
+                    AdvancePrincipalClock(senseEvent.timingSeconds * 1000L);
+                    SensePrincipalEffects.FireEffects(senseEvent.principalPreEffects,
+                        _principal, _life, _principalOrder);
                 });
+            AdvancePrincipalClock(chartMilliseconds);
             if (added > 0L) _scorePanel.SetScoreCount(TotalScore, false);
+        }
+
+        private void AdvancePrincipalClock(long milliseconds)
+        {
+            if (milliseconds <= _principalClockMilliseconds) return;
+            _principal.TickBuffs(milliseconds - _principalClockMilliseconds);
+            _principalClockMilliseconds = milliseconds;
         }
 
         private void RefreshSenseLights(IReadOnlyList<int> holdingLights)

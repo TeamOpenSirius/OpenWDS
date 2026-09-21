@@ -1,0 +1,76 @@
+{
+  "sourceDatabase": "reverse/downloads/online/1.96.0/master/mastermemory_1784297595_1784297595.db",
+  "schemaVersion": 9,
+  "sense": {
+    "senseMasterId": 142390,
+    "acquirableGauge": 70,
+    "principalBranchCondition": 8,
+    "principalBranches": [
+      {
+        "branchId": 1423901,
+        "judgeType": 1,
+        "conditionValue": 1,
+        "effects": [
+          {
+            "effectMasterId": 29111,
+            "effectType": 41,
+            "value": 20.0,
+            "durationMilliseconds": 0
+          }
+        ]
+      },
+      {
+        "branchId": 1423902,
+        "judgeType": 1,
+        "conditionValue": 2,
+        "effects": [
+          {
+            "effectMasterId": 29112,
+            "effectType": 41,
+            "value": 40.0,
+            "durationMilliseconds": 0
+          }
+        ]
+      },
+      {
+        "branchId": 1423903,
+        "judgeType": 1,
+        "conditionValue": 3,
+        "effects": [
+          {
+            "effectMasterId": 29113,
+            "effectType": 41,
+            "value": 60.0,
+            "durationMilliseconds": 0
+          }
+        ]
+      },
+      {
+        "branchId": 1423904,
+        "judgeType": 1,
+        "conditionValue": 4,
+        "effects": [
+          {
+            "effectMasterId": 29114,
+            "effectType": 41,
+            "value": 80.0,
+            "durationMilliseconds": 0
+          }
+        ]
+      },
+      {
+        "branchId": 1423905,
+        "judgeType": 2,
+        "conditionValue": 5,
+        "effects": [
+          {
+            "effectMasterId": 29115,
+            "effectType": 41,
+            "value": 100.0,
+            "durationMilliseconds": 0
+          }
+        ]
+      }
+    ]
+  }
+}

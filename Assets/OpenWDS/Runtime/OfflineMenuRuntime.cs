@@ -20,7 +20,7 @@ namespace OpenWDS.Runtime
         private Transform _parent;
         private Func<Action, GamePauseRuntime> _createSettings;
         private Action _opened, _closed;
-        public Action OpenAnotherNotations { private get; set; }
+        public Action NavigateHome { private get; set; }
         private OfflineMenuDocuments _documents;
         private Func<Action, Transform> _termsHost;
         private GameObject _sideMenuButton;
@@ -35,6 +35,8 @@ namespace OpenWDS.Runtime
         public bool IsOpen => _block != null;
         public bool IsReady { get; private set; }
         public GameObject Popup => _popup;
+        public GameObject View => _view;
+        public int BundleCount => _bundles.Count;
 
         public void Configure(Transform parent, Func<Action, GamePauseRuntime> settings,
             Action opened, Action closed, Func<Action, Transform> termsHost, GameObject sideMenuButton)
@@ -50,10 +52,13 @@ namespace OpenWDS.Runtime
             var index = JsonUtility.FromJson<Index>(Encoding.UTF8.GetString(bytes));
             foreach (var row in index.bundles)
             {
-                yield return StreamingAssetsRuntime.ReadBytes(row.path, data => bytes = data);
-                var lease = LocalAssetBundleLease.FromMemory(row.key, bytes);
-                _bundles.Add(row.id, lease);
-                if (lease.LoadOperation != null) yield return lease.LoadOperation;
+                LocalAssetBundleLease lease = null;
+                yield return LocalAssetBundleLease.LoadStreaming(row.key, row.path, value =>
+                {
+                    lease = value;
+                    if (this == null) value.Dispose(); else _bundles.Add(row.id, value);
+                });
+                if (this == null) yield break;
                 if (lease.Bundle == null) throw new InvalidOperationException("Menu bundle failed: " + row.path);
             }
             var prefabs = new Dictionary<string, GameObject>();
@@ -85,34 +90,15 @@ namespace OpenWDS.Runtime
                 if (button.name == "CloseButton") Bind(button, Close, UiSeRuntime.Cue.ButtonBack);
                 else if (feature == "Home")
                 {
-                    button.transform.parent.name = "AprilFool";
-                    foreach (var label in button.transform.parent.GetComponentsInChildren<Text>(true))
-                        label.text = "愚人节谱面";
-                    var icon = button.transform.Find("Icon").GetComponent<Image>();
-                    icon.enabled = false;
-                    var dots = new GameObject("ThreeDots", typeof(RectTransform), typeof(EllipsisIconGraphic));
-                    dots.layer = icon.gameObject.layer;
-                    dots.transform.SetParent(icon.transform, false);
-                    var dotsRect = (RectTransform)dots.transform;
-                    dotsRect.anchorMin = Vector2.zero; dotsRect.anchorMax = Vector2.one;
-                    dotsRect.offsetMin = dotsRect.offsetMax = Vector2.zero;
-                    var graphic = dots.GetComponent<EllipsisIconGraphic>();
-                    graphic.color = new Color32(86, 88, 103, 255);
-                    graphic.raycastTarget = false;
                     Bind(button, () =>
                     {
                         if (_busy) return;
-                        StartCoroutine(HidePopup(() =>
-                        {
-                            Destroy(_block); _block = null;
-                            _closed?.Invoke();
-                            OpenAnotherNotations?.Invoke();
-                        }));
+                        StartCoroutine(HidePopup(() => { if (NavigateHome != null) NavigateHome(); else FrontendNavigation.Home(); }));
                     });
                 }
-                else if (feature == "Option") Bind(button, OpenSettings);
+                else if (feature == "Option" && _createSettings != null) Bind(button, OpenSettings);
                 else if (feature == "Notification") Bind(button, () => OpenDocument(false));
-                else if (feature == "TermOfService") Bind(button, () => OpenDocument(true));
+                else if (feature == "TermOfService" && _termsHost != null) Bind(button, () => OpenDocument(true));
                 else
                 {
                     button.interactable = false;

@@ -9,17 +9,14 @@ using UnityEngine.Networking;
 
 namespace Sirius.GameResult
 {
-    /// <summary>Loads the game's original TMP font assets instead of AssetRipper's blank atlases.</summary>
+    /// <summary>Builds TMP fonts from the game's original OTF/TTF sources instead of blank exported atlases.</summary>
     public sealed class GameResultFontRuntime : IDisposable
     {
         public const string RelativeRoot = "OpenWDS/GameResultFonts";
         private static readonly string[] BundleFileNames =
         {
             "fontgroup_assets_ronowstd-gbs.bundle",
-            "fontgroup_assets_ronowstd-gbssdf.bundle",
-            "fontgroup_assets_ronowstd-gbssdfwhite.bundle",
             "fontgroup_assets_udtypos515std-regular2.bundle",
-            "fontgroup_assets_udtypos515std-regular2sdf.bundle",
         };
         private static readonly Dictionary<string, byte[]> PreparedBundleBytes =
             new Dictionary<string, byte[]>(StringComparer.Ordinal);
@@ -28,8 +25,6 @@ namespace Sirius.GameResult
         private readonly List<LocalAssetBundleLease> _bundles = new List<LocalAssetBundleLease>();
         private readonly Dictionary<string, TMP_FontAsset> _fonts =
             new Dictionary<string, TMP_FontAsset>(StringComparer.Ordinal);
-        private readonly Dictionary<string, Texture2D> _atlases =
-            new Dictionary<string, Texture2D>(StringComparer.Ordinal);
         private readonly Dictionary<string, Font> _sourceFonts =
             new Dictionary<string, Font>(StringComparer.Ordinal);
         private readonly List<TMP_FontAsset> _generatedFonts =
@@ -44,7 +39,7 @@ namespace Sirius.GameResult
 
         /// <summary>
         /// Android stores StreamingAssets inside the APK jar. AssetBundle.LoadFromFile
-        /// cannot read that URI, so copy the five small local bundles to memory
+        /// cannot read that URI, so copy the two original source-font bundles to memory
         /// asynchronously while the song is being played.
         /// </summary>
         public static IEnumerator PrepareStreamingAssets()
@@ -91,11 +86,8 @@ namespace Sirius.GameResult
             var root = Path.Combine(Application.streamingAssetsPath, RelativeRoot);
             if (Directory.Exists(root))
             {
-                var paths = Directory.GetFiles(
-                    root, "*.bundle", SearchOption.TopDirectoryOnly);
-                Array.Sort(paths, StringComparer.Ordinal);
-                foreach (var path in paths)
-                    AddBundle(LocalAssetBundleLease.FromFile(Path.GetFileName(path), path));
+                foreach (var fileName in BundleFileNames)
+                    AddBundle(LocalAssetBundleLease.FromFile(fileName, Path.Combine(root, fileName)));
             }
             else
             {
@@ -110,27 +102,18 @@ namespace Sirius.GameResult
             var bundle = lease.Bundle;
             if (bundle == null) { lease.Dispose(); return; }
             _bundles.Add(lease);
-                // AssetRipper emitted the original TMP SDF ScriptableObjects with
-                // an unresolved MonoScript. Loading every bundle entry as Object
-                // instantiates those broken objects and produces Unity's
-                // "referenced script (Unknown)" warning. They were null here in
-                // every supported bundle anyway; the original source Font and
-                // atlas are sufficient to rebuild a valid TMP_FontAsset below.
-                foreach (var assetName in bundle.GetAllAssetNames())
-                    _assets.Add("declared:" + assetName);
-                foreach (var atlas in bundle.LoadAllAssets<Texture2D>())
-                {
-                    if (atlas == null) continue;
-                    _atlases[atlas.name] = atlas;
-                    _assets.Add("texture:" + atlas.name + ":" +
-                                atlas.width + "x" + atlas.height);
-                }
-                foreach (var sourceFont in bundle.LoadAllAssets<Font>())
-                {
-                    if (sourceFont == null) continue;
-                    _sourceFonts[sourceFont.name] = sourceFont;
-                    _assets.Add("font:" + sourceFont.name);
-                }
+            // Typed LoadAllAssets still deserializes TMP MonoBehaviours when the
+            // source scene has been unloaded. Load only the original OTF/TTF by
+            // their explicit container paths, then rebuild valid TMP assets.
+            foreach (var assetName in bundle.GetAllAssetNames())
+            {
+                if (!assetName.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) &&
+                    !assetName.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)) continue;
+                var sourceFont = bundle.LoadAsset<Font>(assetName);
+                if (sourceFont == null) continue;
+                _sourceFonts[sourceFont.name] = sourceFont;
+                _assets.Add("font:" + sourceFont.name);
+            }
         }
 
         public int Apply(GameObject root)
@@ -158,13 +141,6 @@ namespace Sirius.GameResult
                 }
                 if (_fonts.TryGetValue(font.name, out var bundledFont))
                     font = bundledFont;
-                var atlasName = font.name + " Atlas";
-                if (_atlases.TryGetValue(atlasName, out var atlas) &&
-                    !_generatedFonts.Contains(font))
-                {
-                    font.atlasTextures = new[] { atlas };
-                    if (font.material != null) font.material.mainTexture = atlas;
-                }
                 label.font = font;
                 label.fontSharedMaterial = font.material;
                 label.SetAllDirty();
@@ -178,7 +154,6 @@ namespace Sirius.GameResult
             foreach (var bundle in _bundles) bundle.Dispose();
             _bundles.Clear();
             _fonts.Clear();
-            _atlases.Clear();
             _sourceFonts.Clear();
             foreach (var font in _generatedFonts)
                 if (font != null)

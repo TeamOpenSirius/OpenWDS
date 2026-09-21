@@ -443,7 +443,8 @@ namespace OpenWDS.Editor
                 throw new InvalidOperationException("Failed to save offline preview scene.");
             }
             NormalizeGeneratedYaml(ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) }
+                .Concat(EditorBuildSettings.scenes.Where(entry => entry.path != ScenePath)).ToArray();
             AssetDatabase.SaveAssets();
             var splitLaneBundlesValid = ValidateSplitLaneBundlesInEditor();
             var gameResultFontBundlesValid = ValidateGameResultFonts();
@@ -1227,7 +1228,7 @@ namespace OpenWDS.Editor
                     2) != 700 ||
                 principal.GetCurrentPrincipal(2) != 700)
                 return false;
-            principal.TickBuffs(999);
+            principal.TickBuffs(1099);
             if (principal.GetAddingPrincipal(400, 2) != 700)
                 return false;
             principal.ExtendBuffDuration(1, 2);
@@ -5667,7 +5668,7 @@ namespace OpenWDS.Editor
                     return new Vector2(screen.x, screen.y);
                 });
             scheduledEvents = autoTouch.ScheduledEventCount;
-            if (scheduledEvents != 142)
+            if (scheduledEvents != 166)
             {
                 return false;
             }
@@ -5743,16 +5744,17 @@ namespace OpenWDS.Editor
             clock.Sync(8.104f, 8104, 12f, 12000); // chart time 5085 ms
             touches.Clear();
             autoTouch.GetTouches(touches);
-            if (touches.Count != 1 ||
-                touches[0].Phase != TouchPhase.Ended ||
-                touches[0].TouchId != firstHoldBody.Id ||
+            if (touches.Count != 2 ||
+                touches[0].Phase != TouchPhase.Stationary ||
+                touches[1].Phase != TouchPhase.Ended ||
+                touches[1].TouchId != firstHoldBody.Id ||
                 autoTouch.ActiveHoldingCount != 0)
             {
                 return false;
             }
             var timing = HoldTimingDecider.DecideEnd(
-                clock, touches[0].Milliseconds, firstHoldBody);
-            holdManager.Remove(touches[0].TouchId);
+                clock, touches[1].Milliseconds, firstHoldBody);
+            holdManager.Remove(touches[1].TouchId);
             holdManager.GetHoldEvents(holdEvents);
             laneHoldLifecycleValid =
                 timing.TimingType == TimingType.PerfectStar &&
@@ -6205,13 +6207,13 @@ namespace OpenWDS.Editor
                 _ => new Vector2(320f, 180f));
             var autoInputs = new List<InputEntity>();
             autoTouch.GetTouches(autoInputs);
-            if (autoTouch.ScheduledEventCount != 2 || autoInputs.Count != 2 ||
+            if (autoTouch.ScheduledEventCount != 3 || autoInputs.Count != 2 ||
                 autoInputs[0].Phase != TouchPhase.Began ||
                 autoInputs[0].Milliseconds != 99999 ||
                 autoInputs[1].Phase != TouchPhase.Moved ||
                 autoInputs[1].Milliseconds != 100000 ||
                 autoInputs[1].DeltaPosition != new Vector2(50f, 50f) ||
-                autoTouch.ActiveHoldingCount != 0)
+                autoTouch.ActiveHoldingCount != 1)
             {
                 return false;
             }

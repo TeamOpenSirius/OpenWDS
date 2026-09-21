@@ -122,6 +122,42 @@ namespace OpenWDS.Runtime
             _cutIn = Instantiate(prefab, transform).GetComponent<StarActCutInPlayer>();
             _cutIn.SetMainCamera(gameCamera);
             _cutIn.Initialize(sprite);
+            PrepareCharacterAndVoice();
+            // GameLoader.LoadStarActVoiceAsync selects the leader's base (the
+            // ordinary fixtures have no pair-character selection). GameVoicePlayer
+            // initializes its cue from GetCueInfoList().FirstOrDefault().name.
+            var starVoice = _index.starActVoices.Single(v => v.characterBaseId == leader.characterBaseMasterId);
+            _starVoiceAcb = CriAtomExAcb.LoadAcbFile(null, Path.Combine(CriWare.Common.streamingAssetsPath, starVoice.path), null);
+            if (_starVoiceAcb == null) throw new InvalidOperationException("StarAct voice bank failed: " + starVoice.path);
+            var cues = _starVoiceAcb.GetCueInfoList();
+            if (cues.Length == 0 || string.IsNullOrEmpty(cues[0].name)) throw new InvalidOperationException("Empty StarAct voice bank.");
+            StarActVoiceCue = cues[0].name;
+            _starVoicePlayer = new CriAtomExPlayer(true);
+            // GameSoundVolumeConfig.GetVolume has an additional 0.7 multiplier.
+            _starVoicePlayer.SetVolume(Mathf.Clamp01(gameVoiceVolume) * 0.7f);
+            _starVoicePlayer.SetCue(_starVoiceAcb, StarActVoiceCue);
+            _starVoicePlayback = _starVoicePlayer.Prepare();
+            if (_starVoicePlayback.id == CriAtomExPlayback.invalidId) throw new InvalidOperationException("StarAct voice prepare failed.");
+            IsReady = true;
+            Debug.Log($"OPENWDS_PRESENTATION_READY starAct={StarActKey} character={CharacterKey} bundles={_bundles.Count}");
+        }
+
+        public IEnumerator PrepareResult(long characterId, float voiceVolume)
+        {
+            _voiceVolume = Mathf.Clamp01(voiceVolume);
+            byte[] bytes = null;
+            yield return StreamingAssetsRuntime.ReadBytes("OpenWDS/Presentation/index.json", b => bytes = b);
+            _index = JsonUtility.FromJson<Index>(Encoding.UTF8.GetString(bytes));
+            if (_index == null || _index.schemaVersion != 1) throw new InvalidOperationException("Invalid presentation resource index.");
+            CharacterBaseId = characterId;
+            var selected = _index.characters.Single(c => c.id == characterId);
+            CharacterKey = "CharacterObjects/" + selected.defaultCostumeId.ToString(CultureInfo.InvariantCulture) + characterId.ToString(CultureInfo.InvariantCulture);
+            yield return Load(CharacterKey);
+            PrepareCharacterAndVoice();
+            IsReady = true;
+        }
+        private void PrepareCharacterAndVoice()
+        {
             _characterPrefab = FindAsset<GameObject>(CharacterKey);
             if (_characterPrefab == null) throw new InvalidOperationException("Original character prefab failed to load: " + CharacterKey);
             var shader = Resources.Load<Shader>("Shader/Character/ScarabCharacter");
@@ -143,23 +179,6 @@ namespace OpenWDS.Runtime
                 if (!_voiceAcb.GetCueInfo(row.cue, out _)) throw new InvalidOperationException("Result voice cue missing: " + row.cue);
             _voicePlayer = new CriAtomExPlayer(true);
             _voicePlayer.SetVolume(_voiceVolume);
-            // GameLoader.LoadStarActVoiceAsync selects the leader's base (the
-            // ordinary fixtures have no pair-character selection). GameVoicePlayer
-            // initializes its cue from GetCueInfoList().FirstOrDefault().name.
-            var starVoice = _index.starActVoices.Single(v => v.characterBaseId == leader.characterBaseMasterId);
-            _starVoiceAcb = CriAtomExAcb.LoadAcbFile(null, Path.Combine(CriWare.Common.streamingAssetsPath, starVoice.path), null);
-            if (_starVoiceAcb == null) throw new InvalidOperationException("StarAct voice bank failed: " + starVoice.path);
-            var cues = _starVoiceAcb.GetCueInfoList();
-            if (cues.Length == 0 || string.IsNullOrEmpty(cues[0].name)) throw new InvalidOperationException("Empty StarAct voice bank.");
-            StarActVoiceCue = cues[0].name;
-            _starVoicePlayer = new CriAtomExPlayer(true);
-            // GameSoundVolumeConfig.GetVolume has an additional 0.7 multiplier.
-            _starVoicePlayer.SetVolume(Mathf.Clamp01(gameVoiceVolume) * 0.7f);
-            _starVoicePlayer.SetCue(_starVoiceAcb, StarActVoiceCue);
-            _starVoicePlayback = _starVoicePlayer.Prepare();
-            if (_starVoicePlayback.id == CriAtomExPlayback.invalidId) throw new InvalidOperationException("StarAct voice prepare failed.");
-            IsReady = true;
-            Debug.Log($"OPENWDS_PRESENTATION_READY starAct={StarActKey} character={CharacterKey} bundles={_bundles.Count}");
         }
 
         private IEnumerator Load(string key)
@@ -210,6 +229,16 @@ namespace OpenWDS.Runtime
             _starVoiceStarted = true;
             StarActVoicePlayCount++;
             Debug.Log("OPENWDS_STARACT_VOICE cue=" + StarActVoiceCue);
+        }
+
+        public void ResetGameplay()
+        {
+            _pendingActs.Clear();
+            _starVoicePlayer?.Stop();
+            if (_starVoicePlayer != null) _starVoicePlayback = _starVoicePlayer.Prepare();
+            _starVoiceStarted = false;
+            _cutIn?.ResetPresentation();
+            StarActPlayCount = 0; StarActVoicePlayCount = 0; LastStarActLights = null;
         }
 
         public void SetGameplayPaused(bool paused)
@@ -266,7 +295,7 @@ namespace OpenWDS.Runtime
             while (!IsReady) yield return null;
             _pendingActs.Clear();
             _starVoicePlayer?.Stop();
-            _cutIn.gameObject.SetActive(false);
+            if (_cutIn != null) _cutIn.gameObject.SetActive(false);
             _characterRoot = new GameObject("CharacterParent");
             _characterRoot.transform.SetPositionAndRotation(_index.characterPosition, _index.characterRotation);
             _characterRoot.SetActive(false);
@@ -321,7 +350,7 @@ namespace OpenWDS.Runtime
             }
             if (_cutIn != null)
             {
-                _cutIn.gameObject.SetActive(false);
+                if (_cutIn != null) _cutIn.gameObject.SetActive(false);
                 Destroy(_cutIn.gameObject);
             }
             if (_loadingBundle != null && _loadingBundle.isDone && _loadingBundle.assetBundle != null)

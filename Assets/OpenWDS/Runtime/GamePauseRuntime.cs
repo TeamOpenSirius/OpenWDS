@@ -1376,7 +1376,7 @@ namespace OpenWDS.Runtime
             DestroyDialog();
             DestroyTouchBlock();
             if (_pauseInstance != null) _pauseInstance.SetActive(false);
-            _gameRuntime.RestartPerformance();
+            _gameRuntime.RetryPerformance();
         }
 
         private void Retire()

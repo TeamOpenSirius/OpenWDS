@@ -110,16 +110,19 @@ namespace OpenWDS.Runtime
             }
             GetContext(order).TimedBuffs.Add(new TimedBuff
             {
-                RemainingMilliseconds = durationInMilliseconds,
+                RemainingMilliseconds = durationInMilliseconds + 100,
                 Value = value,
             });
         }
 
         public void ExtendBuffDuration(long durationInMilliseconds, int order)
         {
-            if (durationInMilliseconds <= 0) return;
-            foreach (var buff in GetContext(order).TimedBuffs)
-                buff.RemainingMilliseconds += durationInMilliseconds;
+            var buffs = GetContext(order).TimedBuffs;
+            for (var index = buffs.Count - 1; index >= 0; index--)
+            {
+                buffs[index].RemainingMilliseconds += durationInMilliseconds;
+                if (buffs[index].RemainingMilliseconds <= 0) buffs.RemoveAt(index);
+            }
         }
 
         public void TickBuffs(long elapsedMilliseconds)
@@ -182,10 +185,10 @@ namespace OpenWDS.Runtime
                     IncreaseMax((int)value, order);
                     break;
                 case PrincipalEffectType.Bonus:
-                    Add((int)(context.CurrentPrincipal * value / 100d), order);
+                    Add((int)((value / 100d) * context.CurrentPrincipal), order);
                     break;
                 case PrincipalEffectType.GainPercentageOfLimit:
-                    Add((int)(context.MaxPrincipal * value / 100d), order);
+                    Add((int)((value / 100d) * context.MaxPrincipal), order);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(

@@ -41,9 +41,9 @@ namespace OpenWDS.Editor
                 var music = new LocalMusicEntry { Id = 1, HasReleasedAt = true,
                     ReleasedAtUtcTicks = DateTime.UtcNow.AddDays(-1).Ticks, Lives = new[] { live } };
                 var store = new LocalResultStore(root);
-                // Existing saves never retained B or eligibility; do not invent either.
+                // Ordinary achievement writes must not implicitly award Olivier stars.
                 store.RecordResult(1, MusicDifficulty.Olivier, 101, ClearLamp.AllPerfect, out _);
-                Require(new LocalResultStore(root).GetSpPoint(1) == 0, "legacy result preserved without fabricated stars");
+                Require(new LocalResultStore(root).GetSpPoint(1) == 0, "achievement write does not award stars");
                 Require(store.RecordOlivierResult(music, live, 100.65, ClearLamp.FullCombo, 56, true, false) == 96,
                     "first attempt A92+B2+C2");
                 Require(store.RecordOlivierResult(music, live, 100.5, ClearLamp.AllPerfect, 10, true, false) == 100,

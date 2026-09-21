@@ -16,7 +16,6 @@ namespace OpenWDS.Runtime
         private readonly GameClock _clock;
         private readonly Func<NotationNote, Vector2> _getScreenPosition;
         private readonly List<InputEntity> _preTouches;
-        private readonly HashSet<int> _holdTouchIds = new HashSet<int>();
         private readonly Dictionary<int, InputEntity> _holdings =
             new Dictionary<int, InputEntity>(1000);
         private int _lastIndex;
@@ -52,10 +51,9 @@ namespace OpenWDS.Runtime
                     scheduled,
                     _clock.MusicTimeToInputMilliseconds(scheduled.Milliseconds));
                 touches.Add(converted);
-                if (_holdTouchIds.Contains(scheduled.TouchId) &&
-                    (scheduled.Phase == TouchPhase.Began ||
+                if (scheduled.Phase == TouchPhase.Began ||
                      scheduled.Phase == TouchPhase.Moved ||
-                     scheduled.Phase == TouchPhase.Stationary))
+                     scheduled.Phase == TouchPhase.Stationary)
                 {
                     _holdings[scheduled.TouchId] = scheduled;
                 }
@@ -69,6 +67,7 @@ namespace OpenWDS.Runtime
             foreach (var pair in _holdings)
             {
                 var holding = pair.Value;
+                if (holding.Milliseconds >= passedMusicMilliseconds) continue;
                 touches.Add(new InputEntity(
                     holding.TouchId,
                     _clock.MusicTimeToInputMilliseconds(passedMusicMilliseconds),
@@ -118,7 +117,7 @@ namespace OpenWDS.Runtime
                 }
                 else if (type == NoteType.Scratch)
                 {
-                    AddScratch(result, note);
+                    AddScratch(result, notations, note);
                 }
                 else if (type == NoteType.ScratchHold ||
                          type == NoteType.ScratchCriticalHold)
@@ -135,7 +134,7 @@ namespace OpenWDS.Runtime
         {
             var position = _getScreenPosition(note);
             result.Add(Create(note.Id, note.StartMilliseconds, position, TouchPhase.Began));
-            result.Add(Create(note.Id, note.StartMilliseconds, position, TouchPhase.Ended));
+            result.Add(Create(note.Id, note.StartMilliseconds + 1, position, TouchPhase.Ended));
         }
 
         private void AddHold(
@@ -144,9 +143,13 @@ namespace OpenWDS.Runtime
         {
             var startPosition = _getScreenPosition(body);
             var endPosition = _getScreenPosition(body);
-            _holdTouchIds.Add(body.Id);
             result.Add(Create(body.Id, body.StartMilliseconds, startPosition,
                 TouchPhase.Began));
+            // Retail emits an explicit tail sample before releasing. A frame
+            // may cross both the tail and Ended; it must still judge Holding
+            // notes while contact exists, before Ended removes the dictionary entry.
+            result.Add(Create(body.Id, body.EndMilliseconds, endPosition,
+                TouchPhase.Stationary));
             result.Add(new InputEntity(
                 body.Id,
                 body.EndMilliseconds + 1,
@@ -175,17 +178,20 @@ namespace OpenWDS.Runtime
                     OriginalGameConfig.FlickDistance,
                     OriginalGameConfig.FlickDistance),
                 TouchPhase.Moved));
+            result.Add(Create(note.Id, note.StartMilliseconds + 1, position,
+                TouchPhase.Ended));
         }
 
         private void AddScratch(
             List<InputEntity> result,
+            IReadOnlyList<NotationNote> notations,
             NotationNote note)
         {
             var position = _getScreenPosition(note);
             // AutoTouch.Initialize emits one note-time Moved input for type 40.
             // Its delta uses the constructor's _deltaPositionForScratch vector.
             result.Add(new InputEntity(
-                note.Id,
+                GetScratchTouchId(notations, note),
                 note.StartMilliseconds,
                 position,
                 position,
@@ -216,7 +222,6 @@ namespace OpenWDS.Runtime
                     note, JumpScratch.GetDestinationLane(note))
                 : _getScreenPosition(note);
 
-            _holdTouchIds.Add(touchId);
             if (!hasPrevious)
             {
                 // TapNotationNoteQueue accepts 82/83. The ScratchHold chain head
@@ -255,6 +260,29 @@ namespace OpenWDS.Runtime
                     startPosition,
                     TouchPhase.Ended));
             }
+        }
+
+        private static int GetScratchTouchId(
+            IReadOnlyList<NotationNote> notations, NotationNote note)
+        {
+            // GetConnectedFirstScratchNote first locates the enclosing 110/111
+            // with the same EndLane, then walks backwards through jump spans.
+            var first = notations.FirstOrDefault(n =>
+                (n.NoteType == 110 || n.NoteType == 111) &&
+                n.StartMilliseconds <= note.StartMilliseconds &&
+                note.StartMilliseconds <= n.EndMilliseconds && n.EndLane == note.EndLane);
+            if (first == null) return note.Id;
+            var visited = new HashSet<int>();
+            while (visited.Add(first.Id))
+            {
+                var previous = notations.FirstOrDefault(n =>
+                    JumpScratch.IsJumpScratch(n) &&
+                    n.EndMilliseconds == first.StartMilliseconds &&
+                    JumpScratch.GetLaneRange(n).Contains(note.Lane));
+                if (previous == null) break;
+                first = previous;
+            }
+            return first.Id;
         }
 
         private Vector2 GetScreenPositionForLane(

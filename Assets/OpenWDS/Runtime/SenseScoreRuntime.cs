@@ -27,7 +27,8 @@ namespace OpenWDS.Runtime
 
         public long Tick(
             long chartMilliseconds,
-            Action<SenseEventFixture, long, int> onActivated = null)
+            Action<SenseEventFixture, long, int> onActivated = null,
+            Action<SenseEventFixture> beforeScore = null)
         {
             long frameScore = 0;
             while (_nextEventIndex < _fixture.senseEvents.Length)
@@ -35,6 +36,7 @@ namespace OpenWDS.Runtime
                 var senseEvent = _fixture.senseEvents[_nextEventIndex];
                 if (chartMilliseconds < senseEvent.timingSeconds * 1000L) break;
 
+                beforeScore?.Invoke(senseEvent);
                 var addedScore = CalculateScore(senseEvent);
                 Count += addedScore;
                 frameScore += addedScore;

@@ -95,7 +95,43 @@ namespace OpenWDS.Runtime
     }
 
     [Serializable]
-    public sealed class SenseEventFixture
+    public sealed class PrincipalEffectFixture
+    {
+        public long effectMasterId;
+        public int effectType;
+        public double value;
+        public long durationMilliseconds;
+        public EffectTriggerFixture[] triggers;
+    }
+
+    [Serializable]
+    public sealed class EffectTriggerFixture
+    {
+        public int type;
+        public long value;
+    }
+
+    [Serializable]
+    public sealed class PrincipalBranchFixture
+    {
+        public long branchId;
+        public int judgeType;
+        public long conditionValue;
+        public PrincipalEffectFixture[] effects;
+    }
+
+    [Serializable]
+    public class PrincipalProgramFixture
+    {
+        public PrincipalEffectFixture[] principalPreEffects;
+        public PrincipalEffectFixture[] principalTimingEffects;
+        public PrincipalEffectFixture[] principalEffects;
+        public int principalBranchCondition;
+        public PrincipalBranchFixture[] principalBranches;
+    }
+
+    [Serializable]
+    public sealed class SenseEventFixture : PrincipalProgramFixture
     {
         public long eventId;
         public int timingSeconds;
@@ -109,7 +145,7 @@ namespace OpenWDS.Runtime
     }
 
     [Serializable]
-    public sealed class StarActEventFixture
+    public sealed class StarActEventFixture : PrincipalProgramFixture
     {
         public int timingSeconds;
         public long triggeringSenseEventId;
@@ -155,6 +191,7 @@ namespace OpenWDS.Runtime
         public SenseEventFixture[] senseEvents;
         public StarActEventFixture[] starActEvents;
         public StartEffectFixture[] startEffects;
+        public PrincipalEffectFixture[] principalStartEffects;
         public PlayerUnitCardFixture[] cards;
 
         public static PlayerUnitFixture Parse(TextAsset asset)
@@ -192,6 +229,21 @@ namespace OpenWDS.Runtime
             return total;
         }
 
+        public void ApplyStartEffects(PrincipalRuntime principal, LifeRuntime life)
+        {
+            if (principal == null) throw new ArgumentNullException(nameof(principal));
+            if (life == null) throw new ArgumentNullException(nameof(life));
+            // A compiled schema-10 list is the complete ordered Principal/LIFE
+            // projection. Do not also apply the older source-only LIFE list.
+            if (principalStartEffects == null)
+            {
+                life.Add(GetInitialLifeAddition());
+                return;
+            }
+            Validate();
+            SensePrincipalEffects.FireEffects(principalStartEffects, principal, life, order);
+        }
+
         public int GetStarActSenseLightCount()
         {
             Validate();
@@ -217,7 +269,7 @@ namespace OpenWDS.Runtime
 
         public void Validate()
         {
-            if (schemaVersion != 7 || purpose != "offline-test-player-unit")
+            if ((schemaVersion != 7 && schemaVersion != 8 && schemaVersion != 9 && schemaVersion != 10) || purpose != "offline-test-player-unit")
                 throw new InvalidOperationException("Unsupported player-unit fixture schema.");
             if (cards == null || cards.Length != 5)
                 throw new InvalidOperationException("Player-unit fixture requires five cards.");
@@ -236,6 +288,11 @@ namespace OpenWDS.Runtime
             if (leaderPosition < 1 || leaderPosition > 5)
                 throw new InvalidOperationException("Leader position must be in 1..5.");
 
+            if (principalStartEffects != null && schemaVersion < 10)
+                throw new InvalidOperationException("Compiled start effects require schema 10.");
+            SensePrincipalEffects.ValidateEffects(principalStartEffects, schemaVersion);
+            foreach (var starAct in starActEvents)
+                SensePrincipalEffects.Validate(starAct, schemaVersion);
             var positions = new HashSet<int>();
             var characterBases = new HashSet<long>();
             var characterSum = 0;
@@ -359,6 +416,7 @@ namespace OpenWDS.Runtime
                     activatingCard.senseScorePercent <= 0)
                     throw new InvalidOperationException(
                         "Player-unit Sense event activation does not match its card.");
+                SensePrincipalEffects.Validate(senseEvent, schemaVersion);
                 previousTiming = senseEvent.timingSeconds;
             }
 
