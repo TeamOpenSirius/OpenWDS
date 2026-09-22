@@ -13,14 +13,11 @@ namespace OpenWDS.Editor
 {
     public static class BuildOpenWDSAndroid
     {
-        private static readonly string[] Scenes =
-        {
-            "Assets/OpenWDS/Scenes/LocalMusicSelection.unity",
-            "Assets/OpenWDS/Scenes/OfflineRhythmPreview.unity",
-        };
+        private static readonly string[] Scenes = ConfigureOfflineSongResources.Scenes;
 
         public static void BuildTouchDeviceApk()
         {
+            ConfigureOfflineSongResources.Run();
             foreach (var scene in Scenes)
             {
                 if (!File.Exists(scene))
@@ -36,7 +33,7 @@ namespace OpenWDS.Editor
             }
 
             PlayerSettings.companyName = "OpenWDS";
-            PlayerSettings.productName = "OpenWDS Touch Test";
+            PlayerSettings.productName = "OpenWDS";
             PlayerSettings.bundleVersion = "0.1.0";
             PlayerSettings.SetApplicationIdentifier(
                 BuildTargetGroup.Android, "dev.openwds.touchtest");
@@ -51,6 +48,9 @@ namespace OpenWDS.Editor
             PlayerSettings.SetScriptingBackend(
                 BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
             DisableAutoJudgeInBuildScene();
+            PlayerSettings.Android.forceInternetPermission = false;
+            PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel34;
+            ConfigureOfflineSongResources.AssertSongsExcluded();
 
             var output = Path.GetFullPath(
                 Path.Combine("Build", "Android", "OpenWDS-touch-test.apk"));
@@ -61,7 +61,7 @@ namespace OpenWDS.Editor
                 locationPathName = output,
                 target = BuildTarget.Android,
                 targetGroup = BuildTargetGroup.Android,
-                options = BuildOptions.None,
+                options = BuildOptions.DetailedBuildReport,
             };
             var buildDiagnostics = new List<string>();
             Application.LogCallback captureBuildDiagnostic =
@@ -82,6 +82,12 @@ namespace OpenWDS.Editor
                 Application.logMessageReceived -= captureBuildDiagnostic;
             }
             var summary = report.summary;
+            var packedPaths = report.packedAssets.SelectMany(asset => asset.contents)
+                .Select(asset => asset.sourceAssetPath).Where(path => !string.IsNullOrEmpty(path)).Distinct().OrderBy(path => path).ToArray();
+            if (packedPaths.Length == 0) throw new InvalidOperationException("Unity did not provide a packed-asset report.");
+            File.WriteAllLines(Path.ChangeExtension(output, ".packed-assets.txt"), packedPaths);
+            if (packedPaths.Any(path => path.Contains("/StandardCharts/") || path.Contains("/AnotherNotations/") || path.EndsWith("/LocalMusicCatalog.json")))
+                throw new InvalidOperationException("Song assets were serialized into the player.");
             var meaningfulDiagnostics = buildDiagnostics
                 .Where(message => !string.IsNullOrWhiteSpace(message))
                 .ToArray();
@@ -114,7 +120,8 @@ namespace OpenWDS.Editor
                 $"knownShaderGraphAssertions={knownShaderGraphAssertions} " +
                 $"knownBundleImportDiagnostics={knownBundleImportDiagnostics} " +
                 $"unexpectedErrors={unexpectedErrors} " +
-                $"warnings={summary.totalWarnings} bytes={summary.totalSize} " +
+                $"warnings={summary.totalWarnings} playerBuildBytes={summary.totalSize} " +
+                $"apkBytes={new FileInfo(output).Length} " +
                 $"development=false autoTouch=false unitySplash=true " +
                 $"output={output}");
             if (summary.result != BuildResult.Succeeded ||

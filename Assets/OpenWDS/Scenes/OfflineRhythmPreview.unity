@@ -190,7 +190,7 @@ MonoBehaviour:
   _musicConfigRelativePath: OpenWDS/StandardCharts/1/1/music_config.csv
   _chartAsset: {fileID: 0}
   _musicConfigAsset: {fileID: 0}
-  _enableAutoJudge: 1
+  _enableAutoJudge: 0
   _noteSpeed: 5
   _noteStartOffset: 0
   _noteHeight: 8
@@ -246,7 +246,6 @@ MonoBehaviour:
   _musicDifficulty: 4
   _musicJacketSprite: {fileID: 0}
   _testPlayerUnitAsset: {fileID: 4900000, guid: 4c69266a156bf9f4e8d767adbd9ac187, type: 2}
-  _localMusicCatalogAsset: {fileID: 4900000, guid: 8d756f72719341978e0ad668626ae0e5, type: 3}
 --- !u!114 &93902521
 MonoBehaviour:
   m_ObjectHideFlags: 0

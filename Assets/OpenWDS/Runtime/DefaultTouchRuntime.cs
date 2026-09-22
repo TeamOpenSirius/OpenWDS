@@ -144,6 +144,7 @@ namespace OpenWDS.Runtime
             long milliseconds)
         {
             var phase = (TouchPhase)(int)touch.phase;
+            if (phase == TouchPhase.None) return;
             if (!PassesBeganNoiseFilter(
                     touch.touchId, milliseconds, phase))
             {
@@ -152,9 +153,9 @@ namespace OpenWDS.Runtime
             touches.Add(new InputEntity(
                 touch.touchId,
                 milliseconds,
-                touch.startScreenPosition,
+                phase == TouchPhase.Stationary ? touch.screenPosition : touch.startScreenPosition,
                 touch.screenPosition,
-                touch.delta,
+                phase == TouchPhase.Stationary ? Vector2.zero : touch.delta,
                 phase));
         }
 

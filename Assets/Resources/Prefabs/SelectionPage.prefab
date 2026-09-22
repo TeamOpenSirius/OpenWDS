@@ -181,7 +181,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _view: {fileID: 8970665452975238700}
   _listCellPrefab: {fileID: 1709254077376921, guid: c4f7079f81f24b8eb24b035ae554fac0, type: 3}
-  _catalogJson: {fileID: 4900000, guid: 8d756f72719341978e0ad668626ae0e5, type: 3}
   _jacketSprite: {fileID: 0}
   _musicJackets: []
   _difficultyMarkers:

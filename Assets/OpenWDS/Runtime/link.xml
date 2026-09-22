@@ -1,0 +1,7 @@
+<linker>
+  <!-- Home character bundles reference CapsuleCollider (native class ID 136).
+       StreamingAssets bundles are not scanned by Unity's build dependency walk. -->
+  <assembly fullname="UnityEngine.PhysicsModule">
+    <type fullname="UnityEngine.CapsuleCollider" preserve="all" />
+  </assembly>
+</linker>

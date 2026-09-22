@@ -66,6 +66,10 @@ namespace OpenWDS.Runtime
             throw new FormatException("Unknown MusicCoverType: " + MusicCoverType);
         public string Vocals;
         public long[] ActorIds;
+        public bool Invisible;
+        public bool IsAvailable => IsAvailableAt(DateTime.UtcNow);
+        public bool IsAvailableAt(DateTime utcNow) => !Invisible &&
+            (!HasReleasedAt || ReleasedAtUtcTicks <= utcNow.Ticks);
         public bool IsLongVersion;
         public int StaminaConsumption;
         public int MusicTimeSecond;

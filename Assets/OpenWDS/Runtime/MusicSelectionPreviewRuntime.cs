@@ -151,8 +151,7 @@ namespace OpenWDS.Runtime
             var relative =
                 $"OpenWDS/StandardCharts/{musicId}/cri/musicpreview_{musicId}.acb.bundle";
             if (!string.IsNullOrEmpty(previewPath)) relative = previewPath;
-            var path = Path.Combine(
-                CriWare.Common.streamingAssetsPath, relative);
+            var path = SongResourceStore.Resolve(relative);
             _acb = CriAtomExAcb.LoadAcbFile(null, path, null);
             if (_acb == null)
                 throw new InvalidOperationException(

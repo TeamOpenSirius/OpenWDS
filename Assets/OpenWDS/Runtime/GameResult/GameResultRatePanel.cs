@@ -16,43 +16,45 @@ namespace Sirius.GameResult
         public override void Initialize(GameResultViewData data)
         {
             base.Initialize(data);
-            // GameResultRatePanel.Initialize in the original ARM64 has no AUTO
-            // branch. It initializes both rate blocks from GameResultPanelEntity;
-            // offline fixtures retain the same path with zero-valued server data.
+            // Original GameResultRate.Initialize receives Life > 0 for notation
+            // only; the player total remains visible even when the live fails.
             if (_notationRateText != null)
-                _notationRateText.gameObject.SetActive(true);
+                _notationRateText.transform.parent.parent.gameObject.SetActive(!data.IsLongVersion || data.IsAnotherNotation);
             if (_playerRateText != null)
-                _playerRateText.gameObject.SetActive(true);
+                _playerRateText.transform.parent.parent.gameObject.SetActive(!data.IsLongVersion || data.IsAnotherNotation);
             if (_noRateText != null)
-                _noRateText.gameObject.SetActive(false);
+            {
+                _noRateText.gameObject.SetActive(data.IsLongVersion || data.IsAnotherNotation);
+                // GameResultView.SetAnotherNotationText (B923564) overrides both
+                // numeric blocks and the failed-live prompt, while retaining labels.
+                _noRateText.text = data.IsAnotherNotation && data.Difficulty == OpenWDS.Runtime.MusicDifficulty.Olivier
+                    ? "星章集計対象外です。" : "レート集計対象外です。";
+            }
 
             var isSp = data.Difficulty == OpenWDS.Runtime.MusicDifficulty.Olivier;
-            if (isSp)
+            if (_notationRateText != null) _notationRateText.text = isSp ? "星章" : "レート";
+            if (_playerRateText != null)
             {
-                if (_notationRateText != null) _notationRateText.text = "星章";
-                if (_playerRateText != null)
-                {
-                    _playerRateText.text = "星章達成率";
-                    _playerRateText.fontSize = 30;
-                }
+                _playerRateText.text = isSp ? "星章達成率" : "プレイヤーレート";
+                _playerRateText.fontSize = isSp ? 30 : 17;
             }
             BindRateBlock(
                 _notationRateText,
                 data.BestEverNotationRate,
                 data.ThisTimeNotationRate,
-                data.IsNewNotationRate, isSp ? "0" : "0.00");
+                data.IsNewNotationRate, isSp ? "0" : "0.00", data.HasLife, data.IsAnotherNotation);
             BindRateBlock(
                 _playerRateText,
                 data.BeforePlayerRate,
                 data.AfterPlayerRate,
-                data.IsNewPlayerRate, isSp ? "0.00'%'" : "0.00");
+                data.IsNewPlayerRate, isSp ? "0.00'%'" : "0.00", true, data.IsAnotherNotation);
         }
 
         private static void BindRateBlock(
             Text dataLabel,
             double previousRate,
             double currentRate,
-            bool isNewRecord, string format)
+            bool isNewRecord, string format, bool hasLife = true, bool excluded = false)
         {
             // DataLabel is nested below the label Image; its grandparent is the
             // NotationRate/PlayerRate block that owns the nested RatePanel.
@@ -60,6 +62,7 @@ namespace Sirius.GameResult
                 ? dataLabel.transform.parent?.parent?.Find("RatePanel")
                 : null;
             if (ratePanel == null) return;
+            ratePanel.gameObject.SetActive(hasLife && !excluded);
 
             var current = ratePanel.Find("ThisTimeRate");
             if (current != null)
@@ -100,9 +103,9 @@ namespace Sirius.GameResult
             }
             var arrow = ratePanel.Find("PreviousRate/Arrow");
             if (arrow != null) arrow.gameObject.SetActive(isNewRecord);
-            var notRate = ratePanel.Find("NotRateText");
-            if (notRate != null) notRate.gameObject.SetActive(false);
-            var notTarget = ratePanel.Find("NotRateTargetText");
+            var notRate = ratePanel.parent.Find("NotRateText");
+            if (notRate != null) notRate.gameObject.SetActive(!hasLife && !excluded);
+            var notTarget = ratePanel.parent.Find("NotRateTargetText");
             if (notTarget != null) notTarget.gameObject.SetActive(false);
         }
 

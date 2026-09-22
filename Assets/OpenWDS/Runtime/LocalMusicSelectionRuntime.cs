@@ -109,7 +109,7 @@ namespace OpenWDS.Runtime
 
         [SerializeField] private GameObject _view;
         [SerializeField] private GameObject _listCellPrefab;
-        [SerializeField] private TextAsset _catalogJson;
+
         [SerializeField] private Sprite _jacketSprite;
         [SerializeField] private MusicJacketAsset[] _musicJackets;
         [SerializeField] private DifficultyMarkerAsset[] _difficultyMarkers;
@@ -339,7 +339,6 @@ namespace OpenWDS.Runtime
         public void Configure(
             GameObject view,
             GameObject listCellPrefab,
-            TextAsset catalogJson,
             long[] jacketMusicIds,
             Sprite[] jackets,
             Sprite[] difficultyMarkers,
@@ -352,7 +351,6 @@ namespace OpenWDS.Runtime
         {
             _view = view;
             _listCellPrefab = listCellPrefab;
-            _catalogJson = catalogJson;
             if (jacketMusicIds == null)
                 throw new ArgumentNullException(nameof(jacketMusicIds));
             if (jackets == null) throw new ArgumentNullException(nameof(jackets));
@@ -513,11 +511,11 @@ namespace OpenWDS.Runtime
         private IEnumerator Start()
         {
             SelectionStartInvocationCount++;
-            if (_view == null || _listCellPrefab == null || _catalogJson == null)
+            if (_view == null || _listCellPrefab == null)
                 throw new InvalidOperationException(
                     "Local MusicSelection host is missing a required serialized asset.");
             double started = Time.realtimeSinceStartupAsDouble;
-            _filterCharacters = JsonUtility.FromJson<CharacterFilterData>(_catalogJson.text).CharacterBases;
+            _filterCharacters = JsonUtility.FromJson<CharacterFilterData>(SongResourceStore.CatalogJson).CharacterBases;
             RebuildCharacterBaseIconLookup();
             _se = UiSeRuntime.Instance;
             if (_se == null) _se = GetComponent<UiSeRuntime>();
@@ -563,7 +561,8 @@ namespace OpenWDS.Runtime
                 yield break;
             }
             StandardListInitializationCount++;
-            _catalog = LocalMusicCatalog.FromJson(_catalogJson.text);
+            _catalog = LocalMusicCatalog.FromJson(SongResourceStore.CatalogJson);
+            _catalog.Musics = _catalog.Musics.Where(music => music.IsAvailable).ToArray();
             _allMusics = (LocalMusicEntry[])_catalog.Musics.Clone();
             SelectAllPermanentActors(_vocalFilters);
             _localResults = new LocalResultStore();
@@ -4148,7 +4147,7 @@ namespace OpenWDS.Runtime
             }
             if (string.IsNullOrEmpty(music.JacketAssetPath))
                 throw new InvalidOperationException(
-                    $"Music {music.Id} has no Jacket StreamingAssets path.");
+                    $"Music {music.Id} has no Jacket song-resource path.");
             _loadingJackets.Add(music.Id);
             while (_jacketBundleLoadActive && !_stopJacketLoadingRequested)
                 yield return null;
@@ -4162,7 +4161,7 @@ namespace OpenWDS.Runtime
             try
             {
                 byte[] jacketBytes = null;
-                yield return StreamingAssetsRuntime.ReadBytes(
+                yield return SongResourceStore.ReadBytes(
                     music.JacketAssetPath, value => jacketBytes = value);
                 if (_stopJacketLoadingRequested) yield break;
                 var bundleRequest = AssetBundle.LoadFromMemoryAsync(jacketBytes);
@@ -4434,8 +4433,8 @@ namespace OpenWDS.Runtime
             byte[] chartBytes = null;
             byte[] configBytes = null;
             ChartReadCount++;
-            yield return StreamingAssetsRuntime.ReadBytes(selected.Live.DebugNotationAssetPath, b => chartBytes = b);
-            yield return StreamingAssetsRuntime.ReadBytes(selected.Live.DebugMusicConfigAssetPath, b => configBytes = b);
+            yield return SongResourceStore.ReadBytes(selected.Live.DebugNotationAssetPath, b => chartBytes = b);
+            yield return SongResourceStore.ReadBytes(selected.Live.DebugMusicConfigAssetPath, b => configBytes = b);
             // Publish only after both reads succeed. No partial native TextAsset
             // survives a cancelled/failed second request.
             _pendingChartAsset = new TextAsset(Encoding.UTF8.GetString(chartBytes))

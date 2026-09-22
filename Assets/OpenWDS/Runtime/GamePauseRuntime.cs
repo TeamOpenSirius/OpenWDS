@@ -66,6 +66,7 @@ namespace OpenWDS.Runtime
         private static readonly Vector2 SettingsDialogSize = new Vector2(1328f, 996f);
 
         public bool IsDialogOpen => _dialogInstance != null;
+        public Button PauseButton => _pauseButton;
         public bool IsPauseMenuOpen => _pauseBodyInstance != null;
         public bool IsSettingsOpen => _settingsInstance != null;
         public bool IsSettingsConfirmationOpen => _isRestartConfirmationOpen;
@@ -186,17 +187,20 @@ namespace OpenWDS.Runtime
             if (_uiSe == null) _uiSe = GetComponent<UiSeRuntime>();
             if (_uiSe == null) _uiSe = gameObject.AddComponent<UiSeRuntime>();
 
-            // TouchBlockFactory.Initialize receives the shared UI parent in the
-            // original scene.  Its TouchBlock is therefore ordered against the
-            // HUD by sibling index, rather than living in an unrelated root
-            // Canvas. DialogMonoBehaviour optionally adds its own front Canvas.
             _gameRuntime.Initialize();
-            var hudParent = _gameRuntime.GameHud?.CanvasTransform;
-            if (hudParent == null)
-                throw new InvalidOperationException(
-                    "Recovered gameplay HUD Canvas is required by Pause.");
-            _canvasObject = hudParent.gameObject;
-            _pauseInstance = Instantiate(_pausePrefab, hudParent, false);
+            // Keep the pause control visible even while the gameplay HUD fades
+            // for an introduction/retry. Dialog and touch-block share this scope.
+            _canvasObject = new GameObject("PauseCanvas", typeof(RectTransform),
+                typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            _canvasObject.transform.SetParent(transform, false);
+            var canvas = _canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 10;
+            var scaler = _canvasObject.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = .5f;
+            _pauseInstance = Instantiate(_pausePrefab, _canvasObject.transform, false);
             _pauseInstance.name = "Pause";
             _pauseInstance.transform.SetAsLastSibling();
             _pauseButton = _pauseInstance.GetComponentInChildren<Button>(true);
@@ -212,7 +216,9 @@ namespace OpenWDS.Runtime
 
         public void Open()
         {
-            if (_dialogInstance != null || _resumeCountDownInstance != null) return;
+            if (_dialogInstance != null || _resumeCountDownInstance != null ||
+                !_gameRuntime.IsGameplayStarted || _gameRuntime.IsRetired ||
+                _gameRuntime.IsResultShown || _gameRuntime.IsClearPerformancePlaying) return;
             _gameRuntime.SetPaused(true);
             CreateTouchBlock();
             OpenPauseMenu();
@@ -1336,7 +1342,7 @@ namespace OpenWDS.Runtime
                 _session.AcceptSavedValues();
                 DestroyDialog();
                 DestroyTouchBlock();
-                if (_pauseInstance != null) _pauseInstance.SetActive(false);
+                if (_pauseInstance != null) _pauseInstance.SetActive(true);
                 _gameRuntime.RestartPerformance();
                 return;
             }
@@ -1367,7 +1373,7 @@ namespace OpenWDS.Runtime
             if (!_gameRuntime.IsPaused || _resumeCoroutine != null) return;
             DestroyDialog();
             DestroyTouchBlock();
-            _pauseInstance.SetActive(false);
+            _pauseInstance.SetActive(true);
             _resumeCoroutine = StartCoroutine(ResumeAfterCountDown());
         }
 
@@ -1375,7 +1381,7 @@ namespace OpenWDS.Runtime
         {
             DestroyDialog();
             DestroyTouchBlock();
-            if (_pauseInstance != null) _pauseInstance.SetActive(false);
+            if (_pauseInstance != null) _pauseInstance.SetActive(true);
             _gameRuntime.RetryPerformance();
         }
 
@@ -1383,7 +1389,7 @@ namespace OpenWDS.Runtime
         {
             DestroyDialog();
             DestroyTouchBlock();
-            _pauseInstance.SetActive(false);
+            _pauseInstance.SetActive(true);
             _gameRuntime.RetireGame();
         }
 

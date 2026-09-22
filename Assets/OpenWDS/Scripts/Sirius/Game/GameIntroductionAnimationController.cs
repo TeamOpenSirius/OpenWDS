@@ -73,6 +73,9 @@ namespace Sirius.Game
                         _difficultyTexts[index].SetActive(false);
             }
             _animationExitTrigger = GetComponent<AnimationExitTrigger>();
+            // Original Initialize (B92CB0C) disables the Animator. Standby can be
+            // visible before PlayAsync without advancing the light movement.
+            if (_animator != null) _animator.enabled = false;
         }
 
         public void Play(int difficultyIndex, bool isUnlockOlivier)
@@ -140,6 +143,10 @@ namespace Sirius.Game
         private void OnAnimationExit()
         {
             IsPlaying = false;
+            if (_animator != null) _animator.enabled = false;
+            if (_difficultyTexts != null)
+                foreach (var difficulty in _difficultyTexts)
+                    if (difficulty != null) difficulty.SetActive(false);
             if (_animationExitTrigger != null)
                 _animationExitTrigger.Exited -= OnAnimationExit;
             gameObject.SetActive(false);

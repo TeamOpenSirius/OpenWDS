@@ -64,6 +64,21 @@ namespace OpenWDS.Editor
                 music.IsLongVersion = false;
                 Require(Convert.ToBase64String(before) == Convert.ToBase64String(File.ReadAllBytes(path)),
                     "ineligible attempts do not write save");
+                // Exercise both aggregate paths with an existing saved record:
+                // old eligible progress must stop contributing when excluded.
+                foreach (var exclusion in new[] { "long", "tutorial", "another" })
+                {
+                    music.IsLongVersion = exclusion == "long";
+                    var released = music.ReleasedAtUtcTicks;
+                    if (exclusion == "tutorial") music.ReleasedAtUtcTicks = new DateTime(2099, 12, 30, 17, 0, 0, DateTimeKind.Utc).Ticks;
+                    live.AnotherNotationId = exclusion == "another" ? 9 : 0;
+                    Require(OlivierStars.GetTotalPoint(new[] { music }, store) == 0 &&
+                        OlivierStars.GetTotalObtainablePoint(new[] { music }, DateTime.UtcNow) == 0,
+                        "earned and obtainable totals exclude " + exclusion);
+                    music.IsLongVersion = false;
+                    music.ReleasedAtUtcTicks = released;
+                    live.AnotherNotationId = 0;
+                }
                 var future = new LocalMusicEntry { Id = 2, HasReleasedAt = true,
                     ReleasedAtUtcTicks = DateTime.UtcNow.AddDays(1).Ticks,
                     Lives = new[] { new LocalLiveEntry { Id = 205, Difficulty = MusicDifficulty.Olivier, Level = 110 } } };
@@ -78,6 +93,16 @@ namespace OpenWDS.Editor
             {
                 if (Directory.Exists(root)) Directory.Delete(root, true);
             }
+            var actualCatalog = LocalMusicCatalog.FromJson(SongResourceStore.CatalogJson);
+            var tutorial = actualCatalog.Musics.Single(m => m.Id == 9999);
+            Require(!tutorial.IsAvailable && tutorial.Lives.All(l =>
+                !PlayerRating.IsEligible(tutorial, l) && !OlivierStars.IsEligible(tutorial, l)),
+                "unreleased tutorial excluded from selection, B30 and stars");
+            var maximum = OlivierStars.GetTotalObtainablePoint(actualCatalog.Musics, DateTime.UtcNow);
+            Require(maximum == OlivierStars.GetTotalObtainablePoint(actualCatalog.Musics
+                .Where(m => !m.IsLongVersion && m.Id != 9999), DateTime.UtcNow),
+                "frozen catalog maximum unchanged by deleting LONG/tutorial rows");
+            Debug.Log("OPENWDS_OLIVIER_MAXIMUM point=" + maximum + " long=" + actualCatalog.Musics.Count(m => m.IsLongVersion));
             ValidatePresentation();
             Debug.Log("OPENWDS_OLIVIER_STARS_VALIDATED server fixtures, independent best, persistence, exclusions, total percentage");
         }
@@ -120,6 +145,30 @@ namespace OpenWDS.Editor
                 Require(texts.Any(t => t.name == "ThisTimeRate" && t.text == "100") &&
                     texts.Any(t => t.name == "ThisTimeRate" && t.text == "92.72%"),
                     "count-up retains SP formatting");
+                foreach (var difficulty in new[] { MusicDifficulty.Stella, MusicDifficulty.Olivier })
+                foreach (var another in new[] { false, true })
+                foreach (var longVersion in new[] { false, true })
+                foreach (var life in new[] { false, true })
+                {
+                    var branch = new GameResultViewData(0, 0, 0, 0, 0, 10, false, false, false, false,
+                        new Dictionary<TimingType, int>(), new Dictionary<int, int>(),
+                        difficulty: difficulty, hasLife: life, isLongVersion: longVersion, isAnotherNotation: another);
+                    panel.Initialize(branch);
+                    var notation = texts.Single(t => t.name == "ThisTimeRate" &&
+                        t.transform.parent.parent.name == "NotationRate");
+                    var player = texts.Single(t => t.name == "ThisTimeRate" &&
+                        t.transform.parent.parent.name == "PlayerRate");
+                    var noRate = (Text)typeof(GameResultRatePanel).GetField("_noRateText", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(panel);
+                    Require(notation.transform.parent.gameObject.activeSelf == (life && !another) &&
+                        player.transform.parent.gameObject.activeSelf == !another &&
+                        notation.transform.parent.parent.gameObject.activeSelf == (!longVersion || another) &&
+                        player.transform.parent.parent.gameObject.activeSelf == (!longVersion || another) &&
+                        noRate.gameObject.activeSelf == (longVersion || another) &&
+                        noRate.text == (another && difficulty == MusicDifficulty.Olivier ? "星章集計対象外です。" : "レート集計対象外です。") &&
+                        notation.transform.parent.parent.Find("NotRateText").gameObject.activeSelf == (!life && !another) &&
+                        !player.transform.parent.parent.Find("NotRateText").gameObject.activeSelf,
+                        "difficulty/Another/Long/Life branches and reinitialization");
+                }
             }
             finally
             {

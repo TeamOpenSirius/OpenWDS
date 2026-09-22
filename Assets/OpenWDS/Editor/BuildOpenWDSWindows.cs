@@ -9,11 +9,7 @@ namespace OpenWDS.Editor
 {
     public static class BuildOpenWDSWindows
     {
-        private static readonly string[] Scenes =
-        {
-            "Assets/OpenWDS/Scenes/LocalMusicSelection.unity",
-            "Assets/OpenWDS/Scenes/OfflineRhythmPreview.unity",
-        };
+        private static readonly string[] Scenes = ConfigureOfflineSongResources.Scenes;
 
         [Serializable]
         private sealed class WindowsBuildReport
@@ -34,6 +30,7 @@ namespace OpenWDS.Editor
 
         public static void BuildOfflineTest()
         {
+            ConfigureOfflineSongResources.Run();
             foreach (var scene in Scenes)
                 if (!File.Exists(scene))
                     throw new FileNotFoundException(

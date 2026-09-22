@@ -103,3 +103,7 @@ InitTestScene*.unity*
 
 skills-lock.json
 .agents/
+# External song payloads are regenerated from reverse sources, never Unity assets.
+/SongResources/
+
+/SongResources.import/

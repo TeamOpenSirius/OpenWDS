@@ -1387,6 +1387,32 @@ namespace EnhancedUI.EnhancedScroller
         /// <summary>
         /// This function is called if the scroller is scrolled, updating the active list of cells
         /// </summary>
+        // OpenWDS: keep ScrollRect's drag anchor and velocity history in the same
+        // coordinate system when EnhancedScroller recycles a loop copy.
+        private static readonly System.Reflection.FieldInfo PreviousPosition = typeof(ScrollRect).GetField(
+            "m_PrevPosition", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        private static readonly System.Reflection.FieldInfo DragStartPosition = typeof(ScrollRect).GetField(
+            "m_ContentStartPosition", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        private void RebaseLoop(float position)
+        {
+            var before = _scrollRect.content.anchoredPosition;
+            ScrollPosition = position;
+            var delta = _scrollRect.content.anchoredPosition - before;
+            PreviousPosition.SetValue(_scrollRect, (Vector2)PreviousPosition.GetValue(_scrollRect) + delta);
+            DragStartPosition.SetValue(_scrollRect, (Vector2)DragStartPosition.GetValue(_scrollRect) + delta);
+        }
+
+        public void InterruptTween()
+        {
+            if (!IsTweening && !_snapJumping) return;
+            StopAllCoroutines();
+            if (_snapJumping) _scrollRect.inertia = _snapInertia;
+            _snapJumping = false;
+            IsTweening = false;
+            if (scrollerTweeningChanged != null) scrollerTweeningChanged(this, false);
+        }
+
         private void _RefreshActive()
         {
             //_refreshActive = false;
@@ -1401,13 +1427,13 @@ namespace EnhancedUI.EnhancedScroller
                 if (_scrollPosition < _loopFirstJumpTrigger)
                 {
                     velocity = _scrollRect.velocity;
-                    ScrollPosition = _loopLastScrollPosition - (_loopFirstJumpTrigger - _scrollPosition) + spacing;
+                    RebaseLoop(_loopLastScrollPosition - (_loopFirstJumpTrigger - _scrollPosition) + spacing);
                     _scrollRect.velocity = velocity;
                 }
                 else if (_scrollPosition > _loopLastJumpTrigger)
                 {
                     velocity = _scrollRect.velocity;
-                    ScrollPosition = _loopFirstScrollPosition + (_scrollPosition - _loopLastJumpTrigger) - spacing;
+                    RebaseLoop(_loopFirstScrollPosition + (_scrollPosition - _loopLastJumpTrigger) - spacing);
                     _scrollRect.velocity = velocity;
                 }
             }

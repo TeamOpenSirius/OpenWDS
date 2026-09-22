@@ -23,6 +23,8 @@ namespace OpenWDS.Runtime
         private Camera _camera;
         private CinemachineBrain _brain;
         private bool _released;
+        private readonly List<GameObject> _suspendedRoots = new List<GameObject>();
+        public bool IsSuspended { get; private set; }
         public bool IsReady { get; private set; }
         public GameObject Environment { get; private set; }
         public CharacterObjectPerformanceTrigger Character { get; private set; }
@@ -149,6 +151,26 @@ namespace OpenWDS.Runtime
                 material.shader = shader;
             }
         }
+        public void Suspend()
+        {
+            if (IsSuspended || !IsReady) return;
+            _brain.enabled = false;
+            foreach (var root in _scene.GetRootGameObjects())
+                if (root.activeSelf) { _suspendedRoots.Add(root); root.SetActive(false); }
+            IsSuspended = true;
+        }
+
+        public void Resume()
+        {
+            if (!IsSuspended) return;
+            _camera.orthographic = false;
+            _camera.cullingMask = ~0;
+            foreach (var root in _suspendedRoots) if (root != null) root.SetActive(true);
+            _suspendedRoots.Clear();
+            _brain.enabled = true;
+            IsSuspended = false;
+        }
+
         public IEnumerator Release()
         {
             IsReady = false;

@@ -43,6 +43,8 @@ namespace OpenWDS.Editor
         private sealed class Report
         {
             public bool passed;
+            public bool introductionMovedDuringCurtain;
+            public float introductionDelaySeconds;
             public bool musicCoverTypesValidated;
             public bool olivierStarsValidated;
             public bool hudFadeObserved;
@@ -99,6 +101,9 @@ namespace OpenWDS.Editor
             SessionState.SetString(StartedKey, DateTime.UtcNow.Ticks.ToString());
             SessionState.EraseString(ErrorKey);
             SessionState.SetBool(IntroductionFocusValidKey, false);
+            SessionState.SetBool("OpenWDS.IntroDuringCurtain", false);
+            SessionState.SetBool("OpenWDS.IntroLightMoved", false);
+            SessionState.SetFloat("OpenWDS.IntroNativeDelay", -1f);
             SessionState.EraseInt(SelectionStartCountKey);
             var screenshot = ScreenshotPath();
             if (File.Exists(screenshot)) File.Delete(screenshot);
@@ -152,6 +157,28 @@ namespace OpenWDS.Editor
                 return;
             }
 
+            var openingGame = UnityEngine.Object.FindObjectOfType<GameRuntime>();
+            if (openingGame != null && openingGame.IsIntroductionPlaying &&
+                CurtainTransitionRuntime.CurrentAnimation == "open")
+            {
+                var intro = UnityEngine.Object.FindObjectOfType<Sirius.Game.GameIntroductionAnimationController>();
+                var light = intro.GetComponentsInChildren<Transform>(true).First(t => t.name == "Light1");
+                if (!SessionState.GetBool("OpenWDS.IntroDuringCurtain", false))
+                {
+                    if (openingGame.IntroductionCurtainPhaseAtStart != "open")
+                    {
+                        Finish(false, "Introduction started before the initialized scene began opening: " + openingGame.IntroductionCurtainPhaseAtStart, elapsed);
+                        return;
+                    }
+                    SessionState.SetBool("OpenWDS.IntroDuringCurtain", true);
+                    SessionState.SetFloat("OpenWDS.IntroNativeDelay", openingGame.IntroductionPlaybackStartedAt - openingGame.IntroductionTransitionStartedAt);
+                    SessionState.SetFloat("OpenWDS.IntroLightX", light.localPosition.x);
+                    SessionState.SetFloat("OpenWDS.IntroLightY", light.localPosition.y);
+                }
+                var initial = new Vector2(SessionState.GetFloat("OpenWDS.IntroLightX", 0), SessionState.GetFloat("OpenWDS.IntroLightY", 0));
+                if (Vector2.Distance(initial, light.localPosition) > 1f)
+                    SessionState.SetBool("OpenWDS.IntroLightMoved", true);
+            }
             if (SceneNavigationRuntime.IsLoading || CurtainTransitionRuntime.IsTransitioning) return;
             var phase = SessionState.GetString(PhaseKey, "");
             if (_lastLoggedPhase != phase)
@@ -163,6 +190,8 @@ namespace OpenWDS.Editor
             {
                 var runtime = UnityEngine.Object.FindObjectOfType<LocalMusicSelectionRuntime>();
                 if (runtime == null || !runtime.IsInitialized || runtime.IsFocusTransitionActive) return;
+                if (runtime.CatalogMusicIds.Contains(9999))
+                    throw new InvalidOperationException("Unreleased tutorial entered the ordinary list.");
                 if (!SessionState.GetBool("OpenWDS.SelectionBugChecks", false))
                 {
                     SessionState.SetString(PhaseKey, "selection-bug-checks");
@@ -425,6 +454,12 @@ namespace OpenWDS.Editor
                     !CurtainTransitionRuntime
                         .OpenRenderedInDestination)
                     return;
+                var nativeDelay = SessionState.GetFloat("OpenWDS.IntroNativeDelay", -1f);
+                if (!SessionState.GetBool("OpenWDS.IntroLightMoved", false) || nativeDelay < .9f || nativeDelay > 1.2f)
+                {
+                    Finish(false, "Introduction must move lights during curtain opening after the native 0.9 s timer; delay=" + nativeDelay, elapsed);
+                    return;
+                }
                 if (UnityEngine.Object.FindObjectsOfType<EventSystem>().Length != 1)
                 {
                     Finish(false, "Gameplay must contain exactly one EventSystem.", elapsed);
@@ -577,15 +612,27 @@ namespace OpenWDS.Editor
                 SessionState.SetInt("OpenWDS.RetryGame", game.GetInstanceID());
                 SessionState.SetInt("OpenWDS.RetryTransitions", SceneNavigationRuntime.CompletedTransitions);
                 SessionState.SetString(PhaseKey, "game-retried");
-                game.SetPaused(true);
-                game.RetryPerformance();
+                var pauseMenu = game.GetComponent<GamePauseRuntime>();
+                pauseMenu.PauseButton.onClick.Invoke();
+                FindNamedTransform(pauseMenu.transform, "SecondButton").GetComponent<Button>().onClick.Invoke();
+                // Retry confirmation replaces the dialog immediately; select its active button.
+                var confirm = pauseMenu.GetComponentsInChildren<Button>(true)
+                    .Last(b => b.name == "SecondButton" && b.gameObject.activeInHierarchy);
+                confirm.onClick.Invoke();
+                SessionState.SetBool("OpenWDS.RetryIntroduction", false);
+                if (!pauseMenu.PauseButton.gameObject.activeInHierarchy)
+                    throw new InvalidOperationException("Pause button disappeared after Retry UI");
                 return;
             }
             if (phase == "game-retried")
             {
                 var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
+                if (game != null && game.RetryCount == 1 && game.IsIntroductionPlaying)
+                    SessionState.SetBool("OpenWDS.RetryIntroduction", true);
+                if (game != null && !game.GetComponent<GamePauseRuntime>().PauseButton.gameObject.activeInHierarchy)
+                    throw new InvalidOperationException("Pause button disappeared during retry introduction");
                 if (game == null || !game.IsGameplayStarted || game.IsRestartPending) return;
-                if (game.RetryCount != 1 || game.GetInstanceID() != SessionState.GetInt("OpenWDS.RetryGame", 0) ||
+                if (!SessionState.GetBool("OpenWDS.RetryIntroduction", false) || game.RetryCount != 1 || game.GetInstanceID() != SessionState.GetInt("OpenWDS.RetryGame", 0) ||
                     game.gameObject.scene.handle != SessionState.GetInt("OpenWDS.RetryScene", 0) ||
                     SceneNavigationRuntime.CompletedTransitions != SessionState.GetInt("OpenWDS.RetryTransitions", -1) ||
                     game.GameResultRuntime.CollectedCount != 0 || game.GameHud.TotalScore != 0 || game.IsPaused)
@@ -1077,6 +1124,8 @@ namespace OpenWDS.Editor
             var report = new Report
             {
                 passed = passed,
+                introductionMovedDuringCurtain = SessionState.GetBool("OpenWDS.IntroLightMoved", false),
+                introductionDelaySeconds = SessionState.GetFloat("OpenWDS.IntroNativeDelay", -1f),
                 musicCoverTypesValidated = SessionState.GetBool("OpenWDS.MusicCoverTypesValidated", false),
                 hudFadeObserved = SessionState.GetBool(HudFadeKey, false),
                 previewLeftExitObserved = SessionState.GetBool(PreviewExitKey, false),

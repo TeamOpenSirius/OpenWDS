@@ -34,6 +34,11 @@ namespace OpenWDS.Runtime
         private readonly Dictionary<EnhancedScrollerCellView, Entry> _cells = new Dictionary<EnhancedScrollerCellView, Entry>();
         private readonly Dictionary<Transform, Dictionary<string, Transform>> _nodes = new Dictionary<Transform, Dictionary<string, Transform>>();
         private readonly Dictionary<EnhancedScrollerCellView, bool> _focused = new Dictionary<EnhancedScrollerCellView, bool>();
+        private static AnotherNotationFilters _returnFilter;
+        private static float _returnScrollPosition;
+        private static bool _returnAuto;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetReturnState() { _returnFilter = null; }
         private Entry _preparedEntry;
         public int SelectionPreparationCount { get; private set; }
         public int ChartReadCount { get; private set; }
@@ -90,7 +95,7 @@ namespace OpenWDS.Runtime
         {
             _host = host; _closed = closed; _busy = true;
             byte[] bytes = null;
-            yield return StreamingAssetsRuntime.ReadBytes("OpenWDS/AnotherNotations/catalog.json", b => bytes = b);
+            yield return SongResourceStore.ReadBytes("OpenWDS/AnotherNotations/catalog.json", b => bytes = b);
             _entries = JsonUtility.FromJson<Catalog>(Encoding.UTF8.GetString(bytes)).Entries;
             if (_entries == null || _entries.Length == 0 || _entries.Select(e => e.Id).Distinct().Count() != _entries.Length)
                 throw new InvalidOperationException("Invalid AnotherNotation catalog.");
@@ -146,7 +151,7 @@ namespace OpenWDS.Runtime
             _scroller.snapTweenTime = .2f;
             _scroller.ScrollRect.decelerationRate = .01f;
             var input = _scroller.gameObject.AddComponent<MusicSelectionLoopInput>();
-            input.Configure(() => _scroller.snapping = false, () =>
+            input.Configure(() => { _scroller.snapping = false; _scroller.InterruptTween(); }, () =>
             {
                 _scroller.snapping = true;
                 if (Mathf.Abs(_scroller.LinearVelocity) <= _scroller.snapVelocityThreshold) _scroller.Snap();
@@ -178,11 +183,22 @@ namespace OpenWDS.Runtime
             _filter.Applied = ApplyFilter;
             _allEntries = _entries;
             _results = new LocalResultStore(anotherNotation: true);
-            _entries = SortEntries(_allEntries);
-            _selected = _entries.First(e => e.Id == 1);
+            var returnedId = FrontendNavigation.ReturnedSelection?.Live.AnotherNotationId ?? 0;
+            var restore = returnedId > 0 && _returnFilter != null;
+            if (restore) { _filter.CopyFrom(_returnFilter); _auto = _returnAuto; RefreshAuto(); }
+            _entries = SortEntries(FilterEntries());
+            _selected = _entries.FirstOrDefault(e => e.Id == returnedId) ?? _entries.FirstOrDefault();
             _scroller.ReloadData();
             yield return null;
-            _scroller.JumpToDataIndex(Array.IndexOf(_entries, _selected), .5f, .5f, false);
+            // A newly earned clear lamp can remove the last entry from the saved filter.
+            Visible(Find(_view.transform, "NoMusicPanel").gameObject, _entries.Length == 0);
+            Find(_view.transform, "OkButton").GetComponent<Button>().interactable = _entries.Length > 0;
+            Find(_view.transform, "RandomButton").GetComponent<Button>().interactable = _entries.Length > 0;
+            if (_selected != null)
+            {
+                _scroller.JumpToDataIndex(Array.IndexOf(_entries, _selected), .5f, .5f, false);
+                if (restore) _scroller.ScrollPosition = _returnScrollPosition;
+            }
             _busy = false;
             IsReady = true;
             SelectIndex(Array.IndexOf(_entries, _selected), false);
@@ -210,17 +226,20 @@ namespace OpenWDS.Runtime
             }
             return sorted.ThenBy(e => e.MusicReleasedAtTicks).ThenBy(e => e.MusicId).ToArray();
         }
-        private void ApplyFilter()
+        private IEnumerable<Entry> FilterEntries()
         {
-            var previous = _selected;
-            var entries = _allEntries.Where(e =>
+            return _allEntries.Where(e =>
                 (_filter.Difficulty.Count == 0 || _filter.Difficulty.Contains(e.Difficulty - 1)) &&
                 (_filter.MusicVideo.Count == 0 || _filter.MusicVideo.Contains(e.Music.MusicVideoType == MusicVideoType.None ? 1 : 0)) &&
                 (_filter.MusicType.Count == 0 || _filter.MusicType.Contains(e.Music.MusicCoverType - 1)) &&
                 (_filter.AllActors || _filter.Actors.Overlaps(e.Music.ActorIds)) &&
                 (_filter.ClearLamp.Count == 0 || _filter.ClearLamp.Any(f =>
                     (int)_results.GetClearLamp(e.Id, (MusicDifficulty)e.Difficulty) < (f == 0 ? 1 : f == 1 ? 2 : 3))));
-            _entries = SortEntries(entries);
+        }
+        private void ApplyFilter()
+        {
+            var previous = _selected;
+            _entries = SortEntries(FilterEntries());
             _selected = _entries.Contains(previous) ? previous : _entries.FirstOrDefault();
             _scroller.ReloadData();
             Visible(Find(_view.transform, "NoMusicPanel").gameObject, _entries.Length == 0);
@@ -368,7 +387,7 @@ namespace OpenWDS.Runtime
             if (_closing || _jackets.ContainsKey(entry.MusicId)) yield break;
             _loadingJackets.Add(entry.MusicId);
             byte[] bytes = null;
-            yield return StreamingAssetsRuntime.ReadBytes(entry.Music.JacketAssetPath, b => bytes = b);
+            yield return SongResourceStore.ReadBytes(entry.Music.JacketAssetPath, b => bytes = b);
             var request = AssetBundle.LoadFromMemoryAsync(bytes);
             yield return request;
             var bundle = request.assetBundle;
@@ -515,15 +534,19 @@ namespace OpenWDS.Runtime
         {
             byte[] bytes = null;
             ChartReadCount++;
-            yield return StreamingAssetsRuntime.ReadBytes(_selected.Music.Lives[0].DebugNotationAssetPath, b => bytes = b);
+            yield return SongResourceStore.ReadBytes(_selected.Music.Lives[0].DebugNotationAssetPath, b => bytes = b);
             if (_chart != null) Destroy(_chart);
             _chart = new TextAsset(Encoding.UTF8.GetString(bytes));
-            yield return StreamingAssetsRuntime.ReadBytes(_selected.Music.Lives[0].DebugMusicConfigAssetPath, b => bytes = b);
+            yield return SongResourceStore.ReadBytes(_selected.Music.Lives[0].DebugMusicConfigAssetPath, b => bytes = b);
             if (_config != null) Destroy(_config);
             _config = new TextAsset(Encoding.UTF8.GetString(bytes));
             yield return SplitLaneAssetRuntime.PrepareStreamingAssets(_chart.text);
             SplitLaneAssetRuntime.ThrowIfStreamingAssetPreparationFailed();
             _preview.Stop();
+            _returnFilter = new AnotherNotationFilters();
+            _returnFilter.CopyFrom(_filter);
+            _returnScrollPosition = _scroller.ScrollPosition;
+            _returnAuto = _auto;
             _host.LaunchAnotherGame(new LocalMusicSelection(_selected.Music, _selected.Music.Lives[0]), _chart, _config, _jackets[_selected.MusicId], _auto);
         }
         private void OnEnable()

@@ -18,7 +18,7 @@ namespace OpenWDS.Runtime
             LocalLiveEntry live) =>
             music != null &&
             live != null &&
-            !music.IsLongVersion && live.AnotherNotationId == 0 &&
+            music.IsAvailable && !music.IsLongVersion && live.AnotherNotationId == 0 &&
             live.Difficulty >= MusicDifficulty.Normal &&
             live.Difficulty <= MusicDifficulty.Stella;
 

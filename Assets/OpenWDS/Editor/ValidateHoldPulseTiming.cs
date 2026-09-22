@@ -10,10 +10,46 @@ namespace OpenWDS.Editor
 {
     public static class ValidateHoldPulseTiming
     {
+        private static void ValidateHeldTailsWithDelayedEvents()
+        {
+            int cases = 0;
+            foreach (var chart in Directory.GetFiles(Path.Combine(SongResourceStore.Root,
+                         "OpenWDS/StandardCharts/1/1"), "*.csv"))
+            {
+                if (Path.GetFileName(chart) == "music_config.csv") continue;
+                var notes = StandardNotation.Parse(File.ReadAllText(chart));
+                foreach (var hold in notes.Where(n => n.NoteType == 100 || n.NoteType == 101).Take(4))
+                foreach (var lag in new[] { 1, 8, 33, 100 })
+                foreach (var phase in new[] { TouchPhase.Stationary, TouchPhase.Moved })
+                using (var runtime = new InputHandlerRuntime(new[] { hold }, 0f,
+                           n => new Vector2(n.Lane, 0), p => new HitLaneEntity((int)p.x, 0, 0, 0, 0)))
+                {
+                    var position = new Vector2(hold.Lane, 0);
+                    var before = hold.EndMilliseconds - 1;
+                    runtime.TickPlayer(before, before, new[] { new InputEntity(1,
+                        before - lag, position, position, Vector2.zero, phase) });
+                    if (runtime.ResolvedNoteCount != 0) throw new InvalidOperationException("Held tail completed early");
+                    var due = hold.EndMilliseconds + 1;
+                    runtime.TickPlayer(due, due, new[] { new InputEntity(1,
+                        due - lag, position, position, Vector2.zero, phase) });
+                    if (runtime.InputResults.Count != 1 || runtime.InputResults[0].TimingType != TimingType.PerfectStar ||
+                        runtime.RemainingHoldCount != 0 || runtime.PublishedMissCount != 0)
+                        throw new InvalidOperationException($"Music 1 held tail: {chart} note={hold.Id} phase={phase} lag={lag}");
+                    runtime.TickPlayer(due + 33, due + 33, new[] { new InputEntity(1,
+                        due, position, position, Vector2.zero, phase) });
+                    if (runtime.InputResults.Count != 0) throw new InvalidOperationException("Held tail counted twice");
+                    cases++;
+                }
+            }
+            if (cases == 0) throw new InvalidOperationException("No Music 1 held-tail cases");
+            Debug.Log($"OPENWDS_MANUAL_HOLD_TAILS cases={cases} frameClock=true passed=true");
+        }
+
         public static void Run()
         {
             ValidateSharedHoldRelease();
-            var path = Path.Combine(Application.streamingAssetsPath,
+            ValidateHeldTailsWithDelayedEvents();
+            var path = Path.Combine(SongResourceStore.Root,
                 "OpenWDS/StandardCharts/61/1/4.csv");
             var notes = StandardNotation.Parse(File.ReadAllText(path));
             var byId = notes.ToDictionary(n => n.Id);

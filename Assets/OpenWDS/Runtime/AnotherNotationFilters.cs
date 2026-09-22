@@ -14,5 +14,14 @@ namespace OpenWDS.Runtime
         public readonly HashSet<long> Actors = new HashSet<long>();
         public bool AllActors = true;
         public Action Applied;
+        public void CopyFrom(AnotherNotationFilters source)
+        {
+            SortMode = source.SortMode; AllActors = source.AllActors;
+            Difficulty.Clear(); Difficulty.UnionWith(source.Difficulty);
+            ClearLamp.Clear(); ClearLamp.UnionWith(source.ClearLamp);
+            MusicVideo.Clear(); MusicVideo.UnionWith(source.MusicVideo);
+            MusicType.Clear(); MusicType.UnionWith(source.MusicType);
+            Actors.Clear(); Actors.UnionWith(source.Actors);
+        }
     }
 }

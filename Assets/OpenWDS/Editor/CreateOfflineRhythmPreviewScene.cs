@@ -56,15 +56,15 @@ namespace OpenWDS.Editor
         private const int PreviewWidth = 1920;
         private const int PreviewHeight = 1200;
         private const string HardChartSourcePath =
-            "Assets/StreamingAssets/OpenWDS/StandardCharts/1/1/2.csv";
+            "SongResources/OpenWDS/StandardCharts/1/1/2.csv";
         private const string StellaChartSourcePath =
-            "Assets/StreamingAssets/OpenWDS/StandardCharts/1/1/4.csv";
+            "SongResources/OpenWDS/StandardCharts/1/1/4.csv";
         private const string ScratchHoldMaterialPath =
             "Assets/Resources/Material/Game/ScratchLongNotesSprite.mat";
         private const string MusicConfigSourcePath =
-            "Assets/StreamingAssets/OpenWDS/StandardCharts/1/1/music_config.csv";
+            "SongResources/OpenWDS/StandardCharts/1/1/music_config.csv";
         private const string MusicJacketPath =
-            "Assets/StreamingAssets/OpenWDS/StandardCharts/1/jacket.bundle";
+            "SongResources/OpenWDS/StandardCharts/1/jacket.bundle";
         private const string TestPlayerUnitPath =
             "Assets/StreamingAssets/OpenWDS/TestPlayer/stella-principal-gauge-unit.json";
         private const string TestPlayerUnitTextAssetPath =
@@ -400,9 +400,7 @@ namespace OpenWDS.Editor
                 MusicDifficulty.Stella,
                 musicJacket,
                 testPlayerUnitAsset,
-                isUnlockOlivier: false,
-                localMusicCatalogAsset: AssetDatabase.LoadAssetAtPath<TextAsset>(
-                    "Assets/OpenWDS/OfflineData/LocalMusicCatalog.json"));
+                isUnlockOlivier: false);
             var pauseRuntime = runtimeRoot.AddComponent<GamePauseRuntime>();
             pauseRuntime.Configure(
                 gameRuntime,
@@ -1269,8 +1267,7 @@ namespace OpenWDS.Editor
             holdCount = 0;
             remainingCounts = new int[6];
             var chartPath = Path.Combine(
-                Application.dataPath, "StreamingAssets", "OpenWDS",
-                "StandardCharts", "1", "1", "2.csv");
+                SongResourceStore.Root, "OpenWDS", "StandardCharts", "1", "1", "2.csv");
             var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
             var runtime = new InputHandlerRuntime(
                 notation,
@@ -1527,18 +1524,12 @@ namespace OpenWDS.Editor
             perfectStar = 0;
             good = 0;
             var chartPath = Path.Combine(
-                Application.dataPath,
-                "StreamingAssets",
-                "OpenWDS",
-                "StandardCharts",
+                SongResourceStore.Root, "OpenWDS", "StandardCharts",
                 "7",
                 "1",
                 "4.csv");
             var configPath = Path.Combine(
-                Application.dataPath,
-                "StreamingAssets",
-                "OpenWDS",
-                "StandardCharts",
+                SongResourceStore.Root, "OpenWDS", "StandardCharts",
                 "7",
                 "1",
                 "music_config.csv");
@@ -1708,10 +1699,7 @@ namespace OpenWDS.Editor
         private static bool ValidateAllChartNoInputMissCoverage()
         {
             var chartRoot = Path.Combine(
-                Application.dataPath,
-                "StreamingAssets",
-                "OpenWDS",
-                "StandardCharts");
+                SongResourceStore.Root, "OpenWDS", "StandardCharts");
             var chartPaths = Directory.GetFiles(
                 chartRoot, "*.csv", SearchOption.AllDirectories)
                 .Where(path => Path.GetFileName(path) != "music_config.csv")
@@ -2545,16 +2533,21 @@ namespace OpenWDS.Editor
             return count;
         }
 
+        public static void RecoverResultCurtain()
+        {
+            PrepareGameResultCurtainSpine();
+        }
+
         private static void PrepareGameResultCurtainSpine()
         {
-            const string atlasTextPath = ResultCurtainRoot + "/curtain_Albedo.atlas_0.txt";
-            const string skeletonPath = ResultCurtainRoot + "/curtain_Albedo.skel_0.bytes";
-            const string texturePath = ResultCurtainRoot + "/curtain_Albedo.png";
-            const string materialPath = ResultCurtainRoot + "/curtain_Albedo_Spine.mat";
+            const string atlasTextPath = ResultCurtainRoot + "/curtain_result.atlas.txt";
+            const string skeletonPath = ResultCurtainRoot + "/curtain_result.skel.bytes";
+            const string texturePath = "Assets/Resources/Texture2D/curtain_result.png";
+            const string materialPath = ResultCurtainRoot + "/curtain_result_Material.mat";
             const string spineShaderPath =
                 "Assets/Spine/Runtime/spine-unity/Shaders/Spine-Skeleton.shader";
-            const string atlasAssetPath = ResultCurtainRoot + "/curtain_Albedo_Atlas.asset";
-            const string skeletonAssetPath = ResultCurtainRoot + "/curtain_Albedo_SkeletonData.asset";
+            const string atlasAssetPath = ResultCurtainRoot + "/curtain_result_Atlas.asset";
+            const string skeletonAssetPath = ResultCurtainRoot + "/curtain_result_SkeletonData.asset";
             const string prefabPath =
                 "Assets/Resources/Prefabs/GameResultCurtainBackground.prefab";
 
@@ -2565,7 +2558,7 @@ namespace OpenWDS.Editor
                 texture.width != 2048 || texture.height != 2048)
                 throw new FileNotFoundException(
                     "GameResult curtain Spine inputs are missing; rerun " +
-                    "tools/sync_game_result_background.py");
+                    "tools/sync_result_curtain.py");
 
             // The original Spine material consumes premultiplied alpha
             // (_StraightAlphaInput=0). Unity's Alpha Is Transparency importer
@@ -2588,13 +2581,13 @@ namespace OpenWDS.Editor
                     "Installed Spine/Skeleton shader asset is missing");
             if (material == null)
             {
-                material = new Material(shader) { name = "curtain_Albedo" };
+                material = new Material(shader) { name = "curtain_result" };
                 material.mainTexture = texture;
                 AssetDatabase.CreateAsset(material, materialPath);
             }
             else
             {
-                material.name = "curtain_Albedo";
+                material.name = "curtain_result";
                 material.shader = shader;
                 material.mainTexture = texture;
                 EditorUtility.SetDirty(material);
@@ -2605,7 +2598,7 @@ namespace OpenWDS.Editor
             if (atlasAsset == null)
             {
                 atlasAsset = ScriptableObject.CreateInstance<Spine.Unity.SpineAtlasAsset>();
-                atlasAsset.name = "curtain_Albedo_Atlas";
+                atlasAsset.name = "curtain_result_Atlas";
                 AssetDatabase.CreateAsset(atlasAsset, atlasAssetPath);
             }
             atlasAsset.atlasFile = atlasText;
@@ -2618,7 +2611,7 @@ namespace OpenWDS.Editor
             if (skeletonAsset == null)
             {
                 skeletonAsset = ScriptableObject.CreateInstance<Spine.Unity.SkeletonDataAsset>();
-                skeletonAsset.name = "curtain_Albedo_SkeletonData";
+                skeletonAsset.name = "curtain_result_SkeletonData";
                 AssetDatabase.CreateAsset(skeletonAsset, skeletonAssetPath);
             }
             skeletonAsset.skeletonJSON = skeletonText;
@@ -2637,6 +2630,7 @@ namespace OpenWDS.Editor
                     throw new InvalidOperationException("Curtain SkeletonMecanim is missing");
                 skeleton.skeletonDataAsset = skeletonAsset;
                 skeleton.Initialize(true, false);
+                PrepareResultSpotlight(root);
                 PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
             }
             finally
@@ -2644,6 +2638,54 @@ namespace OpenWDS.Editor
                 PrefabUtility.UnloadPrefabContents(root);
             }
             AssetDatabase.SaveAssets();
+        }
+
+        private static void PrepareResultSpotlight(GameObject root)
+        {
+            const string texturePath = "Assets/Resources/Texture2D/ResultSpotlightSquare.png";
+            const string materialPath = "Assets/Resources/Material/ResultSpotlight.mat";
+            const string clipPath = "Assets/Resources/AnimationClip/GameResult_SpotLightCharacte_anim.anim";
+            const string controllerPath = "Assets/Resources/AnimatorController/SpotLightCharacte.controller";
+            var importer = AssetImporter.GetAtPath(texturePath) as TextureImporter;
+            if (importer == null) throw new FileNotFoundException("Run tools/sync_result_curtain.py first.");
+            if (importer.textureType != TextureImporterType.Sprite || importer.spritePixelsPerUnit != 256)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.spritePixelsPerUnit = 256;
+                importer.mipmapEnabled = false;
+                importer.SaveAndReimport();
+            }
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Resources/Shader/ResultSpotlight.shader");
+            if (shader == null || !shader.isSupported) throw new InvalidOperationException("Result spotlight shader missing/unsupported.");
+            var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+            if (material == null) { material = new Material(shader); AssetDatabase.CreateAsset(material, materialPath); }
+            material.shader = shader;
+            EditorUtility.SetDirty(material);
+            var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+            if (clip == null) { clip = new AnimationClip(); AssetDatabase.CreateAsset(clip, clipPath); }
+            clip.name = "GameResult_SpotLightCharacte_anim";
+            clip.frameRate = 60;
+            // sharedassets3:21 streamed alpha, verified by sync_result_curtain.py.
+            AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve("", typeof(SpriteRenderer), "m_Color.a"),
+                new AnimationCurve(new Keyframe(0, 0, 0, 0), new Keyframe(1, 0, 0, 0), new Keyframe(1.5f, 7f / 17f, 0, 0)));
+            var controller = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(controllerPath);
+            if (controller == null) controller = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
+            var machine = controller.layers[0].stateMachine;
+            if (machine.defaultState == null) machine.defaultState = machine.AddState("GameResult_SpotLightCharacte_anim");
+            machine.defaultState.motion = clip;
+            EditorUtility.SetDirty(clip); EditorUtility.SetDirty(controller);
+            var light = root.transform.Find("SpotLightCharacte");
+            if (light == null) { light = new GameObject("SpotLightCharacte", typeof(SpriteRenderer), typeof(Animator)).transform; light.SetParent(root.transform, false); }
+            // level3:22,50,39. This scene sibling was absent from the extracted CurtainClose subtree.
+            light.localPosition = new Vector3(-0.55f, 0.87f, -0.34f);
+            light.localRotation = new Quaternion(0, -1, 0, 0);
+            light.localScale = Vector3.one * 1.8f;
+            var renderer = light.GetComponent<SpriteRenderer>();
+            renderer.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(texturePath);
+            renderer.sharedMaterial = material;
+            renderer.color = new Color(1, 1, 189f / 255f, 105f / 255f);
+            light.GetComponent<Animator>().runtimeAnimatorController = controller;
         }
 
         private static void BuildGameBackgroundPrefab()
@@ -3415,7 +3457,8 @@ namespace OpenWDS.Editor
                 return false;
             var curtainData = authoredSkeleton.skeletonDataAsset.GetSkeletonData(false);
             var closeAnimation = curtainData.FindAnimation("close");
-            if (closeAnimation == null)
+            if (closeAnimation == null || !Mathf.Approximately(closeAnimation.Duration, 1.5f) ||
+                authoredSkeleton.skeletonDataAsset.name != "curtain_result_SkeletonData")
                 return false;
             var attachmentReport = new System.Text.StringBuilder();
             foreach (var skin in curtainData.Skins)
@@ -4896,8 +4939,7 @@ namespace OpenWDS.Editor
             try
             {
                 var chartPath = Path.Combine(
-                    Application.dataPath, "StreamingAssets", "OpenWDS",
-                    "StandardCharts", "1", "1", "2.csv");
+                    SongResourceStore.Root, "OpenWDS", "StandardCharts", "1", "1", "2.csv");
                 var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
                 var runtime = new NoteVisualRuntime(
                     notation, root.transform, LoadRuntimeNotePrefabs(), 5d);
@@ -5653,8 +5695,7 @@ namespace OpenWDS.Editor
                 return false;
             }
             var chartRoot = Path.Combine(
-                Application.dataPath, "StreamingAssets", "OpenWDS",
-                "StandardCharts", "1", "1");
+                SongResourceStore.Root, "OpenWDS", "StandardCharts", "1", "1");
             var notation = StandardNotation.Parse(
                 File.ReadAllText(Path.Combine(chartRoot, "1.csv")));
             var clock = new GameClock(3.019f, 0d);
@@ -5799,8 +5840,7 @@ namespace OpenWDS.Editor
         private static bool ValidateStandardHoldAction()
         {
             var chartPath = Path.Combine(
-                Application.dataPath, "StreamingAssets", "OpenWDS",
-                "StandardCharts", "1", "1", "1.csv");
+                SongResourceStore.Root, "OpenWDS", "StandardCharts", "1", "1", "1.csv");
             var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
             var manager = new StandardHoldNoteManager(notation);
             if (manager.HoldNoteCount != 24 ||
@@ -5916,8 +5956,7 @@ namespace OpenWDS.Editor
         private static bool ValidateHoldFireIntegration()
         {
             var chartPath = Path.Combine(
-                Application.dataPath, "StreamingAssets", "OpenWDS",
-                "StandardCharts", "1", "1", "1.csv");
+                SongResourceStore.Root, "OpenWDS", "StandardCharts", "1", "1", "1.csv");
             var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
             var noteManager = new StandardHoldNoteManager(notation);
             var action = new StandardHoldAction(noteManager);
@@ -6084,8 +6123,7 @@ namespace OpenWDS.Editor
         private static bool ValidateFlickAction()
         {
             var chartPath = Path.Combine(
-                Application.dataPath, "StreamingAssets", "OpenWDS",
-                "StandardCharts", "1", "1", "2.csv");
+                SongResourceStore.Root, "OpenWDS", "StandardCharts", "1", "1", "2.csv");
             var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
             NotationNote firstFlick = null;
             foreach (var note in notation)
@@ -6237,8 +6275,7 @@ namespace OpenWDS.Editor
         private static bool ValidateScratchAction()
         {
             var chartPath = Path.Combine(
-                Application.dataPath, "StreamingAssets", "OpenWDS",
-                "StandardCharts", "1", "1", "2.csv");
+                SongResourceStore.Root, "OpenWDS", "StandardCharts", "1", "1", "2.csv");
             var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
             NotationNote firstScratchHold = null;
             foreach (var note in notation)
@@ -7152,10 +7189,7 @@ namespace OpenWDS.Editor
         private static bool ValidateStandardNotation()
         {
             var root = Path.Combine(
-                Application.dataPath,
-                "StreamingAssets",
-                "OpenWDS",
-                "StandardCharts",
+                SongResourceStore.Root, "OpenWDS", "StandardCharts",
                 "1",
                 "1");
             var notation = StandardNotation.Parse(
@@ -7285,8 +7319,7 @@ namespace OpenWDS.Editor
             splitLaneCount = 0;
             eventCount = 0;
             var chartPath = Path.Combine(
-                Application.dataPath, "StreamingAssets", "OpenWDS",
-                "StandardCharts", "1", "1", "4.csv");
+                SongResourceStore.Root, "OpenWDS", "StandardCharts", "1", "1", "4.csv");
             var notation = StandardNotation.Parse(File.ReadAllText(chartPath));
             var splitNotes = new List<NotationNote>();
             foreach (var note in notation)

@@ -75,8 +75,8 @@ namespace OpenWDS.Runtime
         public static int CalculateLampStar(ClearLamp lamp) =>
             lamp == ClearLamp.AllPerfect ? 5 : lamp == ClearLamp.FullCombo ? 2 : 0;
 
-        public static bool IsEligible(LocalMusicEntry music, LocalLiveEntry live) =>
-            music != null && music.Id > 0 && !music.IsLongVersion &&
+        public static bool IsEligible(LocalMusicEntry music, LocalLiveEntry live, DateTime? utcNow = null) =>
+            music != null && music.Id > 0 && music.IsAvailableAt(utcNow ?? DateTime.UtcNow) && !music.IsLongVersion &&
             live != null && live.Id > 0 && live.AnotherNotationId == 0 &&
             live.Difficulty == MusicDifficulty.Olivier && live.Level >= 101 && live.Level <= 110;
 
@@ -100,7 +100,7 @@ namespace OpenWDS.Runtime
                 if (music?.Lives != null && music.HasReleasedAt &&
                     music.ReleasedAtUtcTicks <= utcNow.Ticks)
                     foreach (var live in music.Lives)
-                        if (IsEligible(music, live) && seen.Add(live.Id))
+                        if (IsEligible(music, live, utcNow) && seen.Add(live.Id))
                             total += GetMaxPoint(live.Level);
             return total;
         }

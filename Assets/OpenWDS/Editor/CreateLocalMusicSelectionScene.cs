@@ -85,7 +85,7 @@ namespace OpenWDS.Editor
             "Assets/Resources/AnimationClip/" +
             "BackgroundMusicJacket_onFocus_anim.anim";
         private const string CatalogPath =
-            "Assets/OpenWDS/OfflineData/LocalMusicCatalog.json";
+            "SongResources/catalog.json";
         private const string DifficultySpriteRoot =
             "Assets/Resources/Sprite/";
         [Serializable]
@@ -159,8 +159,7 @@ namespace OpenWDS.Editor
                 RequireAsset<Spine.Unity.SkeletonDataAsset>(CurtainSkeletonPath);
             var curtainGraphicMaterial =
                 RequireAsset<Material>(CurtainGraphicMaterialPath);
-            var catalog = RequireAsset<TextAsset>(CatalogPath);
-            var parsedCatalog = LocalMusicCatalog.FromJson(catalog.text);
+            var parsedCatalog = LocalMusicCatalog.FromJson(File.ReadAllText(CatalogPath));
             var difficultyMarkers = new[]
             {
                 RequireAsset<Sprite>(
@@ -263,7 +262,6 @@ namespace OpenWDS.Editor
             runtime.Configure(
                 view,
                 cellPrefab,
-                catalog,
                 Array.Empty<long>(),
                 Array.Empty<Sprite>(),
                 difficultyMarkers,

@@ -730,7 +730,6 @@ namespace OpenWDS.Runtime
         [SerializeField] private TextAsset _testPlayerUnitAsset;
         private CharacterPresentationRuntime _characterPresentation;
         public CharacterPresentationRuntime CharacterPresentation => _characterPresentation;
-        [SerializeField] private TextAsset _localMusicCatalogAsset;
 
         private IReadOnlyList<LocalMusicEntry> _ratingMusics;
         private LocalMusicEntry _ratingMusic;
@@ -982,7 +981,7 @@ namespace OpenWDS.Runtime
             _pendingPlayerInputs.Clear();
             RetryCount++;
             _restartPending = false;
-            BeginGameplay();
+            StartPerformanceIntroduction();
             Debug.Log("OPENWDS_GAME_RESET scene=" + gameObject.scene.handle + " retry=" + RetryCount);
         }
 
@@ -1050,8 +1049,7 @@ namespace OpenWDS.Runtime
             MusicDifficulty musicDifficulty = MusicDifficulty.Stella,
             Sprite musicJacketSprite = null,
             TextAsset testPlayerUnitAsset = null,
-            bool isUnlockOlivier = false,
-            TextAsset localMusicCatalogAsset = null)
+            bool isUnlockOlivier = false)
         {
             _gameCamera = gameCamera;
             _laneGroup = laneGroup;
@@ -1079,7 +1077,6 @@ namespace OpenWDS.Runtime
             _musicJacketSprite = musicJacketSprite;
             _testPlayerUnitAsset = testPlayerUnitAsset;
             _isUnlockOlivier = isUnlockOlivier;
-            _localMusicCatalogAsset = localMusicCatalogAsset;
         }
 
         public void Initialize()
@@ -1109,14 +1106,14 @@ namespace OpenWDS.Runtime
                 _musicJacketSprite =
                     LocalMusicSelectionSession.JacketSprite;
             }
-            else if (_localMusicCatalogAsset != null)
+            else
             {
                 // OfflineRhythmPreview can be opened directly, without first
                 // visiting LocalMusicSelection.  Resolve the same master data
                 // at game initialization so result calculation never depends
                 // on a transient static scene hand-off still being present.
                 var catalog = LocalMusicCatalog.FromJson(
-                    _localMusicCatalogAsset.text);
+                    SongResourceStore.CatalogJson);
                 var local = catalog.Select(_musicId, _musicDifficulty);
                 _ratingMusic = local.Music;
                 _ratingLive = local.Live;
@@ -1185,12 +1182,10 @@ namespace OpenWDS.Runtime
                 _gameCamera,
                 persistedSettings.GameSettings.LaneAlphaValue);
 
-            var chartPath = Path.Combine(
-                Application.streamingAssetsPath, _chartRelativePath);
-            var configPath = Path.Combine(
-                Application.streamingAssetsPath, _musicConfigRelativePath);
-            // Serialized TextAssets keep the offline scene Android-safe; direct
-            // filesystem paths remain an Editor/desktop fallback.
+            var chartPath = SongResourceStore.Resolve(_chartRelativePath);
+            var configPath = SongResourceStore.Resolve(_musicConfigRelativePath);
+            // The prepared session owns chart/config TextAssets. Direct scene entry
+            // resolves the same external song files for Editor validation.
             var notation = StandardNotation.Parse(
                 _chartAsset != null ? _chartAsset.text : File.ReadAllText(chartPath));
             if (persistedSettings.GameDetailSettings.IsActiveSplitRandom)
@@ -1315,23 +1310,50 @@ namespace OpenWDS.Runtime
                     persistedSettings.GameDetailSettings.IsActiveKeyBeam,
                     (GameTapEffectType)persistedSettings
                         .GameDetailSettings.TapEffectType);
+            StartPerformanceIntroduction();
+        }
+
+        private bool _waitingForIntroduction;
+        public float IntroductionTransitionStartedAt { get; private set; }
+        public float IntroductionPlaybackStartedAt { get; private set; } = -1f;
+        public string IntroductionCurtainPhaseAtStart { get; private set; }
+
+        private void StartPerformanceIntroduction()
+        {
+            _waitingForIntroduction = true;
+            IntroductionTransitionStartedAt = -1f;
+            IntroductionPlaybackStartedAt = -1f;
+            IntroductionCurtainPhaseAtStart = null;
+            _gameHud?.Hide();
+            StartCoroutine(PlayPerformanceIntroduction());
+        }
+
+        private IEnumerator PlayPerformanceIntroduction()
+        {
+            // Native GameStartAnimationManager awaits its own transition, not the
+            // global curtain. GameTransition's authored timers reveal the standby
+            // at 0.48 s and complete at 0.9 s (B92F0A8 / gametransition.bundle).
+            // GlobalNavigator opens its curtain concurrently after initialization.
             if (_gameIntroduction != null)
             {
-                _gameHud?.Hide();
-                // The production caller supplies Olivier together with the
-                // first-unlock flag. Keep the offline inspector switch
-                // self-contained so toggling it reproduces that same call.
-                var introductionDifficulty = _isUnlockOlivier
-                    ? MusicDifficulty.Olivier
-                    : _musicDifficulty;
-                _gameIntroduction.Play(
-                    Math.Max(0, (int)introductionDifficulty - 1),
-                    _isUnlockOlivier);
+                _gameIntroduction.gameObject.SetActive(false);
+                // Native presenter starts this after its async resource initialization.
+                // Our character loader is separate; include it in the same boundary.
+                while (_characterPresentation != null && !_characterPresentation.IsReady) yield return null;
+                IntroductionTransitionStartedAt = Time.time;
+                while (Time.time - IntroductionTransitionStartedAt < 0.48f) yield return null;
+                _gameIntroduction.gameObject.SetActive(true);
+                while (Time.time - IntroductionTransitionStartedAt < 0.9f) yield return null;
+                _gameIntroduction.Play(Math.Max(0, (int)(_isUnlockOlivier
+                    ? MusicDifficulty.Olivier : _musicDifficulty) - 1), _isUnlockOlivier);
+                IntroductionPlaybackStartedAt = Time.time;
+                IntroductionCurtainPhaseAtStart = CurtainTransitionRuntime.CurrentAnimation;
+                Debug.Log("OPENWDS_INTRODUCTION_STARTED delay=" +
+                    (IntroductionPlaybackStartedAt - IntroductionTransitionStartedAt).ToString("F3") +
+                    " curtain=" + CurtainTransitionRuntime.CurrentAnimation + " retry=" + RetryCount);
             }
-            else
-            {
-                BeginGameplay();
-            }
+            _waitingForIntroduction = false;
+            if (_gameIntroduction == null) BeginGameplay();
         }
 
         private void CreateBoundaryPerformances()
@@ -1452,7 +1474,7 @@ namespace OpenWDS.Runtime
 
         private void Update()
         {
-            if (_inputHandler == null || _isPaused || _isRetired) return;
+            if (_inputHandler == null || _isPaused || _isRetired || _waitingForIntroduction || _restartPending) return;
             if (!_gameplayStarted)
             {
                 if (_gameIntroduction == null ||

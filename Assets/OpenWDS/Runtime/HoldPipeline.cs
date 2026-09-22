@@ -548,18 +548,19 @@ namespace OpenWDS.Runtime
             bool heldByAnotherTouch = false,
             long? currentMusicMilliseconds = null)
         {
-            // Provider selection precedes cached ownership. A continuing
-            // contact can finish an overlapping due body even when its visual
-            // ownership has already advanced to the next segment.
+            // Native TryHoldCore (0xB95ABA8) uses IClock for both
+            // OutOfRangeTarget and GetTimingType(isHolding:true). Device event
+            // time belongs only to OnHoldEnd's release branch.
+            var frameMusicMilliseconds = currentMusicMilliseconds ?? inputMusicMilliseconds;
             if (!InputLifecycle.IsEnded(input.Phase) &&
-                (_noteManager.TryGetHoldForMain(hitLane, inputMusicMilliseconds,
+                (_noteManager.TryGetHoldForMain(hitLane, frameMusicMilliseconds,
                      out var dueHold, out var dueLane) ||
-                 _noteManager.TryGetHoldForSub(hitLane, inputMusicMilliseconds,
+                 _noteManager.TryGetHoldForSub(hitLane, frameMusicMilliseconds,
                      out dueHold, out dueLane)))
                 return CompleteHold(dueHold, dueLane,
-                    HoldTimingDecider.DecideEndMusicTime(inputMusicMilliseconds,
+                    HoldTimingDecider.DecideEndMusicTime(frameMusicMilliseconds,
                         dueHold.StartMilliseconds, dueHold.EndMilliseconds),
-                    hitLane, inputMusicMilliseconds);
+                    hitLane, frameMusicMilliseconds);
 
             if (currentHold != null &&
                 _noteManager.ContainsHold(currentHold) &&
@@ -580,13 +581,15 @@ namespace OpenWDS.Runtime
                     (currentMusicMilliseconds ?? inputMusicMilliseconds) < currentHold.EndMilliseconds)
                     return HoldActionResult.OnRelease();
                 if (!isEnded &&
-                    inputMusicMilliseconds < currentHold.EndMilliseconds)
+                    frameMusicMilliseconds < currentHold.EndMilliseconds)
                 {
                     return HoldActionResult.OnAssigned(
                         currentLaneId, currentHold);
                 }
+                if (input.Phase == TouchPhase.Canceled) return HoldActionResult.OnRelease();
+                var judgementMilliseconds = isEnded ? inputMusicMilliseconds : frameMusicMilliseconds;
                 var currentTiming = HoldTimingDecider.DecideEndMusicTime(
-                    inputMusicMilliseconds,
+                    judgementMilliseconds,
                     currentHold.StartMilliseconds,
                     currentHold.EndMilliseconds);
                 if (currentTiming.TimingType == TimingType.None)
@@ -597,7 +600,7 @@ namespace OpenWDS.Runtime
                             currentLaneId, currentHold);
                 }
                 return CompleteHold(currentHold, currentLaneId, currentTiming,
-                    hitLane, inputMusicMilliseconds);
+                    hitLane, judgementMilliseconds);
             }
             if (currentHold != null && _noteManager.ContainsHold(currentHold))
                 return HoldActionResult.OnRelease();
@@ -746,9 +749,10 @@ namespace OpenWDS.Runtime
                     currentMusicMilliseconds);
             }
             if (!InputLifecycle.IsEnded(input.Phase) &&
-                (_holdNotes.TryGetHoldForMain(hitLane, inputMusicMilliseconds, out _, out _) ||
-                 _holdNotes.TryGetHoldForSub(hitLane, inputMusicMilliseconds, out _, out _)))
-                return _standardAction.TryHold(input, hitLane, inputMusicMilliseconds);
+                (_holdNotes.TryGetHoldForMain(hitLane, currentMusicMilliseconds ?? inputMusicMilliseconds, out _, out _) ||
+                 _holdNotes.TryGetHoldForSub(hitLane, currentMusicMilliseconds ?? inputMusicMilliseconds, out _, out _)))
+                return _standardAction.TryHold(input, hitLane, inputMusicMilliseconds,
+                    currentMusicMilliseconds: currentMusicMilliseconds);
             if (currentHold != null &&
                 (currentHold.NoteType ==
                     (int)NoteType.ScratchHold ||
@@ -800,7 +804,8 @@ namespace OpenWDS.Runtime
                     hitLane, inputMusicMilliseconds, out _, out _))
             {
                 return _standardAction.TryHold(
-                    input, hitLane, inputMusicMilliseconds, null);
+                    input, hitLane, inputMusicMilliseconds, null,
+                    currentMusicMilliseconds: currentMusicMilliseconds);
             }
 
             if (hasScratch)

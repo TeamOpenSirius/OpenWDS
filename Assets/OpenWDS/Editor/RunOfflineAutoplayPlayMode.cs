@@ -698,17 +698,17 @@ namespace OpenWDS.Editor
                     "OPENWDS_AUTO_JUDGE_DIFFICULTY is invalid: " + rawDifficulty);
 
             const string catalogPath =
-                "Assets/OpenWDS/OfflineData/LocalMusicCatalog.json";
-            var catalogAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(catalogPath);
+                "SongResources/catalog.json";
+            var catalogAsset = new TextAsset(File.ReadAllText(catalogPath));
             if (catalogAsset == null)
                 throw new FileNotFoundException(
                     "Local music catalog is missing.", catalogPath);
             var selection = LocalMusicCatalog
                 .FromJson(catalogAsset.text)
                 .Select(musicId, difficulty);
-            var chartPath = "Assets/StreamingAssets/" +
+            var chartPath = "SongResources/" +
                             selection.Live.DebugNotationAssetPath;
-            var configPath = "Assets/StreamingAssets/" +
+            var configPath = "SongResources/" +
                              selection.Live.DebugMusicConfigAssetPath;
             if (!File.Exists(chartPath) || !File.Exists(configPath))
                 throw new FileNotFoundException(
@@ -779,13 +779,13 @@ namespace OpenWDS.Editor
             // the selection page, with the actual current Jacket bundle. The
             // deleted Music<N>Jacket.png was never a valid runtime provider.
             var catalog = LocalMusicCatalog.FromJson(File.ReadAllText(
-                Path.Combine(Application.dataPath, "OpenWDS/OfflineData/LocalMusicCatalog.json")));
+                SongResourceStore.CatalogPath));
             var difficulty = (MusicDifficulty)Enum.Parse(typeof(MusicDifficulty),
                 SessionState.GetString(DifficultyKey, "Stella"));
             var selection = catalog.Select(SessionState.GetInt(MusicIdKey, 1), difficulty);
-            var chart = new TextAsset(File.ReadAllText(Path.Combine(Application.streamingAssetsPath, selection.Live.DebugNotationAssetPath)));
-            var config = new TextAsset(File.ReadAllText(Path.Combine(Application.streamingAssetsPath, selection.Live.DebugMusicConfigAssetPath)));
-            var bundle = AssetBundle.LoadFromMemory(File.ReadAllBytes(Path.Combine(Application.streamingAssetsPath, selection.Music.JacketAssetPath)));
+            var chart = new TextAsset(File.ReadAllText(Path.Combine(SongResourceStore.Root, selection.Live.DebugNotationAssetPath)));
+            var config = new TextAsset(File.ReadAllText(Path.Combine(SongResourceStore.Root, selection.Live.DebugMusicConfigAssetPath)));
+            var bundle = AssetBundle.LoadFromMemory(File.ReadAllBytes(Path.Combine(SongResourceStore.Root, selection.Music.JacketAssetPath)));
             if (bundle == null) throw new InvalidOperationException("Current Jacket bundle did not load.");
             var sprite = bundle.LoadAllAssets<Sprite>().Single();
             bundle.Unload(false);

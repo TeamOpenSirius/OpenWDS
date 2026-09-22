@@ -288,7 +288,9 @@ namespace OpenWDS.Runtime
                     afterPlayerRate,
                     isNewNotationRate,
                     isNewPlayerRate,
-                    isCleared: isCleared);
+                    isCleared: isCleared,
+                    isLongVersion: _data.Music?.IsLongVersion ?? false,
+                    isAnotherNotation: anotherId > 0);
             panel.Initialize(viewData);
             BindResultNavigation();
             // GameResultView.ShowAsync starts from the serialized root alpha 0
@@ -420,10 +422,10 @@ namespace OpenWDS.Runtime
                             ? localResults.GetClearLamp(
                                 resultKey, lampDifficulty)
                             : ClearLamp.None;
-                    // The result header always presents the complete five-slot
-                    // difficulty row: Normal, Hard, Extra, Stella and Olivier.
-                    // An uncleared slot keeps its authored empty lamp image.
-                    child.gameObject.SetActive(true);
+                    // Native GameResultMusicInfoPanel.Initialize: AnotherNotation
+                    // retains only the current difficulty's lamp object (B911964).
+                    child.gameObject.SetActive((_data.Live?.AnotherNotationId ?? 0) == 0 ||
+                        string.Equals(suffix, _data.Difficulty.ToString(), StringComparison.OrdinalIgnoreCase));
                     for (var childIndex = 0;
                          childIndex < child.childCount;
                          childIndex++)

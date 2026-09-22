@@ -21,6 +21,9 @@ namespace Sirius.GameResult
         public double RecommendationTiming { get; }
         public double NoteSpeed { get; }
         public bool IsAuto { get; }
+        public bool HasLife { get; }
+        public bool IsLongVersion { get; }
+        public bool IsAnotherNotation { get; }
         public bool IsFullCombo { get; }
         public bool IsAllPerfect { get; }
         public bool IsPerfectStar { get; }
@@ -61,7 +64,10 @@ namespace Sirius.GameResult
             bool isNewPlayerRate = false,
             double bestEverAchievementRate = 0d,
             bool isNewAchievementRate = false,
-            bool shouldShowPerfectStar = true)
+            bool shouldShowPerfectStar = true,
+            bool hasLife = true,
+            bool isLongVersion = false,
+            bool isAnotherNotation = false)
         {
             MaxCombo = maxCombo;
             AchievementRate = achievementRate;
@@ -72,6 +78,9 @@ namespace Sirius.GameResult
             RecommendationTiming = recommendationTiming;
             NoteSpeed = noteSpeed;
             IsAuto = isAuto;
+            HasLife = hasLife;
+            IsLongVersion = isLongVersion;
+            IsAnotherNotation = isAnotherNotation;
             IsFullCombo = isFullCombo;
             IsAllPerfect = isAllPerfect;
             IsPerfectStar = isPerfectStar;
@@ -107,7 +116,9 @@ namespace Sirius.GameResult
             double afterPlayerRate = 0d,
             bool isNewNotationRate = false,
             bool isNewPlayerRate = false,
-            bool isCleared = true)
+            bool isCleared = true,
+            bool isLongVersion = false,
+            bool isAnotherNotation = false)
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
             var counts = new Dictionary<TimingType, int>();
@@ -140,7 +151,8 @@ namespace Sirius.GameResult
                 isNewPlayerRate,
                 bestEverAchievementRate: bestEverAchievementRate,
                 isNewAchievementRate: isNewAchievementRate,
-                shouldShowPerfectStar: shouldShowPerfectStar);
+                shouldShowPerfectStar: shouldShowPerfectStar,
+                hasLife: isCleared, isLongVersion: isLongVersion, isAnotherNotation: isAnotherNotation);
         }
 
         public int GetTimingCount(TimingType timingType) =>

@@ -24,6 +24,8 @@ namespace OpenWDS.Editor
         private static readonly System.Collections.Generic.List<double> _directEntrySeconds = new System.Collections.Generic.List<double>();
         private static string _error;
         private static int _titleBundles, _homeBundles;
+        private static int _homeViewId, _homeButtonId, _theatreId;
+        private static readonly System.Collections.Generic.List<double> _homeReturnSeconds = new System.Collections.Generic.List<double>();
         private static string[] _titleLoaded, _homeLoaded;
         static RunFrontendRecoveryPlayMode() { EditorApplication.update += Poll; Application.logMessageReceived += Log; }
         public static void Run()
@@ -31,6 +33,7 @@ namespace OpenWDS.Editor
             CreateFrontendRecoveryScene.Run();
             SessionState.SetBool(Key + "active", true);
             SessionState.SetBool(Key + "exit", false);
+            SessionState.SetBool(Key + "homeCover", false);
             SessionState.SetString(Key + "start", DateTime.UtcNow.ToString("O"));
             EditorApplication.isPlaying = true;
         }
@@ -60,6 +63,22 @@ namespace OpenWDS.Editor
             try
             {
                 var host = UnityEngine.Object.FindObjectOfType<FrontendRecoveryRuntime>();
+                if (_phase == 2 && host != null && host.HomeTransition != null &&
+                    host.HomeTransition.Phase == "loading")
+                {
+                    Require(host.HomeTransition.IsCovering, "Home preparation exposed an uncovered frame");
+                    if (!SessionState.GetBool(Key + "homeCover", false))
+                    {
+                        Validate(host.HomeTransition.View);
+                        var transitionAnimator = host.HomeTransition.View.GetComponentInChildren<Animator>(true);
+                        Debug.Log("OPENWDS_TITLE_STATE " + transitionAnimator.GetCurrentAnimatorStateInfo(0).fullPathHash +
+                            " time=" + transitionAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime);
+                        foreach (var graphic in host.HomeTransition.View.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
+                            Debug.Log($"OPENWDS_TITLE_VISIBLE {graphic.name} active={graphic.gameObject.activeInHierarchy} enabled={graphic.enabled} color={graphic.color} alpha={graphic.canvasRenderer.GetInheritedAlpha()} rect={graphic.rectTransform.rect} scale={graphic.transform.lossyScale} material={graphic.material.name}");
+                        CaptureTheatre(Path.Combine(Path.GetDirectoryName(Report), "frontend-home-loading.png"));
+                        SessionState.SetBool(Key + "homeCover", true);
+                    }
+                }
                 if ((_phase < 5 || _phase == 7 || _phase == 9 || _phase == 12 || _phase == 14) && (host == null || !host.IsReady)) return;
                 if ((_phase == 7 || _phase == 9 || _phase == 12 || _phase == 14) &&
                     (host.Page != "Home" || !host.Bgm.IsPlaying)) return;
@@ -74,6 +93,15 @@ namespace OpenWDS.Editor
                         "Direct Another entry started ordinary preview");
                 }
                 if (MainPageNavigationRuntime.Instance != null && MainPageNavigationRuntime.Instance.IsTransitioning) return;
+                if (_phase == 7 || _phase == 9 || _phase == 12 || _phase == 14)
+                {
+                    Require(host.View.GetInstanceID() == _homeViewId && host.LiveButton.GetInstanceID() == _homeButtonId &&
+                        host.Theatre.GetInstanceID() == _theatreId, "Home return rebuilt the view/buttons/theatre");
+                    Require(!host.Theatre.IsSuspended && host.Theatre.HomeCamera.isActiveAndEnabled &&
+                        !GameObject.Find("UICamera").GetComponent<Camera>().orthographic, "Home camera was not restored");
+                    Require(LoadedBundles().SequenceEqual(_homeLoaded), "Home return retained selection bundles");
+                    _homeReturnSeconds.Add(MainPageNavigationRuntime.Instance.LastTransitionSeconds);
+                }
                 switch (_phase)
                 {
                     case 0:
@@ -82,6 +110,7 @@ namespace OpenWDS.Editor
                         _criInstance = UnityEngine.Object.FindObjectOfType<CriWare.CriWareInitializer>().GetInstanceID();
                         _titleBundles = host.BundleCount;
                         _titleLoaded = LoadedBundles();
+                        CaptureInstallDialog();
                         Validate(host.View);
                         Require(!host.TitleAnimationEnded, "Intro was already complete before the early tap test");
                         Click(host.StartButton);
@@ -103,6 +132,8 @@ namespace OpenWDS.Editor
                         break;
                     case 2:
                         Require(host.Page == "Home", "Start did not open Home");
+                        Require(SessionState.GetBool(Key + "homeCover", false), "Title loading transition was not observed");
+                        Require(host.HomeTransition == null, "Home input restored before transition finished");
                         _homeBundles = host.BundleCount;
                         _homeLoaded = LoadedBundles();
                         Validate(host.View);
@@ -114,6 +145,11 @@ namespace OpenWDS.Editor
                         Require(host.Footer.GetComponentsInChildren<Button>(true).All(b => !b.interactable), "Unrestored footer destinations enabled");
                         Require(host.Bgm.Cue == "inst_bgm" && host.Bgm.IsPlaying && host.Bgm.Playback.GetTime() > 0, "Home CRI cue is not advancing");
                         Require(host.Headers.Count == 2, "Home headers missing");
+                        var rate = PlayerRating.CalculatePlayerRate(LocalMusicCatalog.FromJson(
+                            SongResourceStore.CatalogJson).Musics, new LocalResultStore());
+                        Require(host.Headers[0].Field("RateDataPanel", "_rateText").GetComponent<Text>().text ==
+                            rate.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) &&
+                            host.Headers[0].Field("GemDataPanel", "_gemText").GetComponent<Text>().text == "0", "Home rating/economy");
                         foreach (var header in host.Headers) Validate(header.Instance);
                         Require(host.AnotherButton.IsInteractable(), "Home archive entry disabled");
                         if (_homeUiPhase == 0)
@@ -177,6 +213,9 @@ namespace OpenWDS.Editor
                     case 4:
                         Require(host.Page == "Home" && host.BundleCount == _homeBundles, "Home reload changed its scope");
                         Require(LoadedBundles().SequenceEqual(_homeLoaded), "Home retained stale native bundles");
+                        _homeViewId = host.View.GetInstanceID();
+                        _homeButtonId = host.LiveButton.GetInstanceID();
+                        _theatreId = host.Theatre.GetInstanceID();
                         Click(host.LiveButton);
                         break;
                     case 5:
@@ -187,8 +226,11 @@ namespace OpenWDS.Editor
                             "Home and selection did not share the same Main scene");
                         Require(UnityEngine.Object.FindObjectOfType<CriWare.CriWareInitializer>().GetInstanceID() == _criInstance,
                             "Page navigation recreated CRI host");
-                        _sceneLifetimeValidated = UnityEngine.SceneManagement.SceneManager.sceneCount == 1 && UnityEngine.Object.FindObjectOfType<HomeTheatreRuntime>() == null;
-                        Require(_sceneLifetimeValidated, "Selection retained Theatre scene");
+                        _sceneLifetimeValidated = UnityEngine.SceneManagement.SceneManager.sceneCount == 2 &&
+                            host.Theatre.GetInstanceID() == _theatreId && host.Theatre.IsSuspended &&
+                            !host.Theatre.Environment.activeInHierarchy && !host.View.activeInHierarchy &&
+                            !GameObject.Find("UICamera").GetComponent<Cinemachine.CinemachineBrain>().enabled;
+                        Require(_sceneLifetimeValidated, "Selection did not suspend the retained Home scope");
                         Require(GameObject.Find("LiveBackground") != null, "Original regular selection background missing");
                         Capture("frontend-selection.png");
                         UnityEngine.Object.FindObjectOfType<OfflineMenuRuntime>().Open();
@@ -254,6 +296,31 @@ namespace OpenWDS.Editor
             }
             catch (Exception ex) { Finish(ex.ToString()); }
         }
+        private static void CaptureInstallDialog()
+        {
+            var root = new GameObject("InstallDialogVisualValidation");
+            bool background = Application.runInBackground;
+            int sleep = Screen.sleepTimeout;
+            try
+            {
+                var bootstrap = root.AddComponent<OfflineSongResourcesBootstrap>();
+                bootstrap.enabled = false;
+                typeof(OfflineSongResourcesBootstrap).GetMethod("CreateDialog",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).Invoke(bootstrap, null);
+                var shell = root.GetComponentsInChildren<Transform>(true).Single(t => t.name == "SongResourceDialog");
+                Require(shell.GetComponentsInChildren<Image>(true).Count(i => i.sprite != null) >= 5,
+                    "Installation dialog did not use original frame/buttons");
+                Require(shell.GetComponentsInChildren<Text>(true).All(t => t.font != null), "Installation font missing");
+                RunLocalMusicSelectionPlayMode.CaptureSelection(Path.Combine(Path.GetDirectoryName(Report), "offline-install-dialog.png"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                Application.runInBackground = background;
+                Screen.sleepTimeout = sleep;
+            }
+        }
+
         private static string[] LoadedBundles() => AssetBundle.GetAllLoadedAssetBundles().Select(b => b.name).OrderBy(n => n).ToArray();
         private static void Validate(GameObject view)
         {
@@ -302,9 +369,12 @@ namespace OpenWDS.Editor
             overlayData.renderType = UnityEngine.Rendering.Universal.CameraRenderType.Base;
             overlay.clearFlags = CameraClearFlags.Nothing;
             overlay.allowMSAA = false;
-            var nodes = canvas.GetComponentsInChildren<Transform>(true);
+            var canvases = UnityEngine.Object.FindObjectsOfType<Canvas>().Where(c => c.isRootCanvas).ToArray();
+            var nodes = canvases.SelectMany(c => c.GetComponentsInChildren<Transform>(true)).Distinct().ToArray();
             var layers = nodes.Select(t => t.gameObject.layer).ToArray();
-            var mode = canvas.renderMode; var previousCamera = canvas.worldCamera; var distance = canvas.planeDistance;
+            var modes = canvases.Select(c => c.renderMode).ToArray();
+            var cameras = canvases.Select(c => c.worldCamera).ToArray();
+            var distances = canvases.Select(c => c.planeDistance).ToArray();
             var mask = camera.cullingMask; var aspect = camera.aspect;
             var previousTarget = camera.targetTexture; var previousActive = RenderTexture.active;
             var target = new RenderTexture(1920, 1200, 24);
@@ -315,7 +385,8 @@ namespace OpenWDS.Editor
                 camera.cullingMask &= ~(1 << 27);
                 camera.targetTexture = target; camera.aspect = 1.6f;
                 overlay.targetTexture = target; overlay.aspect = 1.6f;
-                canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = overlay; canvas.planeDistance = 500;
+                foreach (var root in canvases)
+                { root.renderMode = RenderMode.ScreenSpaceCamera; root.worldCamera = overlay; root.planeDistance = 500; }
                 Canvas.ForceUpdateCanvases();
                 camera.Render();
                 RenderTexture.active = target;
@@ -334,7 +405,8 @@ namespace OpenWDS.Editor
             finally
             {
                 overlay.targetTexture = null;
-                canvas.renderMode = mode; canvas.worldCamera = previousCamera; canvas.planeDistance = distance;
+                for (int i = 0; i < canvases.Length; i++)
+                { canvases[i].renderMode = modes[i]; canvases[i].worldCamera = cameras[i]; canvases[i].planeDistance = distances[i]; }
                 for (int i = 0; i < nodes.Length; i++) nodes[i].gameObject.layer = layers[i];
                 camera.cullingMask = mask; camera.targetTexture = previousTarget; camera.aspect = aspect;
                 RenderTexture.active = previousActive;
@@ -348,7 +420,8 @@ namespace OpenWDS.Editor
         {
             File.WriteAllText(Report, JsonConvert.SerializeObject(new { passed = error == null, error, phase = _phase,
                 titleBundles = _titleBundles, homeBundles = _homeBundles, utc = DateTime.UtcNow,
-                actorAnimationAdvanced = _actorAnimationAdvanced, additiveSceneReleased = _sceneLifetimeValidated,
+                titleLoadingCoverValidated = SessionState.GetBool(Key + "homeCover", false),
+                actorAnimationAdvanced = _actorAnimationAdvanced, homeSuspendedDuringSelection = _sceneLifetimeValidated, homeReturnSeconds = _homeReturnSeconds, homeInstancesReused = _homeReturnSeconds.Count == 4,
                 fullScreenAndHomeMenuValidated = _homeUiPhase == 6, selectionBackButtonValidated = _selectionBackValidated, directAnotherEntrySeconds = _directEntrySeconds, sharedMainSceneValidated = _selectionBackValidated,
                 scope = "Original UI, repeated Title/Home navigation and entry to selection; title artwork uses frozen detail 1001; Home uses original additive Theatre, character 101/default costume 11 and footer; Title/Home original CRI playback, Home headers, regular background, original selection BackButton and Home archive/menu return tested; Other character preferences, awakening, account actions and online login excluded." }, Formatting.Indented));
             Debug.Log("OPENWDS_FRONTEND " + (error ?? "passed"));

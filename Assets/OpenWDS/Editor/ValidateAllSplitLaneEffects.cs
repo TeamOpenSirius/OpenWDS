@@ -32,7 +32,7 @@ namespace OpenWDS.Editor
             var chartFileCount = 0;
             var chartSplitLaneEventCount = 0;
             var chartsRoot = Path.Combine(
-                Application.streamingAssetsPath, "OpenWDS/StandardCharts");
+                SongResourceStore.Root, "OpenWDS/StandardCharts");
             foreach (var path in Directory.GetFiles(
                          chartsRoot, "*.csv", SearchOption.AllDirectories))
             {

@@ -204,6 +204,7 @@ namespace OpenWDS.Editor
             report.timingEffectAnimationEventValid = ValidateTimingEffectAnimationEvent();
             report.comboHiddenDigitsTransparent = ValidateComboHiddenDigits();
             report.comboSpriteGeometryValid = ValidateComboSpriteGeometry();
+            ValidateSongResourceImport.Run();
             report.standardHoldFrameSweepValid = ValidateStandardHoldFrameSweep();
             report.longNotesShaderValid = ValidateLongNotesShader();
 
@@ -440,8 +441,7 @@ namespace OpenWDS.Editor
         private static bool ValidateStandardHoldFrameSweep()
         {
             var chartPath = Path.Combine(
-                Application.dataPath, "StreamingAssets", "OpenWDS",
-                "StandardCharts", "1", "1", "1.csv");
+                SongResourceStore.Root, "OpenWDS", "StandardCharts", "1", "1", "1.csv");
             var notation = StandardNotation.Parse(
                 File.ReadAllText(chartPath));
             var manager = new StandardHoldNoteManager(notation);

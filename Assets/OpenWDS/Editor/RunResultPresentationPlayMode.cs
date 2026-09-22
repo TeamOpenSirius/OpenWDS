@@ -18,7 +18,7 @@ namespace OpenWDS.Editor
     {
         private const string Key = "OpenWDS.ResultPresentationAudit";
         private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
-        private static readonly float[] CaptureTimes = { 0.05f, 0.6f, 1.5f, 2.1f, 2.5f, 3.2f, 4.5f };
+        private static readonly float[] CaptureTimes = { 0.05f, 0.6f, 1.5f, 2.1f, 2.5f, 2.8f, 3.0f, 3.2f, 4.5f };
         private static readonly List<Sample> Samples = new List<Sample>();
         private static GameObject _root, _background;
         private static GameResultSeRuntime _sound;
@@ -31,6 +31,7 @@ namespace OpenWDS.Editor
         {
             public float time, leftX, alpha, entranceTime, curtainTime, stageAlpha, stageTime;
             public Vector3 curtainBoundsCenter, curtainBoundsSize;
+            public float spotlightAlpha;
             public int countStarts, rankCues, activeGradeParticles, stageImages;
             public bool entranceState, navigation, badge;
             public string screenshot;
@@ -42,6 +43,7 @@ namespace OpenWDS.Editor
             public bool passed;
             public bool olivier;
             public bool failedLive;
+            public bool anotherNotation;
             public string failure;
             public List<Sample> samples;
         }
@@ -60,11 +62,14 @@ namespace OpenWDS.Editor
         public static void Run() => Start(false);
         public static void RunOlivier() => Start(true);
         public static void RunFailed() => Start(false, true);
+        public static void RunAnother() => Start(true, false, true);
 
-        private static void Start(bool olivier, bool failed = false)
+        private static void Start(bool olivier, bool failed = false, bool another = false)
         {
+            CreateOfflineRhythmPreviewScene.RecoverResultCurtain();
             SessionState.SetBool(Key + ".olivier", olivier);
             SessionState.SetBool(Key + ".failed", failed);
+            SessionState.SetBool(Key + ".another", another);
             if (!Application.isBatchMode) throw new InvalidOperationException("Use a dedicated batch Editor.");
             SessionState.SetInt(Key, 1);
             SessionState.SetString(Key + ".error", "");
@@ -75,6 +80,7 @@ namespace OpenWDS.Editor
 
         private static string Output(string name) => Path.GetFullPath(Path.Combine(
             Application.dataPath, "../../../reverse/reports",
+            SessionState.GetBool(Key + ".another", false) ? name.Replace("result-presentation", "another-result-presentation") :
             SessionState.GetBool(Key + ".failed", false) ? name.Replace("result-presentation", "failed-result-presentation") :
             SessionState.GetBool(Key + ".olivier", false) ? name.Replace("result-presentation", "olivier-result-presentation") : name));
 
@@ -133,8 +139,22 @@ namespace OpenWDS.Editor
                 Require(Samples.Last().curtainTime >= 1f &&
                     Vector3.Distance(Samples.First().curtainBoundsSize, Samples.Last().curtainBoundsSize) > 0.1f,
                     "Curtain did not animate through its real Mecanim/Spine path.");
+                Require(Samples.First().spotlightAlpha == 0 && Samples.Last().spotlightAlpha > .4f,
+                    "Original result spotlight did not fade in.");
                 Require(_stageObserved && sample.stageAlpha == 0f && sample.stageTime >= 1f, "Stage Success did not enter and fade out through its Animator.");
-                if (SessionState.GetBool(Key + ".olivier", false))
+                if (SessionState.GetBool(Key + ".another", false))
+                {
+                    var rate = _root.GetComponentInChildren<Sirius.GameResult.GameResultRatePanel>(true);
+                    var texts = rate.GetComponentsInChildren<UnityEngine.UI.Text>(true);
+                    Require(texts.Single(t => t.name == "RateText").text == "星章集計対象外です。" &&
+                        texts.Single(t => t.name == "RateText").gameObject.activeInHierarchy &&
+                        !texts.Any(t => t.name == "ThisTimeRate" && t.gameObject.activeInHierarchy),
+                        "Manual Another result exclusion text/numbers");
+                    var lamps = _root.transform.Find("LeftPanel/MusicInfoPanel/ClearLamps").Cast<Transform>()
+                        .Where(t => t.gameObject.activeSelf).ToArray();
+                    Require(lamps.Length == 1 && lamps[0].name == "LampOlivier", "Manual Another result single lamp");
+                }
+                else if (SessionState.GetBool(Key + ".olivier", false))
                 {
                     var texts = _root.GetComponentInChildren<Sirius.GameResult.GameResultRatePanel>(true)
                         .GetComponentsInChildren<UnityEngine.UI.Text>(true);
@@ -142,6 +162,7 @@ namespace OpenWDS.Editor
                         texts.Any(t => t.name == "ThisTimeRate" && t.text == SessionState.GetInt(Key + ".spPoint", 0).ToString()),
                         "Production Olivier result did not show the settled stars/percentage.");
                 }
+                ValidateAllPerfectParticleShader();
                 Finish(true, "");
             }
             catch (Exception error) { Finish(false, error.ToString()); }
@@ -161,15 +182,26 @@ namespace OpenWDS.Editor
             typeof(GameRuntime).GetField("_gameResultRuntime", Private).SetValue(game, result);
             // ShowGameResult records results synchronously. Preserve the user's
             // existing file around this explicitly synthetic visual fixture.
+            var another = SessionState.GetBool(Key + ".another", false);
+            if (another)
+            {
+                var catalog = LocalMusicCatalog.FromJson(File.ReadAllText(
+                    SongResourceStore.CatalogPath));
+                var music = catalog.Musics.First(m => m.Id == (long)typeof(GameRuntime).GetField("_musicId", Private).GetValue(game));
+                var live = new LocalLiveEntry { Id = 52, AnotherNotationId = 52, Difficulty = MusicDifficulty.Olivier, Level = 105 };
+                typeof(GameRuntime).GetField("_ratingMusic", Private).SetValue(game, music);
+                typeof(GameRuntime).GetField("_ratingLive", Private).SetValue(game, live);
+                typeof(GameRuntime).GetField("_musicDifficulty", Private).SetValue(game, MusicDifficulty.Olivier);
+            }
             var path = (string)typeof(LocalResultStore).GetField("_path", Private)
-                .GetValue(new LocalResultStore());
+                .GetValue(new LocalResultStore(anotherNotation: another));
             var saved = File.Exists(path) ? File.ReadAllBytes(path) : null;
             try
             {
-                if (SessionState.GetBool(Key + ".olivier", false))
+                if (SessionState.GetBool(Key + ".olivier", false) && !another)
                 {
                     var catalog = LocalMusicCatalog.FromJson(File.ReadAllText(
-                        Path.Combine(Application.dataPath, "OpenWDS/OfflineData/LocalMusicCatalog.json")));
+                        SongResourceStore.CatalogPath));
                     var music = catalog.Musics.First(m => m.Id == (long)typeof(GameRuntime).GetField("_musicId", Private).GetValue(game));
                     var live = music.Lives.First(l => l.Difficulty == MusicDifficulty.Olivier);
                     typeof(GameRuntime).GetField("_ratingMusic", Private).SetValue(game, music);
@@ -248,6 +280,7 @@ namespace OpenWDS.Editor
                 entranceState = state.IsName("GameResult_left_in_anim"),
                 entranceTime = state.normalizedTime,
                 curtainTime = skeleton.GetComponent<Animator>().GetCurrentAnimatorStateInfo(0).normalizedTime,
+                spotlightAlpha = _background.transform.Find("SpotLightCharacte").GetComponent<SpriteRenderer>().color.a,
                 curtainBoundsCenter = mesh.bounds.center,
                 curtainBoundsSize = mesh.bounds.size,
                 countStarts = _sound.CountStartCount,
@@ -298,6 +331,57 @@ namespace OpenWDS.Editor
             }
         }
 
+        private static void ValidateAllPerfectParticleShader()
+        {
+            var badge = _root.GetComponentsInChildren<Transform>(true).Single(t => t.name == "BalloonBadgeRainbow");
+            var original = badge.Find("BalloonBadgeEffect/Particle2_al").GetComponent<ParticleSystemRenderer>().sharedMaterial;
+            Require(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(original.shader)) ==
+                "8abb4daa11bc8b64a8e4242f7f8984a0", "AP particle shader reference changed");
+            // Render the actual AP material with a known vertex tint. The old placeholder
+            // renders white; test both the native alpha-squared blend and rectangle clipping.
+            var material = new Material(original);
+            var target = new RenderTexture(16, 16, 24, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+            var pixels = new Texture2D(16, 16, TextureFormat.RGBAFloat, false, true);
+            var previous = RenderTexture.active;
+            try
+            {
+                target.Create();
+                RenderTexture.active = target;
+                material.mainTexture = Texture2D.whiteTexture;
+                material.color = Color.white;
+                material.SetVector("_ClipRect", new Vector4(0, 0, .5f, 1));
+                GL.Clear(true, true, Color.black);
+                GL.PushMatrix();
+                try
+                {
+                    GL.LoadOrtho();
+                    Require(material.SetPass(0), "AP particle shader pass unavailable");
+                    GL.Begin(GL.QUADS);
+                    GL.Color(new Color(.2f, .8f, .4f, .5f));
+                    GL.TexCoord2(0, 0); GL.Vertex3(0, 0, 0);
+                    GL.TexCoord2(0, 1); GL.Vertex3(0, 1, 0);
+                    GL.TexCoord2(1, 1); GL.Vertex3(1, 1, 0);
+                    GL.TexCoord2(1, 0); GL.Vertex3(1, 0, 0);
+                    GL.End();
+                }
+                finally { GL.PopMatrix(); }
+                pixels.ReadPixels(new Rect(0, 0, 16, 16), 0, 0); pixels.Apply();
+                var colored = pixels.GetPixel(3, 8);
+                var clipped = pixels.GetPixel(12, 8);
+                Require(Mathf.Abs(colored.r - .05f) < .015f && Mathf.Abs(colored.g - .2f) < .015f &&
+                    Mathf.Abs(colored.b - .1f) < .015f && clipped.r + clipped.g + clipped.b < .01f,
+                    "AP particle vertex tint/blend/clipping regression: " + colored + " / " + clipped);
+                Debug.Log("OPENWDS_AP_PARTICLE_COLOR passed rgb=" + colored);
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                UnityEngine.Object.DestroyImmediate(pixels);
+                UnityEngine.Object.DestroyImmediate(target);
+                UnityEngine.Object.DestroyImmediate(material);
+            }
+        }
+
         private static void Require(bool valid, string reason)
         {
             if (!valid) throw new InvalidOperationException(reason);
@@ -308,7 +392,7 @@ namespace OpenWDS.Editor
             SessionState.SetBool(Key + ".passed", passed);
             SessionState.SetInt(Key, 2);
             File.WriteAllText(Output("result-presentation-validation.json"),
-                JsonUtility.ToJson(new Report { passed = passed, failedLive = SessionState.GetBool(Key + ".failed", false), olivier = SessionState.GetBool(Key + ".olivier", false), failure = failure, samples = Samples }, true));
+                JsonUtility.ToJson(new Report { passed = passed, anotherNotation = SessionState.GetBool(Key + ".another", false), failedLive = SessionState.GetBool(Key + ".failed", false), olivier = SessionState.GetBool(Key + ".olivier", false), failure = failure, samples = Samples }, true));
             Debug.Log($"OPENWDS_RESULT_PRESENTATION passed={passed} {failure}");
             EditorApplication.isPlaying = false;
         }

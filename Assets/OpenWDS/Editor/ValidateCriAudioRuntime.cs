@@ -15,7 +15,7 @@ namespace OpenWDS.Editor
                 Application.streamingAssetsPath, "OpenWDS");
             var acf = Path.Combine(root, "CRI", "Sirius.acf");
             var acb = Path.Combine(
-                root, "StandardCharts", "1", "cri", "music_1.acb.bundle");
+                Path.Combine(OpenWDS.Runtime.SongResourceStore.Root, "OpenWDS"), "StandardCharts", "1", "cri", "music_1.acb.bundle");
             var commonSe = Path.Combine(root, "CRI", "GameCommonSE.acb");
             var customSe = Path.Combine(root, "CRI", "GameCustomSE_1.acb");
             var sharedSe = Path.Combine(root, "CRI", "SE.acb");

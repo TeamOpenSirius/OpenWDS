@@ -103,14 +103,11 @@ namespace OpenWDS.Runtime
             }
             var configText = _musicConfigAsset != null
                 ? _musicConfigAsset.text
-                : File.ReadAllText(Path.Combine(
-                    Application.streamingAssetsPath,
-                    _musicConfigRelativePath));
+                : File.ReadAllText(SongResourceStore.Resolve(_musicConfigRelativePath));
             var config = StandardNotation.ParseMusicConfig(
                 configText);
             _delayMilliseconds = (long)(config.DelayStartSeconds * 1000f);
-            var acbPath = Path.Combine(
-                CriWare.Common.streamingAssetsPath, _acbRelativePath);
+            var acbPath = SongResourceStore.Resolve(_acbRelativePath);
             _acb = CriAtomExAcb.LoadAcbFile(null, acbPath, null);
             if (_acb == null)
                 throw new InvalidOperationException(

@@ -46,13 +46,13 @@ namespace OpenWDS.Editor
         {
             if (!SessionState.GetBool(Key, false)) return;
             var catalog = LocalMusicCatalog.FromJson(File.ReadAllText(
-                "Assets/OpenWDS/OfflineData/LocalMusicCatalog.json"));
+                "SongResources/catalog.json"));
             long.TryParse(Environment.GetEnvironmentVariable("OPENWDS_AUTO_JUDGE_ANOTHER_ID"), out var another);
             LocalMusicSelection selection;
             if (another > 0)
             {
                 var special = JsonUtility.FromJson<Catalog>(File.ReadAllText(Path.Combine(
-                    Application.streamingAssetsPath, "OpenWDS/AnotherNotations/catalog.json")));
+                    SongResourceStore.Root, "OpenWDS/AnotherNotations/catalog.json")));
                 var entry = special.Entries.Single(e => e.Id == another);
                 selection = new LocalMusicSelection(entry.Music, entry.Music.Lives[0]);
             }
@@ -63,9 +63,9 @@ namespace OpenWDS.Editor
                     Environment.GetEnvironmentVariable("OPENWDS_AUTO_JUDGE_DIFFICULTY") ?? "Olivier", true);
                 selection = catalog.Select(id, difficulty);
             }
-            var chart = new TextAsset(File.ReadAllText(Path.Combine(Application.streamingAssetsPath,
+            var chart = new TextAsset(File.ReadAllText(Path.Combine(SongResourceStore.Root,
                 selection.Live.DebugNotationAssetPath)));
-            var config = new TextAsset(File.ReadAllText(Path.Combine(Application.streamingAssetsPath,
+            var config = new TextAsset(File.ReadAllText(Path.Combine(SongResourceStore.Root,
                 selection.Live.DebugMusicConfigAssetPath)));
             LocalMusicSelectionSession.Set(selection, chart, config, null, catalog.Musics,
                 isOfficialAuto: true, ownsTextAssets: true);

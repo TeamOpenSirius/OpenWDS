@@ -30,7 +30,7 @@ namespace OpenWDS.Editor
         {
             ValidateHoldPulseTiming.ValidateSharedHoldRelease();
             var report = new Report { passed = true };
-            var root = Application.streamingAssetsPath;
+            var root = SongResourceStore.Root;
             EditorSceneManager.OpenScene("Assets/OpenWDS/Scenes/OfflineRhythmPreview.unity");
             var game = UnityEngine.Object.FindObjectOfType<GameRuntime>();
             var serialized = new SerializedObject(game);
@@ -53,7 +53,7 @@ namespace OpenWDS.Editor
                 "OpenWDS/StandardCharts/61/1/4.csv"
             };
             var catalog = JsonUtility.FromJson<LocalMusicCatalog>(File.ReadAllText(
-                "Assets/OpenWDS/OfflineData/LocalMusicCatalog.json"));
+                "SongResources/catalog.json"));
             paths.AddRange(catalog.Musics.SelectMany(m => m.Lives)
                 .Where(l => l.Difficulty == MusicDifficulty.Olivier)
                 .OrderByDescending(l => l.Level).Take(12)

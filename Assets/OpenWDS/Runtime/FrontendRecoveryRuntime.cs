@@ -36,6 +36,9 @@ namespace OpenWDS.Runtime
         public GameObject CharacterCard => Page == "Home" ? _artwork?.Instance : null;
         public GameObject Footer => _footer?.Instance;
         private bool _busy;
+        private bool _homeSuspended;
+        public TitleTransitionRuntime HomeTransition { get; private set; }
+        public double LastHomePreparationSeconds { get; private set; }
         private IDisposable _titleExit;
         public bool TitleAnimationEnded { get; private set; }
         public string Page { get; private set; }
@@ -63,8 +66,22 @@ namespace OpenWDS.Runtime
         public IEnumerator LeaveForSelection()
         {
             _bgm.Stop();
-            if (Theatre != null) { yield return Theatre.Release(); Theatre = null; }
-            ReleaseViews();
+            if (Page == "Home" && _view?.Instance != null && Theatre != null && Theatre.IsReady)
+            {
+                // Page navigation keeps the prepared Home scope until Main is unloaded.
+                IsFullScreen = false;
+                _view.Field("HomeView", "_uIPanelsObject").gameObject.SetActive(true);
+                ExitFullScreenButton.interactable = false;
+                ExitFullScreenButton.targetGraphic.raycastTarget = false;
+                SetHomeActive(false);
+                Theatre.Suspend();
+                _homeSuspended = true;
+            }
+            else
+            {
+                if (Theatre != null) { yield return Theatre.Release(); Theatre = null; }
+                ReleaseViews();
+            }
             Page = "Selection";
             _busy = false;
         }
@@ -131,6 +148,27 @@ namespace OpenWDS.Runtime
         {
             if (_busy) yield break;
             _busy = true;
+            if (_homeSuspended && _view?.Instance != null && Theatre != null && Theatre.IsReady)
+            {
+                Theatre.Resume();
+                RefreshHomeHeaders();
+                SetHomeActive(true);
+                _homeSuspended = false;
+                _bgm.Play(false);
+                var retainedGroup = _view.Field("HomeView", "_canvasGroup").GetComponent<CanvasGroup>();
+                retainedGroup.alpha = 0;
+                yield return retainedGroup.DOFade(1, 0.2f).SetUpdate(true).WaitForCompletion();
+                Page = "Home";
+                _busy = false;
+                yield break;
+            }
+            double preparingAt = Time.realtimeSinceStartupAsDouble;
+            if (Page == "Title")
+            {
+                var transition = new GameObject("HomeLoadingTransition");
+                HomeTransition = transition.AddComponent<TitleTransitionRuntime>();
+                yield return HomeTransition.Show();
+            }
             if (Theatre != null) { yield return Theatre.Release(); Theatre = null; }
             ReleaseViews();
             Theatre = new GameObject("TheatreRuntime").AddComponent<HomeTheatreRuntime>();
@@ -204,6 +242,15 @@ namespace OpenWDS.Runtime
             group.alpha = 0;
             // Original first HomeView.ShowAsync uses a 0.2 second fade, 0xADB285C.
             yield return group.DOFade(1, 0.2f).SetUpdate(true).WaitForCompletion();
+            LastHomePreparationSeconds = Time.realtimeSinceStartupAsDouble - preparingAt;
+            if (HomeTransition != null)
+            {
+                yield return HomeTransition.Hide();
+                Destroy(HomeTransition.gameObject);
+                HomeTransition = null;
+                yield return null;
+            }
+            Debug.Log($"OPENWDS_HOME_READY preparationSeconds={LastHomePreparationSeconds:F3}");
             Page = "Home";
             _busy = false;
         }
@@ -219,13 +266,31 @@ namespace OpenWDS.Runtime
                 foreach (var group in header.Instance.GetComponentsInChildren<CanvasGroup>(true)) group.alpha = 1;
                 DisableButtons(header.Instance);
             }
+            RefreshHomeHeaders();
+        }
+
+        private void SetHomeActive(bool active)
+        {
+            _view.Instance.SetActive(active);
+            _footer.Instance.SetActive(active);
+            foreach (var header in _headers) header.Instance.SetActive(active);
+            Menu.View.SetActive(active);
+            Menu.gameObject.SetActive(active);
+        }
+
+        private void RefreshHomeHeaders()
+        {
             var user = _headers[0];
             // No account economy repository exists; never display authored demonstration balances.
             SetText(user.Field("UserRankDataPanel", "_rankText"), "—");
             user.Field("UserRankDataPanel", "_rankSlider").GetComponent<Slider>().value = 0;
             user.Field("UserRankDataPanel", "_cautionMark").gameObject.SetActive(false);
-            SetText(user.Field("RateDataPanel", "_rateText"), "—");
-            SetText(user.Field("GemDataPanel", "_gemText"), "—");
+            var musicCatalog = LocalMusicCatalog.FromJson(SongResourceStore.CatalogJson);
+            var rating = PlayerRating.CalculatePlayerRate(musicCatalog.Musics, new LocalResultStore());
+            var rateText = user.Field("RateDataPanel", "_rateText");
+            SetText(rateText, rating.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            (rateText.GetComponent<PlayerRateGradient>() ?? rateText.gameObject.AddComponent<PlayerRateGradient>()).SetRate(rating);
+            SetText(user.Field("GemDataPanel", "_gemText"), "0");
             SetText(user.Field("StaminaDataPanel", "_currentStaminaText"), "—");
             SetText(user.Field("StaminaDataPanel", "_maxStaminaText"), "/—");
             user.Field("UserDataHeaderView", "_getGemPanel").gameObject.SetActive(false);
@@ -264,6 +329,7 @@ namespace OpenWDS.Runtime
         }
         private void ReleaseViews()
         {
+            _homeSuspended = false;
             if (_titleMusic != null) { StopCoroutine(_titleMusic); _titleMusic = null; }
             _bgm?.Stop();
             IsFullScreen = false; FullScreenButton = null; ExitFullScreenButton = null;
@@ -280,6 +346,10 @@ namespace OpenWDS.Runtime
             _footer?.Dispose(); _footer = null;
             StartButton = null; LiveButton = null;
         }
-        private void OnDestroy() { ReleaseViews(); }
+        private void OnDestroy()
+        {
+            if (HomeTransition != null) Destroy(HomeTransition.gameObject);
+            ReleaseViews();
+        }
     }
 }

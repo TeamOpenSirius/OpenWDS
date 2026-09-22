@@ -18,11 +18,12 @@ namespace OpenWDS.Editor
         private const string Key = "OpenWDS.AnotherGate.";
         private static int _phase, _filterPhase, _scrollPhase, _dragFrames;
         private static PointerEventData _drag;
-        private static float _maxGapError;
+        private static float _maxGapError, _lastScrollPosition, _launchScrollPosition;
+        private static int _loopRebases;
         private static double _resultObservedAt;
         private static bool _stageObserved, _completedNotes;
         private static int _initialSelectionId;
-        private static int _zeroHudSamples;
+        private static int _zeroHudSamples, _remainingNotes, _collectedNotes;
         private static bool Direct => SessionState.GetBool(Key + "direct", false);
         private static bool UiOnly => SessionState.GetBool(Key + "uiOnly", false);
         private static double _next;
@@ -141,8 +142,12 @@ namespace OpenWDS.Editor
                         Click(auto.GetComponent<Button>());
                         ValidateAuto(auto, false, labelColor);
                         if (UiOnly) { Finish(null); return; }
-                        Click(auto.GetComponent<Button>()); break;
+                        Click(auto.GetComponent<Button>());
+                        var savedFilter = (AnotherNotationFilters)typeof(AnotherNotationSelectionRuntime).GetField("_filter", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(another);
+                        savedFilter.SortMode = 1; savedFilter.Applied();
+                        another.SelectId(52); break;
                     case 8:
+                        _launchScrollPosition = another.View.GetComponentInChildren<EnhancedUI.EnhancedScroller.EnhancedScroller>().ScrollPosition;
                         Click(another.View.GetComponentsInChildren<Button>().First(b => b.name == "OkButton")); break;
                     case 9:
                         var confirmation = GameObject.Find("NoteSpeedDialog");
@@ -157,17 +162,22 @@ namespace OpenWDS.Editor
                         {
                             Require(game == null && SceneNavigationRuntime.SourceUnloadedBeforeLoad, "Game survived result navigation");
                             Require(_completedNotes, "Unconsumed special notes");
-                            Require(LocalMusicSelectionSession.Selection.Live.AnotherNotationId == 1 && LocalMusicSelectionSession.IsOfficialAuto,
+                            Require(LocalMusicSelectionSession.Selection.Live.AnotherNotationId == 52 && LocalMusicSelectionSession.IsOfficialAuto,
                                 "Lost special chart replay parameters");
                             _resultObservedAt = EditorApplication.timeSinceStartup; _phase++; return;
                         }
                         if (game == null || !game.IsInitialized) return;
                         Require(!UnityEngine.SceneManagement.SceneManager.GetSceneByName(SceneNavigationRuntime.MainScene).isLoaded, "Main remained loaded during Game");
+                        Require(!UnityEngine.SceneManagement.SceneManager.GetSceneByName("Theatre").isLoaded &&
+                            UnityEngine.Object.FindObjectsOfType<HomeTheatreRuntime>(true).Length == 0,
+                            "Suspended Home theatre survived Main-to-Game navigation");
                         var hud = game.GetComponent<GameHudRuntime>();
                         Require(hud.ScorePanel.gameObject.activeSelf && hud.PrincipalGauge.gameObject.activeSelf, "Special zero HUD hidden");
                         Require(hud.TotalScore == 0 && hud.ScorePanel.Score == 0 && hud.Score == null && hud.SenseScore == null && hud.StarActScore == null, "Special chart accumulated score");
                         Require(hud.PrincipalGauge.CurrentPrincipalCount.text == "0" && hud.PrincipalGauge.MaxPrincipalCount.text == "0", "Special principal is not 0/0");
                         _zeroHudSamples++;
+                        _remainingNotes = game.InputHandler.RemainingTapCount + game.InputHandler.RemainingFlickCount + game.InputHandler.RemainingHoldCount + game.InputHandler.RemainingScratchCount;
+                        _collectedNotes = game.GameResultRuntime.CollectedCount;
                         _completedNotes |= game.InputHandler.IsGameCompleted && game.InputHandler.RemainingTapCount + game.InputHandler.RemainingFlickCount + game.InputHandler.RemainingHoldCount + game.InputHandler.RemainingScratchCount == 0;
                         return;
 
@@ -184,14 +194,30 @@ namespace OpenWDS.Editor
                         Require(_zeroHudSamples > 100, "Insufficient zero-score gameplay samples");
                         Require(resultScene.CharacterPresentation != null && resultScene.CharacterPresentation.IsReady && resultScene.CharacterPresentation.ResultPlayCount == 1, "Shared result character did not play");
                         Require(GameObject.Find("CharacterParent") != null, "Result character is inactive");
+                        var resultRoot = resultScene.View.transform;
+                        var lamps = resultRoot.Find("LeftPanel/MusicInfoPanel/ClearLamps");
+                        var visibleLamps = lamps.Cast<Transform>().Where(t => t.gameObject.activeSelf).ToArray();
+                        Require(visibleLamps.Length == 1 && visibleLamps[0].name == "Lamp" + LocalMusicSelectionSession.Selection.Live.Difficulty,
+                            "Another result must show only its own difficulty lamp");
+                        var ratePanel = resultRoot.GetComponentInChildren<Sirius.GameResult.GameResultRatePanel>(true);
+                        var noRate = ratePanel.GetComponentsInChildren<Text>(true).Single(t => t.name == "RateText");
+                        Require(noRate.gameObject.activeSelf && noRate.text ==
+                            (LocalMusicSelectionSession.Selection.Live.Difficulty == MusicDifficulty.Olivier ? "星章集計対象外です。" : "レート集計対象外です。"),
+                            "Another result exclusion prompt");
+                        Require(!ratePanel.GetComponentsInChildren<Text>(true).Any(t =>
+                            (t.name == "ThisTimeRate" || t.name == "NotRateText") && t.gameObject.activeInHierarchy),
+                            "Another result exposed numeric rate or failure prompt");
                         Capture("another-notation-result.png");
                         resultScene.ReplayFromResult(); break;
                     case 11:
                         if (game == null || game.IsResultShown || game.InputHandler == null || game.IsRestartPending) return;
                         game.RetireGame(); break;
                     case 12:
-                        Require(another != null && another.SelectedId == 1, "Special selection not rebuilt after result/replay/retire");
+                        Require(another != null && another.SelectedId == 52, "Special selection not rebuilt after result/replay/retire");
                         Require(host.GetInstanceID() != _initialSelectionId && SceneNavigationRuntime.CompletedTransitions >= 4, "Source presenter was retained");
+                        var returnedFilter = (AnotherNotationFilters)typeof(AnotherNotationSelectionRuntime).GetField("_filter", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(another);
+                        Require(returnedFilter.SortMode == 1 && Mathf.Abs(another.View.GetComponentInChildren<EnhancedUI.EnhancedScroller.EnhancedScroller>().ScrollPosition - _launchScrollPosition) < 1f,
+                            "Special return lost sort or scroll position");
                         Capture("another-notation-return.png");
                         Click(GameObject.Find("AnotherNotationBack").GetComponent<Button>()); break;
                     case 13:
@@ -218,14 +244,18 @@ namespace OpenWDS.Editor
                     ExecuteEvents.Execute(scroller.gameObject, _drag, ExecuteEvents.initializePotentialDrag);
                     ExecuteEvents.Execute(scroller.gameObject, _drag, ExecuteEvents.beginDragHandler);
                     Require(!scroller.snapping, "Snap was left enabled during drag");
+                    _lastScrollPosition = scroller.ScrollPosition;
                     _scrollPhase++; _next = EditorApplication.timeSinceStartup + .03; return;
                 case 1:
-                    _drag.delta = new Vector2(0, 35); _drag.position += _drag.delta;
+                    if (_lastScrollPosition - scroller.ScrollPosition > another.EntryCount * 188f * .5f) _loopRebases++;
+                    _lastScrollPosition = scroller.ScrollPosition;
+                    Require(scroller.ScrollRect.velocity.y >= -1f, "Loop recycle reversed drag velocity");
+                    _drag.delta = new Vector2(0, 1600); _drag.position += _drag.delta;
                     ExecuteEvents.Execute(scroller.gameObject, _drag, ExecuteEvents.dragHandler);
                     Require(!scroller.snapping, "Scroller snapped before pointer release");
-                    if (++_dragFrames < 12) { _next = EditorApplication.timeSinceStartup + .03; return; }
+                    if (++_dragFrames < 36) { _next = EditorApplication.timeSinceStartup + .03; return; }
                     ExecuteEvents.Execute(scroller.gameObject, _drag, ExecuteEvents.endDragHandler);
-                    Require(scroller.snapping, "Snap not restored at drag end");
+                    Require(scroller.snapping && _loopRebases >= 2, "High-speed drag did not cross multiple loop boundaries");
                     _scrollPhase++; _next = EditorApplication.timeSinceStartup + 3; return;
                 case 2:
                     Require(another.SelectedId != 1, "Drag did not select another chart");
@@ -421,7 +451,7 @@ namespace OpenWDS.Editor
             var before = JsonConvert.DeserializeObject<Dictionary<string, byte[]>>(SessionState.GetString(Key + "resultsBefore", "{}"));
             var resultsUnchanged = before.All(pair => pair.Value == null ? !File.Exists(pair.Key) : File.Exists(pair.Key) && File.ReadAllBytes(pair.Key).SequenceEqual(pair.Value));
             if (!resultsUnchanged && error == null) error = "Auto or selection wrote a score file";
-            File.WriteAllText(Report, JsonConvert.SerializeObject(new { passed = error == null, directFromHome = Direct, sceneTransitions = SceneNavigationRuntime.CompletedTransitions, phase = _phase, filterPhase = _filterPhase, scrollPhase = _scrollPhase, maxGapError = _maxGapError, uiOnly = UiOnly, stageObserved = _stageObserved, zeroHudSamples = _zeroHudSamples, resultsUnchanged, storeIsolationValidated = true, error }, Formatting.Indented));
+            File.WriteAllText(Report, JsonConvert.SerializeObject(new { passed = error == null, directFromHome = Direct, sceneTransitions = SceneNavigationRuntime.CompletedTransitions, phase = _phase, filterPhase = _filterPhase, scrollPhase = _scrollPhase, loopRebases = _loopRebases, maxGapError = _maxGapError, uiOnly = UiOnly, stageObserved = _stageObserved, zeroHudSamples = _zeroHudSamples, remainingNotes = _remainingNotes, collectedNotes = _collectedNotes, resultsUnchanged, storeIsolationValidated = true, error }, Formatting.Indented));
             SessionState.SetBool(Key + "passed", error == null);
             SessionState.SetBool(Key + "exit", true);
             EditorApplication.isPlaying = false;

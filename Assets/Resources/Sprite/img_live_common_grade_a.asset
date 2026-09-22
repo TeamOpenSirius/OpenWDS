@@ -9,14 +9,14 @@ Sprite:
   m_Name: img_live_common_grade_a
   m_Rect:
     serializedVersion: 2
-    x: 512.02673
-    y: 779
-    width: 109.897125
+    x: 0
+    y: 0
+    width: 256
     height: 105
-  m_Offset: {x: -0.9753122, y: 0}
+  m_Offset: {x: 0, y: 0}
   m_Border: {x: 0, y: 0, z: 0, w: 0}
   m_PixelsToUnits: 68.81721
-  m_Pivot: {x: 0.49112523, y: 0.5}
+  m_Pivot: {x: 0.5, y: 0.5}
   m_Extrude: 1
   m_IsPolygon: 0
   m_AtlasName:
@@ -111,7 +111,7 @@ Sprite:
       y: 779
       width: 109.897125
       height: 105
-    textureRectOffset: {x: 0, y: 0}
+    textureRectOffset: {x: 74.0267487, y: 0}
     atlasRectOffset: {x: 438, y: 779}
     settingsRaw: 67
     uvTransform: {x: 68.81721, y: 566, z: 68.81721, w: 831.5}
