@@ -592,7 +592,7 @@ namespace OpenWDS.Runtime
                     initialDifficulty = returnedSelection.Live.Difficulty;
                 }
             }
-            yield return PrepareMusicSelection(initialMusic);
+            PrepareMusicSelection(initialMusic);
             BindView(initialMusic);
             if (!_availableDifficulties.Contains(initialDifficulty) ||
                 !TryGetLive(initialMusic, initialDifficulty, out _))
@@ -1670,7 +1670,7 @@ namespace OpenWDS.Runtime
             SetSelectionControlsInteractable(true);
             var selected = filtered.FirstOrDefault(music => music.Id == selectedId)
                 ?? filtered[0];
-            yield return PrepareMusicSelection(selected);
+            PrepareMusicSelection(selected);
             BindView(selected);
             BindMusicList();
             if (!TryGetLive(selected, selectedDifficulty, out _))
@@ -4093,18 +4093,19 @@ namespace OpenWDS.Runtime
             var previousDifficulty = _selection != null
                 ? _selection.Live.Difficulty
                 : MusicDifficulty.Stella;
-            yield return PrepareMusicSelection(music);
-            BindView(music);
-            if (!_availableDifficulties.Contains(previousDifficulty) ||
-                !TryGetLive(music, previousDifficulty, out _))
+            // Commit metadata and difficulty together: an interrupted snap must
+            // never expose SetLoadedMusicSelection's default Stella selection.
+            if (!TryGetLive(music, previousDifficulty, out _))
                 previousDifficulty = MusicDifficulty.Stella;
-            _selection = _catalog.Select(music.Id, previousDifficulty);
+            PrepareMusicSelection(music, previousDifficulty);
+            BindView(music);
             SelectDifficulty(previousDifficulty, false);
             _preview.Play(music.Id);
             if (playSound) _se.Play(UiSeRuntime.Cue.ButtonGo);
+            yield break;
         }
 
-        private IEnumerator PrepareMusicSelection(LocalMusicEntry music)
+        private void PrepareMusicSelection(LocalMusicEntry music, MusicDifficulty? difficulty = null)
         {
             if (music == null || music.Lives == null)
                 throw new ArgumentNullException(nameof(music));
@@ -4112,9 +4113,11 @@ namespace OpenWDS.Runtime
             // receives one selected notation/config pair at the scene boundary.
             _availableDifficulties.Clear();
             foreach (var live in music.Lives) _availableDifficulties.Add(live.Difficulty);
-            SetLoadedMusicSelection(music);
+            if (difficulty.HasValue)
+                _selection = _catalog.Select(music.Id, difficulty.Value);
+            else
+                SetLoadedMusicSelection(music);
             EnsureJacketLoaded(music);
-            yield break;
         }
 
         private IEnumerator BindPlayerRateJacket(LocalMusicEntry music, Image jacket)
@@ -4577,42 +4580,7 @@ namespace OpenWDS.Runtime
                 _performanceSettings.GameSettings.LaneAlphaValue,
                 _performanceSettings.GameDetailSettings.NoteHeight);
 
-            // GameSimulationView.prefab: full-screen Canvas order 61, RawImage
-            // right anchored at width 290, UV (0.412,0,0.16,1). The local
-            // dialog uses a higher recovered sort band, preserving the retail
-            // relative order while retaining the authored view values.
-            _noteSpeedPreviewView = new GameObject(
-                "GameSimulationView",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasGroup));
-            var canvas = _noteSpeedPreviewView.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.overrideSorting = true;
-            canvas.sortingOrder = 109;
-            var rootRect = (RectTransform)_noteSpeedPreviewView.transform;
-            rootRect.anchorMin = Vector2.zero;
-            rootRect.anchorMax = Vector2.one;
-            rootRect.offsetMin = Vector2.zero;
-            rootRect.offsetMax = Vector2.zero;
-
-            var imageObject = new GameObject(
-                "RawImage",
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(RawImage));
-            imageObject.transform.SetParent(
-                _noteSpeedPreviewView.transform, false);
-            var imageRect = (RectTransform)imageObject.transform;
-            imageRect.anchorMin = new Vector2(1f, 0f);
-            imageRect.anchorMax = Vector2.one;
-            imageRect.pivot = new Vector2(1f, 0.5f);
-            imageRect.anchoredPosition = Vector2.zero;
-            imageRect.sizeDelta = new Vector2(290f, 0f);
-            var rawImage = imageObject.GetComponent<RawImage>();
-            rawImage.texture = _gameSimulationRenderTexture;
-            rawImage.uvRect = new Rect(0.412f, 0f, 0.16f, 1f);
-            rawImage.raycastTarget = false;
+            _noteSpeedPreviewView = _noteSpeedSimulation.CreateView(_gameSimulationRenderTexture);
         }
 
         private void DestroyNoteSpeedPreview()

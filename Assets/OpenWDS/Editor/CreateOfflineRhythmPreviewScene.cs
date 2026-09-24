@@ -2508,7 +2508,7 @@ namespace OpenWDS.Editor
                        "ToAllPerfect" &&
                    Sirius.Game.GameResultPanel.GetTrigger(
                        Sirius.Game.BoundaryClearType.Failed) ==
-                       "ToFailed" &&
+                       "ToFinish" &&
                    Mathf.Approximately(
                        Sirius.Game.GameResultPanel.GetAuthoredDuration(
                            Sirius.Game.BoundaryClearType.Failed),
@@ -7328,7 +7328,7 @@ namespace OpenWDS.Editor
                     splitNotes.Add(note);
             }
 
-            var scheduler = new SplitLaneRuntime(notation);
+            var scheduler = new SplitLaneRuntime(notation, (int)SpritEffectSettingType.Rich);
             splitLaneCount = scheduler.SplitLaneCount;
             if (splitLaneCount != 7 ||
                 SplitLaneRuntime.ConvertGimmickType(13) != 33 ||

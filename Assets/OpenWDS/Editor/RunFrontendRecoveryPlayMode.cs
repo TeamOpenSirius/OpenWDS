@@ -15,6 +15,7 @@ namespace OpenWDS.Editor
     {
         private const string Key = "OpenWDS.FrontendGate.";
         private static string Report => Path.GetFullPath(Path.Combine(Application.dataPath, "../../../reverse/reports/frontend-playmode.json"));
+        private static bool _startupNoticeValidated, _startupNoticeCaptured;
         private static int _phase;
         private static int _homeUiPhase;
         private static float _actorTime;
@@ -82,6 +83,27 @@ namespace OpenWDS.Editor
                 if ((_phase < 5 || _phase == 7 || _phase == 9 || _phase == 12 || _phase == 14) && (host == null || !host.IsReady)) return;
                 if ((_phase == 7 || _phase == 9 || _phase == 12 || _phase == 14) &&
                     (host.Page != "Home" || !host.Bgm.IsPlaying)) return;
+                if (_phase == 2 && host != null && host.Page == "Home" && !_startupNoticeValidated)
+                {
+                    var documents = host.Menu.Documents;
+                    if (documents.IsTransitioning) return;
+                    Require(documents.Notice != null, "First Home announcement missing");
+                    var body = documents.Notice.GetComponentsInChildren<Text>().Single(t => t.name == "Body");
+                    Require(body.text.Contains("非盈利") && body.text.Contains("non-profit"), "Bilingual statement missing");
+                    body.font.RequestCharactersInTexture(body.text, body.fontSize, body.fontStyle);
+                    Require(body.text.Where(c => !char.IsWhiteSpace(c)).All(c => body.font.HasCharacter(c)), "Statement font missing glyphs");
+                    if (!_startupNoticeCaptured)
+                    {
+                        Capture("frontend-startup-notice.png");
+                        _startupNoticeCaptured = true;
+                        _next = EditorApplication.timeSinceStartup + 0.5;
+                        return;
+                    }
+                    Click(documents.Notice.GetComponentsInChildren<Button>().Single(b => b.name == "CloseButton"));
+                    _startupNoticeValidated = true;
+                    _next = EditorApplication.timeSinceStartup + 0.5;
+                    return;
+                }
                 var directHost = UnityEngine.Object.FindObjectOfType<LocalMusicSelectionRuntime>();
                 if (directHost != null && directHost.IsDirectAnotherEntry)
                 {
@@ -95,6 +117,7 @@ namespace OpenWDS.Editor
                 if (MainPageNavigationRuntime.Instance != null && MainPageNavigationRuntime.Instance.IsTransitioning) return;
                 if (_phase == 7 || _phase == 9 || _phase == 12 || _phase == 14)
                 {
+                    Require(host.Menu.Documents.Notice == null, "Announcement repeated on Home return");
                     Require(host.View.GetInstanceID() == _homeViewId && host.LiveButton.GetInstanceID() == _homeButtonId &&
                         host.Theatre.GetInstanceID() == _theatreId, "Home return rebuilt the view/buttons/theatre");
                     Require(!host.Theatre.IsSuspended && host.Theatre.HomeCamera.isActiveAndEnabled &&
@@ -422,6 +445,7 @@ namespace OpenWDS.Editor
                 titleBundles = _titleBundles, homeBundles = _homeBundles, utc = DateTime.UtcNow,
                 titleLoadingCoverValidated = SessionState.GetBool(Key + "homeCover", false),
                 actorAnimationAdvanced = _actorAnimationAdvanced, homeSuspendedDuringSelection = _sceneLifetimeValidated, homeReturnSeconds = _homeReturnSeconds, homeInstancesReused = _homeReturnSeconds.Count == 4,
+                startupNoticeValidated = _startupNoticeValidated,
                 fullScreenAndHomeMenuValidated = _homeUiPhase == 6, selectionBackButtonValidated = _selectionBackValidated, directAnotherEntrySeconds = _directEntrySeconds, sharedMainSceneValidated = _selectionBackValidated,
                 scope = "Original UI, repeated Title/Home navigation and entry to selection; title artwork uses frozen detail 1001; Home uses original additive Theatre, character 101/default costume 11 and footer; Title/Home original CRI playback, Home headers, regular background, original selection BackButton and Home archive/menu return tested; Other character preferences, awakening, account actions and online login excluded." }, Formatting.Indented));
             Debug.Log("OPENWDS_FRONTEND " + (error ?? "passed"));

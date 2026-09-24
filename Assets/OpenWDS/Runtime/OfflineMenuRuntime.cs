@@ -32,7 +32,8 @@ namespace OpenWDS.Runtime
         private bool _childOpen;
         public bool IsTransitioning => _busy;
         public int CompletedHideCount { get; private set; }
-        public bool IsOpen => _block != null;
+        public bool IsOpen => _block != null || _childOpen;
+        public OfflineMenuDocuments Documents => _documents;
         public bool IsReady { get; private set; }
         public GameObject Popup => _popup;
         public GameObject View => _view;
@@ -116,6 +117,33 @@ namespace OpenWDS.Runtime
             button.interactable = true;
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() => { UiSeRuntime.Instance?.Play(cue); action(); });
+        }
+
+        // Once per application session; returning from gameplay must not show it again.
+        private static bool _startupNoticeShown;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStartupNotice() { _startupNoticeShown = false; }
+
+        public void ShowStartupNotice()
+        {
+            if (_startupNoticeShown || !IsReady || IsOpen || _busy) return;
+            _opened?.Invoke();
+            _block = new GameObject("StartupNoticeTouchBlock", typeof(RectTransform), typeof(Image));
+            _block.transform.SetParent(_parent, false);
+            var rect = (RectTransform)_block.transform;
+            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            _block.GetComponent<Image>().color = Color.clear;
+            _childOpen = true;
+            _documents.ShowNotices(() =>
+            {
+                _childOpen = false;
+                _block.SetActive(false);
+                Destroy(_block);
+                _block = null;
+                _closed?.Invoke();
+            }, true);
+            _startupNoticeShown = true;
         }
 
         public void BringButtonToFront() => _view.transform.SetAsLastSibling();

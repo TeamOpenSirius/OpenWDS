@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Sirius.Animations;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace OpenWDS.Runtime
 {
@@ -43,6 +44,46 @@ namespace OpenWDS.Runtime
         private float _startedAt;
         private int _cycle = -1;
         private bool _effectPlayed;
+        private RectTransform _previewImage;
+
+        public GameObject CreateView(RenderTexture texture)
+        {
+            var view = new GameObject("GameSimulationView", typeof(RectTransform),
+                typeof(Canvas), typeof(CanvasScaler), typeof(CanvasGroup));
+            var canvas = view.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 109;
+            // The retail View inherits level0's UI canvas: 1920x1080, Expand.
+            // A standalone overlay without this scaler interprets 290 as device
+            // pixels and squeezes the preview on high-resolution displays.
+            var scaler = view.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+            var image = new GameObject("RawImage", typeof(RectTransform), typeof(RawImage));
+            image.transform.SetParent(view.transform, false);
+            _previewImage = (RectTransform)image.transform;
+            _previewImage.anchorMin = new Vector2(1, 0);
+            _previewImage.anchorMax = Vector2.one;
+            _previewImage.pivot = new Vector2(1, .5f);
+            _previewImage.sizeDelta = new Vector2(290, 0);
+            var raw = image.GetComponent<RawImage>();
+            raw.texture = texture;
+            raw.uvRect = new Rect(.412f, 0, .16f, 1);
+            raw.raycastTarget = false;
+            AdjustView();
+            return view;
+        }
+
+        private void AdjustView()
+        {
+            // GameSimulationView.OnAdjust (0xB272F8C), also invoked when the
+            // screen changes: preserve the authored right safe-area inset.
+            if (_previewImage != null)
+                _previewImage.anchoredPosition = new Vector2(
+                    -(Screen.width - Screen.safeArea.x - Screen.safeArea.width), 0);
+        }
         public int BombPlayCount { get; private set; }
         public bool IsBombActive =>
             _bombController != null && _bombController.gameObject.activeSelf;
@@ -227,6 +268,7 @@ namespace OpenWDS.Runtime
 
         private void Update()
         {
+            AdjustView();
             if (_note == null) return;
             // PreviewUI.OnStart passes DefaultNoteStartOffset (zero) to
             // UserDataHelper.GetNoteDisplayTime. The detail-setting offset moves

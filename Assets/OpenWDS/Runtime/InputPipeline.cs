@@ -389,6 +389,11 @@ namespace OpenWDS.Runtime
                 }
                 if (!result.Assigned || result.AssignmentNote == null)
                 {
+                    // Native Fire calls OnHoldEnd even when TryHold returns
+                    // no note. OnHoldEnd(null, input) removes this touch from
+                    // LaneHoldManager, including a finger still held after
+                    // the previous body's tail has been judged and removed.
+                    laneHolds.Remove(input.TouchId);
                     continue;
                 }
                 laneHolds.Set(input.TouchId, result.AssignmentNote);

@@ -450,6 +450,25 @@ namespace OpenWDS.Runtime
             return false;
         }
 
+        public bool TryGetActiveBodyForMain(
+            in HitLaneEntity hitLane, long musicMilliseconds, out NotationNote note)
+        {
+            // NotationNoteManager.GetHoldNotationNoteForMain passes false for
+            // jump coverage. The shared Hold queue contains 100/101/110/111;
+            // a jump's destination span is only used by the separate provider.
+            note = null;
+            foreach (var candidate in _notes)
+            {
+                if ((candidate.NoteType != 110 && candidate.NoteType != 111) ||
+                    candidate.StartMilliseconds > musicMilliseconds ||
+                    candidate.EndMilliseconds <= musicMilliseconds ||
+                    !IsIncludedLane(hitLane.HitMainLaneId, candidate, false)) continue;
+                if (note == null || candidate.StartMilliseconds < note.StartMilliseconds)
+                    note = candidate;
+            }
+            return note != null;
+        }
+
         private bool TryFindActiveScratchHoldForAssignment(
             int candidateLane,
             long inputMusicMilliseconds,

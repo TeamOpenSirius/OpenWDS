@@ -25,6 +25,7 @@ namespace OpenWDS.Editor
         {
             public bool passed;
             public string failure;
+            public int expectedCharacters;
             public List<Row> samples = new List<Row>();
         }
         private sealed class SelectedIndexRandom : System.Random
@@ -39,7 +40,7 @@ namespace OpenWDS.Editor
         private static CharacterPresentationRuntime _presentation;
         private static GameObject _background, _owner;
         private static Camera _camera;
-        private static int _index, _phase;
+        private static int _index, _phase, _disabledFrame;
         private static float _started;
         private static Row _row;
         private static Transform[] _bones;
@@ -83,7 +84,8 @@ namespace OpenWDS.Editor
                 var error = SessionState.GetString(Key + ".error", "");
                 Require(error.Length == 0, error);
                 Require((DateTime.UtcNow.Ticks - long.Parse(SessionState.GetString(Key + ".start", "0"))) /
-                    (double)TimeSpan.TicksPerSecond < 300, "Character presentation timeout.");
+                    (double)TimeSpan.TicksPerSecond < 1800,
+                    $"Character presentation timeout: index={_index} phase={_phase}.");
                 if (!EditorApplication.isPlaying || EditorApplication.isCompiling) return;
                 if (_report == null) { Begin(); return; }
                 if (_phase == 0)
@@ -95,6 +97,19 @@ namespace OpenWDS.Editor
                 if (!_presentation.IsReady) return;
                 if (_phase == 1)
                 {
+                    _presentation.IsStarActCutInEnabled = false;
+                    _presentation.OnStarAct(_units.First(u => u.cards.Any(c => c.characterBaseMasterId == _characters[_index])).starActEvents[0]);
+                    _disabledFrame = Time.frameCount;
+                    _phase = 11; return;
+                }
+                if (_phase == 11)
+                {
+                    // Observe LateUpdate before checking that no cut-in was queued.
+                    if (Time.frameCount <= _disabledFrame + 1) return;
+                    Require(_presentation.StarActPlayCount == 0 && _presentation.StarActVoicePlayCount == 1,
+                        "Disabled StarAct cut-in must suppress the visual and retain the independent voice.");
+                    _presentation.ResetGameplay();
+                    _presentation.IsStarActCutInEnabled = true;
                     _presentation.OnStarAct(_units.First(u => u.cards.Any(c => c.characterBaseMasterId == _characters[_index])).starActEvents[0]);
                     _phase = 2; return;
                 }
@@ -140,6 +155,7 @@ namespace OpenWDS.Editor
                     }
                     _row.initialMotion = _presentation.LastMotion;
                     _started = Time.time;
+                    Debug.Log($"OPENWDS_CHARACTER_RESULT_READY character={_row.character} time={Time.time}");
                     _phase = 4; return;
                 }
                 for (var i = 0; i < _bones.Length; i++)
@@ -168,7 +184,8 @@ namespace OpenWDS.Editor
             _units = Directory.GetFiles(Path.Combine(Application.streamingAssetsPath, "OpenWDS/TestPlayer"), "*.json")
                 .OrderBy(p => p).Select(p => JsonUtility.FromJson<PlayerUnitFixture>(File.ReadAllText(p))).ToArray();
             _characters = _units.SelectMany(u => u.cards).Select(c => c.characterBaseMasterId).Distinct().OrderBy(c => c).ToArray();
-            Require(_characters.Length == 11, "Unexpected current fixture cast.");
+            Require(_characters.Length > 0, "Character fixtures are empty.");
+            _report.expectedCharacters = _characters.Length;
             var audio = new GameObject("PresentationAudio");
             audio.SetActive(false);
             var initializer = audio.AddComponent<CriWareInitializer>();

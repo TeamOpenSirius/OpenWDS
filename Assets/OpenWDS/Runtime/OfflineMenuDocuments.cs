@@ -128,7 +128,7 @@ namespace OpenWDS.Runtime
             choose(0);
         }
 
-        public void ShowNotices(Action closed)
+        public void ShowNotices(Action closed, bool openStatement = false)
         {
             _noticeClosed = closed;
             _notice = Spawn("Feature/Notification/NotificationView", _parent);
@@ -153,12 +153,17 @@ namespace OpenWDS.Runtime
             // NotificationView.ShowAsync 0xB1B1D5C: authored popup height 900,
             // OutCubic (9), root fade Linear (1), both 0.2 seconds.
             var popup = (RectTransform)Find(_notice.transform, "NotificationPopup");
+            Canvas.ForceUpdateCanvases();
+            var bounds = ((RectTransform)_notice.transform).rect;
+            // Keep the authored popup and close button inside narrow/tall screens too.
+            float scale = Mathf.Min(1f, bounds.width / (popup.sizeDelta.x + 100f), bounds.height / 1000f);
+            popup.localScale = Vector3.one * scale;
             var group = _notice.GetComponent<CanvasGroup>();
             group.alpha = 0; group.interactable = false;
             _transitioning = true;
             _animation = DOTween.Sequence().Append(popup.DOSizeDelta(new Vector2(popup.sizeDelta.x, 900), .2f).SetEase(Ease.OutCubic))
                 .Join(group.DOFade(1, .2f).SetEase(Ease.Linear)).SetLink(_notice)
-                .OnComplete(() => { group.interactable = true; _transitioning = false; });
+                .OnComplete(() => { group.interactable = true; _transitioning = false; if (openStatement) ShowNoticeBody(); });
         }
 
         private void ReloadNotices()
@@ -189,7 +194,7 @@ namespace OpenWDS.Runtime
         private static void FillElement(Transform element)
         {
             Find(element, "Title").GetComponent<Text>().text = StatementTitle;
-            Find(element, "PostingTime").GetComponent<Text>().text = "2026/09/17 00:00";
+            Find(element, "PostingTime").GetComponent<Text>().text = "2026/09/24 00:00";
             Find(element, "NotificationCategoryText").GetComponent<Text>().text = "重要";
             // Local text-only notice has no remote banner to wait for.
             Find(element, "Banner").GetComponent<Image>().enabled = false;
@@ -208,7 +213,10 @@ namespace OpenWDS.Runtime
             {
                 var cell = Spawn("OpenWDS/NotificationTextBodyCell", scroll.content);
                 var text = Find(cell.transform, "Body").GetComponent<Text>();
-                text.text = Content("Statement").Replace(' ', '\u00a0');
+                // Noto CJK covers all three statement languages.
+                text.font = Resources.Load<Font>("Fonts/NotoSansCJKsc-Regular");
+                if (text.font == null) throw new InvalidOperationException("Missing announcement font.");
+                text.text = Content("Statement.zh-Hans") + "\n\n" + Content("Statement.en") + "\n\n" + Content("Statement");
             }
             Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(scroll.content);

@@ -1221,7 +1221,8 @@ namespace OpenWDS.Runtime
                 _scratchHoldMaterial,
                 _noteHeight,
                 persistedSettings.GameDetailSettings.IsActiveConcurrentLine);
-            _splitLaneRuntime = new SplitLaneRuntime(notation);
+            _splitLaneRuntime = new SplitLaneRuntime(
+                notation, persistedSettings.GameSettings.SpritEffectSettingType);
             if (_splitEffectParent == null)
                 throw new InvalidOperationException(
                     "LaneEffectController SplitEffectParent is required.");
@@ -1251,6 +1252,8 @@ namespace OpenWDS.Runtime
                 if (Application.isPlaying)
                 {
                     _characterPresentation = gameObject.AddComponent<CharacterPresentationRuntime>();
+                    _characterPresentation.IsStarActCutInEnabled =
+                        persistedSettings.GameSettings.IsActiveSenseCutIn;
                     _gameHud.StarActActivated += _characterPresentation.OnStarAct;
                     StartCoroutine(_characterPresentation.Prepare(playerUnit, _gameCamera,
                         persistedSettings.GameSettings.GameEndVoiceSettingType,

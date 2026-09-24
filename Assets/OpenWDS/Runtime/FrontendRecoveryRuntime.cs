@@ -250,6 +250,7 @@ namespace OpenWDS.Runtime
                 HomeTransition = null;
                 yield return null;
             }
+            Menu.ShowStartupNotice();
             Debug.Log($"OPENWDS_HOME_READY preparationSeconds={LastHomePreparationSeconds:F3}");
             Page = "Home";
             _busy = false;

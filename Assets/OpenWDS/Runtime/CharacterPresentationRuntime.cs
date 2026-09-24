@@ -53,6 +53,7 @@ namespace OpenWDS.Runtime
         private bool _starVoiceStarted;
         private bool _voiceActive, _resultRequested;
         private float _voiceVolume;
+        public bool IsStarActCutInEnabled { get; set; } = true;
         private readonly Queue<StarActEventFixture> _pendingActs = new Queue<StarActEventFixture>();
         public bool IsReady { get; private set; }
         public int StarActPlayCount { get; private set; }
@@ -219,7 +220,9 @@ namespace OpenWDS.Runtime
         public void OnStarAct(StarActEventFixture activation)
         {
             if (!IsReady) throw new InvalidOperationException("StarAct fired before resources were prepared.");
-            _pendingActs.Enqueue(activation);
+            // GamePresenter.InitializeAsync subscribes the cut-in notification only
+            // when IReadOnlyGameSettings.IsActiveSenseCutIn is enabled.
+            if (IsStarActCutInEnabled) _pendingActs.Enqueue(activation);
             if (_starVoiceStarted)
             {
                 _starVoicePlayer.Stop();

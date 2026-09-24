@@ -7,7 +7,7 @@ namespace Sirius.Game
     /// <summary>
     /// Serialization-compatible recovery of the controller embedded in the
     /// original online SplitEffects prefabs. Initialization and split positions
-    /// follow SplitEffectController ARM64 at 0x59796F8/0x5979C28.
+    /// follow 2.31.2 SplitEffectController ARM64 at 0x597F298/0x597F7C8.
     /// </summary>
     public sealed class SplitEffectController : MonoBehaviour
     {
@@ -94,6 +94,11 @@ namespace Sirius.Game
                     }
                 }
                 _splitEffects[index] = element;
+                // Initialize 0x597F298 formats the ORIGINAL LINE GameObject
+                // name with metadata literal "_Line{0}". Leaving "Line1" etc.
+                // lets bundled animation bindings overwrite the runtime
+                // split positions and RGB opacity with their authored defaults.
+                line.gameObject.name = "_Line" + (index + 1);
             }
         }
 
@@ -110,10 +115,11 @@ namespace Sirius.Game
                         _splitLines[index].enabled = index <= splitCount;
             }
 
-            // Original branch: Ignore(7), Light(5), and the global light setting
-            // suppress particles. BothEnds(1) plays only the outer elements.
-            if (splitLaneType != 7 && splitLaneType != 5 &&
-                !_splitEffectLightSetting)
+            // Ignore(7) overrides the user's light setting, rather than hiding
+            // effects. Otherwise Light(5) or the global light setting suppress
+            // particles. BothEnds(1) plays only the outer elements.
+            if (splitLaneType == 7 || (splitLaneType != 5 &&
+                !_splitEffectLightSetting))
             {
                 for (var index = 0; index <= splitCount; index++)
                 {

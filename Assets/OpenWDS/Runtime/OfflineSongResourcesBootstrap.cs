@@ -14,8 +14,6 @@ namespace OpenWDS.Runtime
     /// <summary>The release entry works without any song payload; import is entirely local.</summary>
     public sealed class OfflineSongResourcesBootstrap : MonoBehaviour
     {
-        [SerializeField] private string _expectedArchiveHash;
-        public void ConfigureArchiveHash(string hash) { _expectedArchiveHash = hash; }
         private const string InstalledDirectoryKey = "OpenWDS.SongResourceDirectory";
         private bool _busy, _ready, _importing;
         private Text _status;
@@ -44,17 +42,7 @@ namespace OpenWDS.Runtime
             _busy = true; _ready = false;
             _operation = Task.Run(() =>
             {
-#if UNITY_EDITOR
-                // The developer tree is deliberately unversioned and needs no installation manifest.
-                SongResourceImporter.Recover(_root);
-                var paths = Directory.GetFiles(_root, "*", SearchOption.AllDirectories)
-                    .Select(path => path.Substring(_root.Length + 1).Replace('\\', '/'));
-                SongResourceImporter.ValidateCatalogDependencies(File.ReadAllText(Path.Combine(_root, "catalog.json")),
-                    File.ReadAllText(Path.Combine(_root, "OpenWDS/AnotherNotations/catalog.json")),
-                    new HashSet<string>(paths, StringComparer.Ordinal));
-#else
                 SongResourceImporter.ValidateInstalled(_root);
-#endif
             });
         }
         private void Update()
@@ -208,8 +196,6 @@ namespace OpenWDS.Runtime
             {
                 try
                 {
-                    _message = "Verifying resource ZIP...";
-                    SongResourceImporter.VerifyArchiveHash(path, _expectedArchiveHash);
                     SongResourceImporter.Import(path, _root, value => _message = value);
                     SongResourceImporter.ValidateInstalled(_root);
                 }

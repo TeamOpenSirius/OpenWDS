@@ -1,0 +1,11 @@
+About OpenWDS Offline (English)
+
+OpenWDS is an unofficial, non-profit project for learning, research and preservation of rhythm-game gameplay. This project must not be used for commercial purposes. Neither this application nor this statement represents the original game's operators. This is not an official service and is not officially endorsed.
+
+Images, audio, songs, characters, trademarks and other original game assets belong to their respective rights holders. This project grants no permission to use or redistribute those assets. OpenWDS distributions and resource packs containing original game assets must not be used for commercial purposes, including sales, paid downloads, paid services or advertising revenue.
+
+Third-party components retain their own licenses; see THIRD_PARTY_NOTICES.md in the repository.
+
+This application uses local resources and saves only. It does not sign into official accounts, process payments or upload scores to official servers.
+
+This statement is not a reproduction of the original game's official terms of service. Please respect the original work and its rights holders.

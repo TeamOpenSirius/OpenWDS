@@ -100,7 +100,9 @@ namespace OpenWDS.Runtime
         private void StartCue(string cueName, bool loop)
         {
             ValidateCueName(cueName);
-            _player.Loop(loop);
+            // SePlayer.Play (0xB0C5264) and PlayAsync (0xB0C6B98) only
+            // SetCue/Start. OnPlayLoop retains a handle for OnStop; it does
+            // not force every waveform in the authored sequence to loop.
             _player.SetCue(_acb, cueName);
             var playback = _player.Start();
             if (loop)

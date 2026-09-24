@@ -18,7 +18,7 @@ namespace OpenWDS.Editor
     {
         private const string Key = "OpenWDS.ResultPresentationAudit";
         private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
-        private static readonly float[] CaptureTimes = { 0.05f, 0.6f, 1.5f, 2.1f, 2.5f, 2.8f, 3.0f, 3.2f, 4.5f };
+        private static readonly float[] CaptureTimes = { 0.05f, 0.6f, 1.5f, 2.1f, 2.5f, 2.8f, 3.0f, 3.2f, 6.0f };
         private static readonly List<Sample> Samples = new List<Sample>();
         private static GameObject _root, _background;
         private static GameResultSeRuntime _sound;
@@ -32,7 +32,7 @@ namespace OpenWDS.Editor
             public float time, leftX, alpha, entranceTime, curtainTime, stageAlpha, stageTime;
             public Vector3 curtainBoundsCenter, curtainBoundsSize;
             public float spotlightAlpha;
-            public int countStarts, rankCues, activeGradeParticles, stageImages;
+            public int countStarts, rankCues, usedVoices, activeGradeParticles, stageImages;
             public bool entranceState, navigation, badge;
             public string screenshot;
         }
@@ -44,6 +44,7 @@ namespace OpenWDS.Editor
             public bool olivier;
             public bool failedLive;
             public bool anotherNotation;
+            public bool mixedJudgements;
             public string failure;
             public List<Sample> samples;
         }
@@ -60,13 +61,15 @@ namespace OpenWDS.Editor
         }
 
         public static void Run() => Start(false);
+        public static void RunMixed() => Start(false, mixed: true);
         public static void RunOlivier() => Start(true);
         public static void RunFailed() => Start(false, true);
         public static void RunAnother() => Start(true, false, true);
 
-        private static void Start(bool olivier, bool failed = false, bool another = false)
+        private static void Start(bool olivier, bool failed = false, bool another = false, bool mixed = false)
         {
             CreateOfflineRhythmPreviewScene.RecoverResultCurtain();
+            SessionState.SetBool(Key + ".mixed", mixed);
             SessionState.SetBool(Key + ".olivier", olivier);
             SessionState.SetBool(Key + ".failed", failed);
             SessionState.SetBool(Key + ".another", another);
@@ -80,6 +83,7 @@ namespace OpenWDS.Editor
 
         private static string Output(string name) => Path.GetFullPath(Path.Combine(
             Application.dataPath, "../../../reverse/reports",
+            SessionState.GetBool(Key + ".mixed", false) ? name.Replace("result-presentation", "mixed-result-presentation") :
             SessionState.GetBool(Key + ".another", false) ? name.Replace("result-presentation", "another-result-presentation") :
             SessionState.GetBool(Key + ".failed", false) ? name.Replace("result-presentation", "failed-result-presentation") :
             SessionState.GetBool(Key + ".olivier", false) ? name.Replace("result-presentation", "olivier-result-presentation") : name));
@@ -136,6 +140,9 @@ namespace OpenWDS.Editor
                 Require(_fadeObserved && _countObserved && _rankObserved, "Fade/count-up/grade effect was not observed.");
                 Require(_sound.CountStartCount == 5 && _sound.CountStopCount == 5 && _sound.RankCueCount == 1 && _sound.CompletionCueCount == 2,
                     "Result audio replay/count regression.");
+                var bgm = UnityEngine.Object.FindObjectOfType<GameResultSceneRuntime>().ResultBgm;
+                Require(bgm.LastPlayback.GetStatus() == CriWare.CriAtomExPlayback.Status.Playing,
+                    "Result BGM was displaced during count-up.");
                 Require(Samples.Last().curtainTime >= 1f &&
                     Vector3.Distance(Samples.First().curtainBoundsSize, Samples.Last().curtainBoundsSize) > 0.1f,
                     "Curtain did not animate through its real Mecanim/Spine path.");
@@ -178,7 +185,13 @@ namespace OpenWDS.Editor
                 { Id = id, NoteType = (int)NoteType.Normal }).ToArray();
             var result = new GameResultRuntime(notes);
             var perfect = new TimingDecision(TimingType.PerfectStar, TimingAssistType.None, 0);
-            foreach (var note in notes) result.Collect(InputResultEntity.Create(note, perfect));
+            foreach (var note in notes)
+            {
+                var timing = SessionState.GetBool(Key + ".mixed", false) && note.Id <= 5
+                    ? new TimingDecision((TimingType)note.Id, TimingAssistType.None, 0)
+                    : perfect;
+                result.Collect(InputResultEntity.Create(note, timing));
+            }
             typeof(GameRuntime).GetField("_gameResultRuntime", Private).SetValue(game, result);
             // ShowGameResult records results synchronously. Preserve the user's
             // existing file around this explicitly synthetic visual fixture.
@@ -220,12 +233,29 @@ namespace OpenWDS.Editor
                     var failed = SessionState.GetBool(Key + ".failed", false);
                     if (failed)
                     {
+                        // The isolated split cases load the same bundles as the live.
+                        // Release the completed live's owner before loading those cases.
+                        var splitField = typeof(GameRuntime).GetField("_splitLaneAssets", Private);
+                        ((SplitLaneAssetRuntime)splitField.GetValue(game))?.Dispose();
+                        splitField.SetValue(game, null);
+                        ValidateDeviceFourIssues.ValidateSplitsInPlayMode();
                         game.GameHud.Life.Set(0);
                         typeof(GameRuntime).GetMethod("BeginClearPerformance", Private).Invoke(game, null);
                         var boundary = (Sirius.Game.GameResultPanel)typeof(GameRuntime)
                             .GetField("_clearAnimation", Private).GetValue(game);
                         Require(boundary.ClearType == Sirius.Game.BoundaryClearType.Failed &&
                             game.ClearSe.LastCueName == "Finish", "Failed live selected a successful clear performance.");
+                        var finishAnimator = (Animator)typeof(Sirius.Game.GameResultPanel)
+                            .GetField("_animator", Private).GetValue(boundary);
+                        finishAnimator.Update(0f);
+                        finishAnimator.Update(1.2f);
+                        Require(finishAnimator.GetCurrentAnimatorStateInfo(0).IsName("ClearAnimation_finish_anim") &&
+                            boundary.transform.Find("FINISH").gameObject.activeInHierarchy &&
+                            !boundary.transform.Find("FAILED").gameObject.activeInHierarchy,
+                            "Zero-Life must display the original FINISH animation.");
+                        Capture(Output("failed-live-finish.png"),
+                            (Camera)typeof(GameRuntime).GetField("_gameCamera", Private).GetValue(game),
+                            boundary.GetComponentInParent<Canvas>());
                         boundary.Hide();
                         typeof(GameRuntime).GetField("_clearPerformanceStarted", Private).SetValue(game, false);
                         Directory.CreateDirectory(Path.GetDirectoryName(path));
@@ -284,6 +314,7 @@ namespace OpenWDS.Editor
                 curtainBoundsCenter = mesh.bounds.center,
                 curtainBoundsSize = mesh.bounds.size,
                 countStarts = _sound.CountStartCount,
+                usedVoices = CriWare.CriAtomExVoicePool.GetNumUsedVoices(CriWare.CriAtomExVoicePool.VoicePoolId.StandardMemory).numUsedVoices,
                 rankCues = _sound.RankCueCount,
                 navigation = _root.transform.Find("RightBotton").gameObject.activeInHierarchy,
                 badge = badge.gameObject.activeInHierarchy,
@@ -293,8 +324,11 @@ namespace OpenWDS.Editor
 
         private static void Capture(string path)
         {
-            var camera = _background.GetComponentInChildren<Camera>();
-            var canvas = _root.GetComponentInParent<Canvas>();
+            Capture(path, _background.GetComponentInChildren<Camera>(), _root.GetComponentInParent<Canvas>());
+        }
+
+        private static void Capture(string path, Camera camera, Canvas canvas)
+        {
             var oldMode = canvas.renderMode;
             var oldCamera = canvas.worldCamera;
             var oldDistance = canvas.planeDistance;
@@ -392,7 +426,8 @@ namespace OpenWDS.Editor
             SessionState.SetBool(Key + ".passed", passed);
             SessionState.SetInt(Key, 2);
             File.WriteAllText(Output("result-presentation-validation.json"),
-                JsonUtility.ToJson(new Report { passed = passed, anotherNotation = SessionState.GetBool(Key + ".another", false), failedLive = SessionState.GetBool(Key + ".failed", false), olivier = SessionState.GetBool(Key + ".olivier", false), failure = failure, samples = Samples }, true));
+                JsonUtility.ToJson(new Report { passed = passed, anotherNotation = SessionState.GetBool(Key + ".another", false),
+                mixedJudgements = SessionState.GetBool(Key + ".mixed", false), failedLive = SessionState.GetBool(Key + ".failed", false), olivier = SessionState.GetBool(Key + ".olivier", false), failure = failure, samples = Samples }, true));
             Debug.Log($"OPENWDS_RESULT_PRESENTATION passed={passed} {failure}");
             EditorApplication.isPlaying = false;
         }

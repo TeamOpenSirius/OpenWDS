@@ -51,7 +51,9 @@ namespace Sirius.Game
         {
             return clearType switch
             {
-                BoundaryClearType.Failed => "ToFailed",
+                // Retail ClearType 1 is ToFinish. ToFailed is the distinct
+                // special failure presentation (5), not a zero-Life solo result.
+                BoundaryClearType.Failed => "ToFinish",
                 BoundaryClearType.Clear => "ToClear",
                 BoundaryClearType.FullCombo => "ToFullCombo",
                 BoundaryClearType.AllPerfect => "ToAllPerfect",

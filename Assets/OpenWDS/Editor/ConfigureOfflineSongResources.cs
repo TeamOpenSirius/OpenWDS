@@ -25,10 +25,7 @@ namespace OpenWDS.Editor
             var camera = new GameObject("Camera").AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(.06f, .07f, .10f);
-            var archive = Path.GetFullPath("Build/Resources/OpenWDS-resources.zip");
-            if (!File.Exists(archive)) throw new FileNotFoundException("Package song resources before configuring/building the app.", archive);
-            var bootstrap = new GameObject("OfflineSongResources").AddComponent<OfflineSongResourcesBootstrap>();
-            bootstrap.ConfigureArchiveHash(SongResourceImporter.ArchiveHash(archive));
+            new GameObject("OfflineSongResources").AddComponent<OfflineSongResourcesBootstrap>();
             if (!EditorSceneManager.SaveScene(scene, BootstrapScene)) throw new IOException("Cannot save bootstrap scene.");
             EditorBuildSettings.scenes = Array.ConvertAll(Scenes, path => new EditorBuildSettingsScene(path, true));
             AssetDatabase.SaveAssets();

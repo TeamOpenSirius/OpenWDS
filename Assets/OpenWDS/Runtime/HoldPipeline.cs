@@ -753,6 +753,23 @@ namespace OpenWDS.Runtime
                  _holdNotes.TryGetHoldForSub(hitLane, currentMusicMilliseconds ?? inputMusicMilliseconds, out _, out _)))
                 return _standardAction.TryHold(input, hitLane, inputMusicMilliseconds,
                     currentMusicMilliseconds: currentMusicMilliseconds);
+            // The native Hold provider searches the Main lane across all four
+            // body types before any Sub lane. Cached ownership of a blue Hold
+            // must not hide a purple body now under Main (and vice versa).
+            // Neustart's jump chain crosses a parallel ordinary Hold whose Sub
+            // collider still overlaps the destination lane.
+            if (input.Phase != TouchPhase.Began && !InputLifecycle.IsEnded(input.Phase) &&
+                (currentHold != null || !consumedDirectScratch))
+            {
+                var now = currentMusicMilliseconds ?? inputMusicMilliseconds;
+                _holdNotes.TryGetActiveHoldForMain(hitLane, now, out var mainHold, out _);
+                _scratchNotes.TryGetActiveBodyForMain(hitLane, now, out var mainScratch);
+                var mainBody = mainHold == null ? mainScratch :
+                    mainScratch == null || mainHold.StartMilliseconds <= mainScratch.StartMilliseconds
+                        ? mainHold : mainScratch;
+                if (mainBody != null && (currentHold == null || mainBody.Id != currentHold.Id))
+                    currentHold = mainBody;
+            }
             if (currentHold != null &&
                 (currentHold.NoteType ==
                     (int)NoteType.ScratchHold ||

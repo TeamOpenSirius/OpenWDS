@@ -1,4 +1,4 @@
-﻿# This .gitignore file should be placed at the root of your Unity project directory
+# This .gitignore file should be placed at the root of your Unity project directory
 #
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 #
@@ -103,7 +103,10 @@ InitTestScene*.unity*
 
 skills-lock.json
 .agents/
-# External song payloads are regenerated from reverse sources, never Unity assets.
-/SongResources/
+# Song payloads are tracked by LFS outside Unity Assets.
 
 /SongResources.import/
+
+# Python development tools
+__pycache__/
+*.pyc

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using UnityEngine;
 
@@ -22,18 +21,6 @@ namespace OpenWDS.Runtime
         private static string Target(string root, string path) => path == ManifestName
             ? System.IO.Path.Combine(root, path) : SongResourceStore.ResolveUnder(root, path);
 
-        public static string ArchiveHash(string path)
-        {
-            using (var input = File.OpenRead(path))
-            using (var hash = SHA256.Create())
-                return BitConverter.ToString(hash.ComputeHash(input)).Replace("-", "").ToLowerInvariant();
-        }
-        public static void VerifyArchiveHash(string path, string expected)
-        {
-            if (string.IsNullOrEmpty(expected) || expected.Length != 64 ||
-                !string.Equals(ArchiveHash(path), expected, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("Resource ZIP does not match this app. Please select the supplied resource package. No resources were changed.");
-        }
         public static void Recover(string root)
         {
             var transaction = Transaction(root);
@@ -65,23 +52,15 @@ namespace OpenWDS.Runtime
             var files = new Dictionary<string, ResourceFile>(StringComparer.OrdinalIgnoreCase);
             foreach (var file in manifest.Files)
             {
+                if (file == null) throw new InvalidDataException("Null manifest entry.");
                 SongResourceStore.ResolveUnder("validation", file.Path);
-                if (file.Size < 0 || file.Sha256 == null || file.Sha256.Length != 64 ||
-                    file.Sha256.Any(c => !(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f')) || files.ContainsKey(file.Path))
+                if (file.Size < 0 || files.ContainsKey(file.Path))
                     throw new InvalidDataException("Invalid/duplicate manifest entry: " + file.Path);
                 files.Add(file.Path, file);
             }
             if (!files.ContainsKey("catalog.json") || !files.ContainsKey("OpenWDS/AnotherNotations/catalog.json"))
                 throw new InvalidDataException("The song catalogs are missing.");
             return files;
-        }
-
-        private static bool Matches(string path, ResourceFile file)
-        {
-            if (!File.Exists(path) || new FileInfo(path).Length != file.Size) return false;
-            using (var input = File.OpenRead(path))
-            using (var sha = SHA256.Create())
-                return BitConverter.ToString(sha.ComputeHash(input)).Replace("-", "").ToLowerInvariant() == file.Sha256;
         }
 
         private static void Extract(ZipArchiveEntry entry, string path, ResourceFile expected)
@@ -102,7 +81,7 @@ namespace OpenWDS.Runtime
                 }
                 destination.Flush(true);
             }
-            if (!Matches(path, expected)) throw new InvalidDataException("Damaged resource: " + entry.FullName);
+            if (new FileInfo(path).Length != expected.Size) throw new InvalidDataException("Truncated resource: " + entry.FullName);
         }
 
         public static void ValidateCatalogDependencies(string catalogJson, string specialJson, ISet<string> files)
@@ -132,17 +111,11 @@ namespace OpenWDS.Runtime
         public static void ValidateInstalled(string root)
         {
             Recover(root);
-            var manifestPath = System.IO.Path.Combine(root, ManifestName);
-            if (!File.Exists(manifestPath)) throw new FileNotFoundException("Import a local song resource ZIP first.");
-            var files = ValidateManifest(JsonUtility.FromJson<Manifest>(File.ReadAllText(manifestPath)));
-            foreach (var file in files.Values)
-            {
-                var path = Target(root, file.Path);
-                if (!File.Exists(path) || new FileInfo(path).Length != file.Size)
-                    throw new InvalidDataException("Missing/damaged resource; import the resource ZIP again: " + file.Path);
-            }
+            var paths = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
+                .Select(path => path.Substring(root.TrimEnd('/', '\\').Length + 1).Replace('\\', '/'));
             ValidateCatalogDependencies(File.ReadAllText(Target(root, "catalog.json")),
-                File.ReadAllText(Target(root, "OpenWDS/AnotherNotations/catalog.json")), new HashSet<string>(files.Keys, StringComparer.Ordinal));
+                File.ReadAllText(Target(root, "OpenWDS/AnotherNotations/catalog.json")),
+                new HashSet<string>(paths, StringComparer.Ordinal));
         }
 
         /// <summary>Call off the main thread, only while no game or preview owns song files.</summary>
@@ -164,10 +137,19 @@ namespace OpenWDS.Runtime
                         if (entries.ContainsKey(entry.FullName)) throw new InvalidDataException("Duplicate ZIP entry.");
                         entries.Add(entry.FullName, entry);
                     }
-                    if (!entries.TryGetValue(ManifestName, out var manifestEntry) || manifestEntry.Length > 16 * 1024 * 1024)
-                        throw new InvalidDataException("Missing/oversized manifest.");
                     string json;
-                    using (var reader = new StreamReader(manifestEntry.Open(), Encoding.UTF8)) json = reader.ReadToEnd();
+                    if (entries.TryGetValue(ManifestName, out var manifestEntry))
+                    {
+                        if (manifestEntry.Length > 16 * 1024 * 1024)
+                            throw new InvalidDataException("Oversized manifest.");
+                        using (var reader = new StreamReader(manifestEntry.Open(), Encoding.UTF8)) json = reader.ReadToEnd();
+                    }
+                    else
+                    {
+                        // Full packages need only the catalogs and their referenced files.
+                        json = JsonUtility.ToJson(new Manifest { Format = 1, Files = entries.Select(pair =>
+                            new ResourceFile { Path = pair.Key, Size = pair.Value.Length }).ToArray() });
+                    }
                     var files = ValidateManifest(JsonUtility.FromJson<Manifest>(json));
                     if (entries.Keys.Any(path => path != ManifestName && !files.ContainsKey(path)))
                         throw new InvalidDataException("ZIP contains files not in the manifest.");
@@ -177,9 +159,12 @@ namespace OpenWDS.Runtime
                     {
                         progress?.Invoke($"Importing resource files: {++index}/{files.Count}");
                         var destination = Target(root, file.Path);
-                        if (Matches(destination, file)) continue;
+                        // Supplied entries always replace local files, including same-size updates.
                         if (!entries.TryGetValue(file.Path, out var entry))
-                            throw new InvalidDataException("Delta needs an unchanged local file. Import the full package: " + file.Path);
+                        {
+                            if (File.Exists(destination)) continue;
+                            throw new InvalidDataException("Delta needs a local file. Import the full package: " + file.Path);
+                        }
                         Extract(entry, Target(staged, file.Path), file);
                         changes.Add(new Change { Path = file.Path, HadOriginal = File.Exists(destination) });
                     }

@@ -1006,36 +1006,7 @@ namespace OpenWDS.Runtime
                 _session.Current.GameSettings.LaneAlphaValue,
                 _session.Current.GameDetailSettings.NoteHeight);
 
-            _gameSimulationView = new GameObject(
-                "GameSimulationView", typeof(RectTransform), typeof(Canvas),
-                typeof(CanvasGroup));
-            var canvas = _gameSimulationView.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.overrideSorting = true;
-            // Original GameSimulationView is order 61 and sits immediately
-            // behind Dialog. The recovered dialog uses 110, so retain the same
-            // relative ordering.
-            canvas.sortingOrder = 109;
-            var rootRect = (RectTransform)_gameSimulationView.transform;
-            rootRect.anchorMin = Vector2.zero;
-            rootRect.anchorMax = Vector2.one;
-            rootRect.offsetMin = Vector2.zero;
-            rootRect.offsetMax = Vector2.zero;
-
-            var imageObject = new GameObject(
-                "RawImage", typeof(RectTransform), typeof(CanvasRenderer),
-                typeof(RawImage));
-            imageObject.transform.SetParent(_gameSimulationView.transform, false);
-            var imageRect = (RectTransform)imageObject.transform;
-            imageRect.anchorMin = new Vector2(1f, 0f);
-            imageRect.anchorMax = Vector2.one;
-            imageRect.pivot = new Vector2(1f, 0.5f);
-            imageRect.anchoredPosition = Vector2.zero;
-            imageRect.sizeDelta = new Vector2(290f, 0f);
-            var rawImage = imageObject.GetComponent<RawImage>();
-            rawImage.texture = _gameSimulationRenderTexture;
-            rawImage.uvRect = new Rect(0.412f, 0f, 0.16f, 1f);
-            rawImage.raycastTarget = false;
+            _gameSimulationView = _gameSimulationPreview.CreateView(_gameSimulationRenderTexture);
         }
 
         private void DestroyGameSimulationPreview()

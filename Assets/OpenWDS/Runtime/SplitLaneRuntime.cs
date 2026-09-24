@@ -62,6 +62,7 @@ namespace OpenWDS.Runtime
         private readonly List<SplitLaneEntry> _frameEntries =
             new List<SplitLaneEntry>();
         private int _lastSplitLaneIndex;
+        private readonly bool _richSetting;
 
         private readonly struct ActiveSplitLane
         {
@@ -75,9 +76,12 @@ namespace OpenWDS.Runtime
             }
         }
 
-        public SplitLaneRuntime(IEnumerable<NotationNote> notation)
+        public SplitLaneRuntime(
+            IEnumerable<NotationNote> notation,
+            int spritEffectSettingType = (int)SpritEffectSettingType.Normal)
         {
             if (notation == null) throw new ArgumentNullException(nameof(notation));
+            _richSetting = spritEffectSettingType == (int)SpritEffectSettingType.Rich;
             var splitLanes = new List<NotationNote>();
             foreach (var note in notation)
             {
@@ -112,7 +116,11 @@ namespace OpenWDS.Runtime
                         note.StartTickCount - ShowAnimationMilliseconds / 1000f))
                     break;
 
-                var converted = ConvertGimmickType(note.GimmickType);
+                // NotationNoteManager.InitializeAsync 0xB99E9D4 calls
+                // ConvertGimmickType only when SpritEffectSettingType == Rich(0).
+                var converted = _richSetting
+                    ? ConvertGimmickType(note.GimmickType)
+                    : note.GimmickType;
                 _current.Add(new ActiveSplitLane(note, converted));
                 _frameEntries.Add(new SplitLaneEntry(
                     note, converted, true, false));

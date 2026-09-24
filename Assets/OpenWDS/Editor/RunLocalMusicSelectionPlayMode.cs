@@ -331,6 +331,12 @@ namespace OpenWDS.Editor
                         elapsed);
                     return;
                 }
+                var previewScaler = previewView.GetComponent<CanvasScaler>();
+                var previewScale = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+                if (previewScaler == null || previewScaler.referenceResolution != new Vector2(1920, 1080) ||
+                    previewScaler.screenMatchMode != CanvasScaler.ScreenMatchMode.Expand ||
+                    Mathf.Abs(previewView.GetComponent<Canvas>().scaleFactor - previewScale) > .001f)
+                    throw new InvalidOperationException("Preview lost its retail UI canvas scaling.");
                 var dialogBody = GameObject.Find(
                     "NoteSpeedDialog/Body/" +
                     "NoteSpeedSettingsDialogBody");
@@ -1062,6 +1068,31 @@ namespace OpenWDS.Editor
                 if (Directory.Exists(temporaryRoot)) Directory.Delete(temporaryRoot, true);
             }
             yield return ValidateMusicCoverTypes(runtime);
+            var catalog = (LocalMusicCatalog)type.GetField("_catalog", flags).GetValue(runtime);
+            var savedMusic = runtime.Selection.Music;
+            var savedDifficulty = runtime.Selection.Live.Difficulty;
+            var select = type.GetMethod("SelectMusic", flags);
+            var changeDifficulty = type.GetMethod("SelectDifficulty", flags);
+            var olivierMusics = catalog.Musics.Where(m => m.Lives.Any(l => l.Difficulty == MusicDifficulty.Olivier)).Take(8).ToArray();
+            if (olivierMusics.Length != 8) throw new InvalidOperationException("Olivier interruption fixture missing.");
+            var first = (System.Collections.IEnumerator)select.Invoke(runtime, new object[] { olivierMusics[0], false });
+            while (first.MoveNext()) yield return first.Current;
+            changeDifficulty.Invoke(runtime, new object[] { MusicDifficulty.Olivier, false });
+            for (var i = 1; i < 25; i++)
+            {
+                var music = olivierMusics[i % olivierMusics.Length];
+                var job = (System.Collections.IEnumerator)select.Invoke(runtime, new object[] { music, false });
+                // Cancel at the old nested PrepareMusicSelection boundary, then
+                // start another snap on the following frame.
+                if (job.MoveNext() && job.Current is System.Collections.IEnumerator prepare) prepare.MoveNext();
+                if (runtime.Selection.Music.Id != music.Id || runtime.Selection.Live.Difficulty != MusicDifficulty.Olivier)
+                    throw new InvalidOperationException("Interrupted Olivier selection exposed a transient Stella state.");
+                yield return null;
+            }
+            var restore = (System.Collections.IEnumerator)select.Invoke(runtime, new object[] { savedMusic, false });
+            while (restore.MoveNext()) yield return restore.Current;
+            changeDifficulty.Invoke(runtime, new object[] { savedDifficulty, false });
+            Debug.Log("OPENWDS_OLIVIER_INTERRUPTED_SELECTION cases=24 passed=True");
             SessionState.SetBool("OpenWDS.SelectionBugChecks", true);
             SessionState.SetString(PhaseKey, "presentation-select");
         }
